@@ -1,4 +1,5 @@
 const { Events, ChannelType, MessageFlags } = require('discord.js');
+const { createTicket } = require('../services/unthread');
 
 module.exports = {
 	name: Events.InteractionCreate,
@@ -6,7 +7,19 @@ module.exports = {
 		// for support ticket
 		if (interaction.isModalSubmit() && interaction.customId === 'supportModal') {
 			const issue = interaction.fields.getTextInputValue('issueInput');
-			console.log(`Support ticket submitted: ${issue}`);
+			const email = interaction.fields.getTextInputValue('emailInput');
+			console.log(`Support ticket submitted: ${issue}, email: ${email}`);
+
+			 // Acknowledge the interaction immediately
+			await interaction.deferReply({ ephemeral: false });
+
+			// Create ticket via unthread.io API (ensuring customer exists)
+			try {
+				const ticket = await createTicket(interaction.user, issue, email);
+				console.log('Ticket created:', ticket);
+			} catch (error) {
+				console.error('Ticket creation failed:', error);
+			}
 
 			// Create a private thread in the current channel
 			const thread = await interaction.channel.threads.create({
@@ -22,13 +35,8 @@ module.exports = {
 			// Send the support ticket details in the thread
 			await thread.send(`Support ticket submitted: ${issue}`);
 			
-			 // Updated reply with flags
-			await interaction.reply({ 
-				content: 'Your support ticket has been submitted! A private thread has been created for further communication.',
-				flags: MessageFlags.Ephemeral
-			});
-
-			// Additional logic can be added here if needed
+			 // Edit the deferred reply with confirmation
+			await interaction.editReply('Your support ticket has been submitted! A private thread has been created for further communication.');
 			return;
 		}
 

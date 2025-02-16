@@ -18,9 +18,16 @@ module.exports = {
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true);
 
+        const emailInput = new TextInputBuilder()
+            .setCustomId('emailInput')
+            .setLabel('Your Email Address')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
         // Add inputs to the modal
         const firstActionRow = new ActionRowBuilder().addComponents(issueInput);
-        modal.addComponents(firstActionRow);
+        const secondActionRow = new ActionRowBuilder().addComponents(emailInput);
+        modal.addComponents(firstActionRow, secondActionRow);
 
         // Show the modal
         await interaction.showModal(modal);
