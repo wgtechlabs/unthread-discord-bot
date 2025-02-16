@@ -140,21 +140,15 @@ async function bindTicketWithThread(unthreadTicketId, discordThreadId) {
 // New function to process incoming webhook events from unthread.io
 async function handleWebhookEvent(payload) {
     console.log('Received webhook event from Unthread:', payload);
-
-    // Example: if the event signals a new message in a ticket
     if (payload.event === 'message_created') {
         const conversationId = payload.data.conversationId;
         const messageText = payload.data.text;
-
         try {
-            // Look up the mapping using the Ticket model.
             const ticketMapping = await Ticket.findOne({ where: { unthreadTicketId: conversationId } });
             if (!ticketMapping) {
                 console.error(`No Discord thread found for Unthread ticket ${conversationId}`);
                 return;
             }
-
-            // Use the globally set Discord client to fetch the channel/thread.
             const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
             if (!discordThread) {
                 console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
@@ -162,15 +156,27 @@ async function handleWebhookEvent(payload) {
             }
             console.log(`Found Discord thread: ${discordThread.id}`);
 
-            // Send the new message to the designated discord thread.
-            await discordThread.send(`Support Message: ${messageText}`);
+            // Fetch recent messages in the thread
+            const messages = await discordThread.messages.fetch({ limit: 5 });
+            const candidateMessage = `${messageText}`;
+            const existingMessages = messages.map(msg => msg.content);
+            
+            console.log('Candidate message:', candidateMessage);
+            console.log('Existing messages in thread:', existingMessages);
+            
+            // Check if any message already contains the candidate message
+            const duplicate = messages.some(msg => msg.content === candidateMessage);
+            if (duplicate) {
+                console.log('Duplicate message detected. Skipping send.');
+                return;
+            }
+            
+            await discordThread.send(candidateMessage);
             console.log(`Sent message to Discord thread ${discordThread.id}`);
         } catch (error) {
             console.error('Error processing new message webhook event:', error);
         }
     }
-
-    // Process other event types as needed.
     return payload;
 }
 
@@ -187,7 +193,7 @@ async function sendMessageToUnthread(conversationId, user, message, email) {
                 type: "markdown",
                 value: message,
             },
-            isAutoresponse: false,
+            isAutoresponse: false, // Mark as autoresponse to prevent duplicate webhook events
             onBehalfOf: {
                 name: user.tag,
                 email: email,

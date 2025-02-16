@@ -1,1 +1,8 @@
-{"image":"mcr.microsoft.com/devcontainers/universal:2"}
+{
+	"image": "mcr.microsoft.com/devcontainers/universal:2",
+	"portsAttributes": {
+		"5000": {
+			"label": "Unthread Webhook"
+		}
+	}
+}

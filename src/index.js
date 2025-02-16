@@ -3,7 +3,7 @@ const path = require("node:path");
 const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
 const express = require('express');
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 const { handleWebhookEvent } = require('./services/unthread');
 const { webhookHandler } = require('./services/webhook');
 
