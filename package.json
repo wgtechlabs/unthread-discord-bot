@@ -1,0 +1,28 @@
+{
+  "name": "unthread-discord-bot",
+  "description": "A simple discord bot integration for unthread.io",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "keywords": [],
+  "author": "Waren Gonzaga",
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wgtechlabs/unthread-discord-bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wgtechlabs/unthread-discord-bot/issues"
+  },
+  "dependencies": {
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
