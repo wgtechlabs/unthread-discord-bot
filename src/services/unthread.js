@@ -27,6 +27,10 @@ const Customer = sequelize.define('Customer', {
         type: DataTypes.STRING,
         allowNull: false,
     },
+    email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
 }, {
     tableName: 'customers',
     timestamps: true,
@@ -74,8 +78,9 @@ async function createCustomerInUnthread(user) {
     return customerId;
 }
 
-// Save the customer details locally using Sequelize
-async function saveCustomer(user) {
+// Save the customer details locally using Sequelize.
+// Modified to accept the email parameter.
+async function saveCustomer(user, email) {
     const existing = await Customer.findByPk(user.id);
     if (existing) return existing;
 
@@ -85,13 +90,14 @@ async function saveCustomer(user) {
         discordUsername: user.username,
         discordName: user.tag,
         customerId,
+        email,
     });
 }
 
 // Function to create a ticket via unthread.io API using the customerId
 async function createTicket(user, issue, email) {
     // Ensure the user has a customer record (creates one if needed)
-    const customer = await saveCustomer(user);
+    const customer = await saveCustomer(user, email);
 
     const response = await fetch('https://api.unthread.io/api/conversations', {
         method: 'POST',
@@ -168,6 +174,34 @@ async function handleWebhookEvent(payload) {
     return payload;
 }
 
+// New function to send a message from Discord to Unthread
+async function sendMessageToUnthread(conversationId, user, message, email) {
+    const response = await fetch(`https://api.unthread.io/api/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-API-KEY': process.env.UNTHREAD_API_KEY,
+        },
+        body: JSON.stringify({
+            body: {
+                type: "markdown",
+                value: message,
+            },
+            isAutoresponse: false,
+            onBehalfOf: {
+                name: user.tag,
+                email: email,
+            },
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to send message to Unthread: ${response.status}`);
+    }
+
+    return await response.json();
+}
+
 module.exports = {
     saveCustomer,
     Customer,
@@ -175,4 +209,6 @@ module.exports = {
     createTicket,
     bindTicketWithThread,
     handleWebhookEvent,
+    sendMessageToUnthread,
+    Ticket,
 };
