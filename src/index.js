@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("node:path");
-const { Client, Collection, GatewayIntentBits } = require("discord.js");
+const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
 
 require("dotenv").config();
 
@@ -8,10 +8,18 @@ require("dotenv").config();
 const { DISCORD_BOT_TOKEN } = process.env;
 
 // discord bot instents and partials
-const client = new Client({
+const client = new Client({ 
 	intents: [
-		GatewayIntentBits.Guilds,
+		GatewayIntentBits.Guilds, 
+		GatewayIntentBits.MessageContent,
+		GatewayIntentBits.GuildMessages,
+		GatewayIntentBits.GuildMessageReactions
 	],
+	partials: [
+		Partials.Channel,
+		Partials.Message,
+		Partials.Reaction
+	]
 });
 
 /**
