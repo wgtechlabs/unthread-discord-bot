@@ -1,5 +1,5 @@
 const { Events, ChannelType, MessageFlags } = require('discord.js');
-const { createTicket } = require('../services/unthread');
+const { createTicket, bindTicketWithThread } = require('../services/unthread');
 
 module.exports = {
 	name: Events.InteractionCreate,
@@ -11,14 +11,16 @@ module.exports = {
 			console.log(`Support ticket submitted: ${issue}, email: ${email}`);
 
 			 // Acknowledge the interaction immediately
-			await interaction.deferReply({ ephemeral: false });
+			await interaction.deferReply({ ephemeral: true });
 
+			let ticket;
 			// Create ticket via unthread.io API (ensuring customer exists)
 			try {
-				const ticket = await createTicket(interaction.user, issue, email);
+				ticket = await createTicket(interaction.user, issue, email);
 				console.log('Ticket created:', ticket);
 			} catch (error) {
 				console.error('Ticket creation failed:', error);
+				return;
 			}
 
 			// Create a private thread in the current channel
@@ -32,8 +34,9 @@ module.exports = {
 			// Add the user to the private thread
 			await thread.members.add(interaction.user.id);
 			
-			// Send the support ticket details in the thread
-			await thread.send(`Support ticket submitted: ${issue}`);
+			 // Bind the Unthread ticket with the Discord thread
+			// Assuming the ticket object has a property (e.g., id or ticketId) to be used
+			await bindTicketWithThread(ticket.id, thread.id);
 			
 			 // Edit the deferred reply with confirmation
 			await interaction.editReply('Your support ticket has been submitted! A private thread has been created for further communication.');

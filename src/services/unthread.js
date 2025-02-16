@@ -32,7 +32,23 @@ const Customer = sequelize.define('Customer', {
     timestamps: true,
 });
 
-// Sync the model with the database
+// Define a new Ticket model to bind Unthread ticket with Discord thread
+const Ticket = sequelize.define('Ticket', {
+    unthreadTicketId: {
+        type: DataTypes.STRING,
+        primaryKey: true,
+        allowNull: false,
+    },
+    discordThreadId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+}, {
+    tableName: 'tickets',
+    timestamps: true,
+});
+
+// Sync the models with the database
 sequelize.sync();
 
 // Function to call the unthread.io API to create a customer
@@ -43,7 +59,6 @@ async function createCustomerInUnthread(user) {
             'Content-Type': 'application/json',
             'X-API-KEY': process.env.UNTHREAD_API_KEY,
         },
-        // using the Discord username as the customer name
         body: JSON.stringify({ name: user.username }),
     });
 
@@ -51,8 +66,7 @@ async function createCustomerInUnthread(user) {
         throw new Error(`Failed to create customer: ${response.status}`);
     }
 
-    const data = await response.json(); // expecting a response with customerId
-    // Use data.customerId if available, otherwise try data.id
+    const data = await response.json();
     const customerId = data.customerId || data.id;
     if (!customerId) {
         throw new Error(`Customer API response invalid, missing customerId: ${JSON.stringify(data)}`);
@@ -62,16 +76,10 @@ async function createCustomerInUnthread(user) {
 
 // Save the customer details locally using Sequelize
 async function saveCustomer(user) {
-    // Check if the customer already exists
     const existing = await Customer.findByPk(user.id);
-    if (existing) {
-        return existing;
-    }
+    if (existing) return existing;
 
-    // Create customer via unthread.io API
     const customerId = await createCustomerInUnthread(user);
-
-    // Save the customer with Discord ID, Username, Name (tag) and customerId
     return await Customer.create({
         discordId: user.id,
         discordUsername: user.username,
@@ -82,37 +90,82 @@ async function saveCustomer(user) {
 
 // Function to create a ticket via unthread.io API using the customerId
 async function createTicket(user, issue, email) {
-  // Ensure the user has a customer record (creates one if needed)
-  const customer = await saveCustomer(user);
+    // Ensure the user has a customer record (creates one if needed)
+    const customer = await saveCustomer(user);
 
-  const response = await fetch('https://api.unthread.io/api/conversations', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-API-KEY': process.env.UNTHREAD_API_KEY,
-    },
-    body: JSON.stringify({
-      type: 'email',
-      title: 'Discord Ticket',
-      markdown: `Support ticket submitted: ${issue}`,
-      status: 'open',
-      triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID,
-      emailInboxId: process.env.UNTHREAD_EMAIL_INBOX_ID,
-      customerId: customer.customerId,
-      onBehalfOf: {
-        name: user.tag,
-        email: email,
-        id: customer.customerId,
-      },
-    }),
-  });
+    const response = await fetch('https://api.unthread.io/api/conversations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-API-KEY': process.env.UNTHREAD_API_KEY,
+        },
+        body: JSON.stringify({
+            type: 'email',
+            title: 'Discord Ticket',
+            markdown: `${issue}`,
+            status: 'open',
+            triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID,
+            emailInboxId: process.env.UNTHREAD_EMAIL_INBOX_ID,
+            customerId: customer.customerId,
+            onBehalfOf: {
+                name: user.tag,
+                email: email,
+                id: customer.customerId,
+            },
+        }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to create ticket: ${response.status}`);
-  }
+    if (!response.ok) {
+        throw new Error(`Failed to create ticket: ${response.status}`);
+    }
 
-  const data = await response.json();
-  return data;
+    const data = await response.json();
+    return data;
+}
+
+// Helper function to bind an Unthread ticket with a Discord thread
+async function bindTicketWithThread(unthreadTicketId, discordThreadId) {
+    return await Ticket.create({
+        unthreadTicketId,
+        discordThreadId,
+    });
+}
+
+// New function to process incoming webhook events from unthread.io
+async function handleWebhookEvent(payload) {
+    console.log('Received webhook event from Unthread:', payload);
+
+    // Example: if the event signals a new message in a ticket
+    if (payload.event === 'message_created') {
+        const conversationId = payload.data.conversationId;
+        const messageText = payload.data.text;
+
+        try {
+            // Look up the mapping using the Ticket model.
+            const ticketMapping = await Ticket.findOne({ where: { unthreadTicketId: conversationId } });
+            if (!ticketMapping) {
+                console.error(`No Discord thread found for Unthread ticket ${conversationId}`);
+                return;
+            }
+
+            // Use the globally set Discord client to fetch the channel/thread.
+            const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
+            if (!discordThread) {
+                console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
+                return;
+            }
+            console.log(`Found Discord thread: ${discordThread.id}`);
+
+            // Send the new message to the designated discord thread.
+            await discordThread.send(`Support Message: ${messageText}`);
+            console.log(`Sent message to Discord thread ${discordThread.id}`);
+        } catch (error) {
+            console.error('Error processing new message webhook event:', error);
+        }
+    }
+
+    // Process other event types as needed.
+    return payload;
 }
 
 module.exports = {
@@ -120,4 +173,6 @@ module.exports = {
     Customer,
     sequelize,
     createTicket,
+    bindTicketWithThread,
+    handleWebhookEvent,
 };
