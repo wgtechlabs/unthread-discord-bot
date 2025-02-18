@@ -25,10 +25,10 @@ module.exports = {
 
 			// Create a private thread in the current channel
 			const thread = await interaction.channel.threads.create({
-					name: `support-${interaction.user.username}`,
+					name: `ticket-#${ticket.friendlyId}`,
 					// autoArchiveDuration: 0, // Disable auto archive
 					type: ChannelType.PrivateThread,
-					reason: 'Support ticket',
+					reason: 'Unthread Ticket',
 			});
 			
 			// Add the user to the private thread

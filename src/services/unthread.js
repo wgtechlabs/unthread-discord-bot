@@ -193,7 +193,7 @@ async function sendMessageToUnthread(conversationId, user, message, email) {
                 type: "markdown",
                 value: message,
             },
-            isAutoresponse: false, // Mark as autoresponse to prevent duplicate webhook events
+            isAutoresponse: false,
             onBehalfOf: {
                 name: user.tag,
                 email: email,
@@ -209,12 +209,12 @@ async function sendMessageToUnthread(conversationId, user, message, email) {
 }
 
 module.exports = {
-    saveCustomer,
     Customer,
+    Ticket,
     sequelize,
+    saveCustomer,
     createTicket,
     bindTicketWithThread,
     handleWebhookEvent,
     sendMessageToUnthread,
-    Ticket,
 };
