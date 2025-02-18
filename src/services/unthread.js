@@ -1,5 +1,5 @@
-// language: JavaScript
 const { Sequelize, DataTypes } = require('sequelize');
+const { decodeHtmlEntities } = require('../utils/decodeHtmlEntities');
 require('dotenv').config();
 
 // Initialize Sequelize using SQLite (adjust storage as needed)
@@ -142,7 +142,8 @@ async function handleWebhookEvent(payload) {
     console.log('Received webhook event from Unthread:', payload);
     if (payload.event === 'message_created') {
         const conversationId = payload.data.conversationId;
-        const messageText = payload.data.text;
+        // Decode HTML entities here
+        const decodedMessage = decodeHtmlEntities(payload.data.text);
         try {
             const ticketMapping = await Ticket.findOne({ where: { unthreadTicketId: conversationId } });
             if (!ticketMapping) {
@@ -157,22 +158,59 @@ async function handleWebhookEvent(payload) {
             console.log(`Found Discord thread: ${discordThread.id}`);
 
             // Fetch recent messages in the thread
-            const messages = await discordThread.messages.fetch({ limit: 5 });
-            const candidateMessage = `${messageText}`;
-            const existingMessages = messages.map(msg => msg.content);
-            
-            console.log('Candidate message:', candidateMessage);
-            console.log('Existing messages in thread:', existingMessages);
-            
-            // Check if any message already contains the candidate message
-            const duplicate = messages.some(msg => msg.content === candidateMessage);
+            const messages = await discordThread.messages.fetch({ limit: 10 });
+
+            // Log the decoded message
+            console.log(`Decoded message: ${decodedMessage}`);
+
+            // Attempt to find a quoted block (lines starting with ">")
+            let quotedMessageMatch = decodedMessage.match(/^(>\s?.+(?:\n|$))+/);
+            let replyReference = null;
+            let contentToSend = decodedMessage;
+
+            if (quotedMessageMatch) {
+                let quotedMessage = quotedMessageMatch[0].trim();
+                // Remove the ">" character from the quoted text
+                quotedMessage = quotedMessage.replace(/^>\s?/gm, '').trim();
+                // Remove the quoted block from the message if any additional text remains
+                const remainingText = decodedMessage.replace(quotedMessageMatch[0], '').trim();
+                // Log the message being used to search
+                console.log(`Message being used to search: ${quotedMessage}`);
+                console.log(`Message being used to search: ${remainingText}`);
+                // Search for a matching message among the recently fetched ones
+                const matchingMsg = messages.find(msg => msg.content.trim() === quotedMessage);
+                if (matchingMsg) {
+                    replyReference = matchingMsg.id;
+                    // Use only the remaining text; if empty, use a single space placeholder
+                    contentToSend = remainingText || " ";
+                    console.log(`Quoted text matched message ${matchingMsg.id}`);
+                }
+
+                // Check if the remaining text matches any message content
+                const remainingTextDuplicate = messages.some(msg => msg.content.trim() === remainingText);
+                if (remainingTextDuplicate) {
+                    console.log('Remaining text matches an existing message. Skipping send.');
+                    return;
+                }
+            }
+
+            // Check for duplicate candidate messages
+            const duplicate = messages.some(msg => msg.content === decodedMessage);
             if (duplicate) {
                 console.log('Duplicate message detected. Skipping send.');
                 return;
             }
-            
-            await discordThread.send(candidateMessage);
-            console.log(`Sent message to Discord thread ${discordThread.id}`);
+
+            if (replyReference) {
+                await discordThread.send({
+                    content: contentToSend,
+                    reply: { messageReference: replyReference },
+                });
+                console.log(`Sent reply message to Discord message ${replyReference} in thread ${discordThread.id}`);
+            } else {
+                await discordThread.send(decodedMessage);
+                console.log(`Sent message to Discord thread ${discordThread.id}`);
+            }
         } catch (error) {
             console.error('Error processing new message webhook event:', error);
         }

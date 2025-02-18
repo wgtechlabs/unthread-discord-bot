@@ -15,6 +15,19 @@ module.exports = {
         // Find the ticket mapping by Discord thread ID.
         const ticketMapping = await Ticket.findOne({ where: { discordThreadId: message.channel.id } });
         if (ticketMapping) {
+          // Prepare the message to send by incorporating a quote if available.
+          let messageToSend = message.content;
+          if (message.reference && message.reference.messageId) {
+            let quotedMessage;
+            try {
+              const referenced = await message.channel.messages.fetch(message.reference.messageId);
+              quotedMessage = `> ${referenced.content}`;
+              messageToSend = `${quotedMessage}\n\n${message.content}`;
+            } catch (err) {
+              console.error('Error fetching the referenced message:', err);
+            }
+          }
+
           // Get the customer to retrieve the email
           const customer = await Customer.findByPk(message.author.id);
           if (!customer) {
@@ -23,7 +36,7 @@ module.exports = {
             const response = await sendMessageToUnthread(
               ticketMapping.unthreadTicketId,
               message.author,
-              message.content,
+              messageToSend,
               customer.email
             );
             console.log(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
@@ -34,26 +47,25 @@ module.exports = {
       }
     }
 
-    // Process regular commands
-
-    // get the details from user who send command
-    const member = message.member;
-    const mention = message.mentions;
-
-    // check ping
-    if (message.content === "!!ping") {
-      message.reply({
-        embeds: [sendEmbedMessage(`Latency is ${Date.now() - message.createdTimestamp}ms.`)],
-      });
-      console.log(`[log]: responded to ping command`);
-    }
-
-    // check version
-    if (message.content === "!!version") {
-      message.reply({
-        embeds: [sendEmbedMessage(`Version: ${version}`)],
-      });
-      console.log(`[log]: responded to version command in version ${version}`);
-    }
+    // Legacy commands
+    handleLegacyCommands(message);
   },
 };
+
+async function handleLegacyCommands(message) {
+  // get the details from user who send command
+  const member = message.member;
+  const mention = message.mentions;
+
+  // check ping
+  if (message.content === "!!ping") {
+    message.reply(`Latency is ${Date.now() - message.createdTimestamp}ms.`);
+    console.log(`[log]: responded to ping command`);
+  }
+
+  // check version
+  if (message.content === "!!version") {
+    message.reply(`Version: ${version}`);
+    console.log(`[log]: responded to version command in version ${version}`);
+  }
+}

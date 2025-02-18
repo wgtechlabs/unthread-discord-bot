@@ -6,6 +6,12 @@ module.exports = {
         .setDescription('Open a support ticket'),
     
     async execute(interaction) {
+        // Check if the command is used in a thread and if so, prevent execution
+        if (interaction.channel.isThread && interaction.channel.isThread()) {
+            await interaction.reply({ content: 'The `/support` command can only be used in a text channel.', ephemeral: true });
+            return;
+        }
+
         // Create modal
         const modal = new ModalBuilder()
             .setCustomId('supportModal')
