@@ -1,6 +1,11 @@
 const fs = require("fs");
 const path = require("node:path");
-const { Client, Collection, GatewayIntentBits } = require("discord.js");
+const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 5000;
+const { handleWebhookEvent } = require('./services/unthread');
+const { webhookHandler } = require('./services/webhook');
 
 require("dotenv").config();
 
@@ -8,10 +13,18 @@ require("dotenv").config();
 const { DISCORD_BOT_TOKEN } = process.env;
 
 // discord bot instents and partials
-const client = new Client({
+const client = new Client({ 
 	intents: [
-		GatewayIntentBits.Guilds,
+		GatewayIntentBits.Guilds, 
+		GatewayIntentBits.MessageContent,
+		GatewayIntentBits.GuildMessages,
+		GatewayIntentBits.GuildMessageReactions
 	],
+	partials: [
+		Partials.Channel,
+		Partials.Message,
+		Partials.Reaction
+	]
 });
 
 /**
@@ -54,4 +67,25 @@ for (const file of eventFiles) {
 	}
 }
 
-client.login(DISCORD_BOT_TOKEN);
+client.login(DISCORD_BOT_TOKEN)
+  .then(() => {
+    global.discordClient = client;
+    console.log('Discord client is ready and set globally.');
+  })
+  .catch(console.error);
+
+// Use JSON middleware with rawBody capture for signature verification
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    }
+  })
+);
+
+// Define the route for Unthread webhooks using the new webhook handler
+app.post('/webhook/unthread', webhookHandler);
+
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
+});
