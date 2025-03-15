@@ -18,22 +18,32 @@ module.exports = {
             .setTitle('Support Ticket');
 
         // Add input fields
+        const titleInput = new TextInputBuilder()
+            .setCustomId('titleInput')
+            .setLabel('Ticket Title')
+            .setPlaceholder('Title of your issue...')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
         const issueInput = new TextInputBuilder()
             .setCustomId('issueInput')
-            .setLabel('Describe your issue')
+            .setLabel('Summary')
+            .setPlaceholder('Please describe your issue...')
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true);
 
         const emailInput = new TextInputBuilder()
             .setCustomId('emailInput')
-            .setLabel('Your Email Address')
+            .setLabel('Contact Email')
+            .setPlaceholder('Your email valid address...')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
         // Add inputs to the modal
-        const firstActionRow = new ActionRowBuilder().addComponents(issueInput);
-        const secondActionRow = new ActionRowBuilder().addComponents(emailInput);
-        modal.addComponents(firstActionRow, secondActionRow);
+        const firstActionRow = new ActionRowBuilder().addComponents(titleInput);
+        const secondActionRow = new ActionRowBuilder().addComponents(issueInput);
+        const thirdActionRow = new ActionRowBuilder().addComponents(emailInput);
+        modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
 
         // Show the modal
         await interaction.showModal(modal);

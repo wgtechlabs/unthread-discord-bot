@@ -95,7 +95,7 @@ async function saveCustomer(user, email) {
 }
 
 // Function to create a ticket via unthread.io API using the customerId
-async function createTicket(user, issue, email) {
+async function createTicket(user, title, issue, email) {
     // Ensure the user has a customer record (creates one if needed)
     const customer = await saveCustomer(user, email);
 
@@ -107,7 +107,7 @@ async function createTicket(user, issue, email) {
         },
         body: JSON.stringify({
             type: 'email',
-            title: 'Discord Ticket',
+            title: title,
             markdown: `${issue}`,
             status: 'open',
             triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID,
