@@ -1,61 +1,10 @@
-const { Sequelize, DataTypes } = require('sequelize');
 const { decodeHtmlEntities } = require('../utils/decodeHtmlEntities');
+const keyv = require('../utils/database');
+
 require('dotenv').config();
 
-// Initialize Sequelize using SQLite (adjust storage as needed)
-const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: './database.sqlite'
-});
+// --- Customer functions ---
 
-// Define the Customer model with Discord ID as the primary key
-const Customer = sequelize.define('Customer', {
-    discordId: {
-        type: DataTypes.STRING,
-        primaryKey: true,
-        allowNull: false,
-    },
-    discordUsername: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-    discordName: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-    customerId: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-    email: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-}, {
-    tableName: 'customers',
-    timestamps: true,
-});
-
-// Define a new Ticket model to bind Unthread ticket with Discord thread
-const Ticket = sequelize.define('Ticket', {
-    unthreadTicketId: {
-        type: DataTypes.STRING,
-        primaryKey: true,
-        allowNull: false,
-    },
-    discordThreadId: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-}, {
-    tableName: 'tickets',
-    timestamps: true,
-});
-
-// Sync the models with the database
-sequelize.sync();
-
-// Function to call the unthread.io API to create a customer
 async function createCustomerInUnthread(user) {
     const response = await fetch('https://api.unthread.io/api/customers', {
         method: 'POST',
@@ -78,23 +27,29 @@ async function createCustomerInUnthread(user) {
     return customerId;
 }
 
-// Save the customer details locally using Sequelize.
-// Modified to accept the email parameter.
 async function saveCustomer(user, email) {
-    const existing = await Customer.findByPk(user.id);
+    const key = `customer:${user.id}`;
+    let existing = await keyv.get(key);
     if (existing) return existing;
 
     const customerId = await createCustomerInUnthread(user);
-    return await Customer.create({
+    const customer = {
         discordId: user.id,
         discordUsername: user.username,
         discordName: user.tag,
         customerId,
         email,
-    });
+    };
+    await keyv.set(key, customer);
+    return customer;
 }
 
-// Function to create a ticket via unthread.io API using the customerId
+async function getCustomerById(discordId) {
+    return await keyv.get(`customer:${discordId}`);
+}
+
+// --- Ticket functions ---
+
 async function createTicket(user, title, issue, email) {
     // Ensure the user has a customer record (creates one if needed)
     const customer = await saveCustomer(user, email);
@@ -129,15 +84,23 @@ async function createTicket(user, title, issue, email) {
     return data;
 }
 
-// Helper function to bind an Unthread ticket with a Discord thread
 async function bindTicketWithThread(unthreadTicketId, discordThreadId) {
-    return await Ticket.create({
-        unthreadTicketId,
-        discordThreadId,
-    });
+    const ticket = { unthreadTicketId, discordThreadId };
+    await keyv.set(`ticket:discord:${discordThreadId}`, ticket);
+    await keyv.set(`ticket:unthread:${unthreadTicketId}`, ticket);
+    return ticket;
 }
 
-// New function to process incoming webhook events from unthread.io
+async function getTicketByDiscordThreadId(discordThreadId) {
+    return await keyv.get(`ticket:discord:${discordThreadId}`);
+}
+
+async function getTicketByUnthreadTicketId(unthreadTicketId) {
+    return await keyv.get(`ticket:unthread:${unthreadTicketId}`);
+}
+
+// --- Webhook handler ---
+
 async function handleWebhookEvent(payload) {
     console.log('Received webhook event from Unthread:', payload);
     if (payload.event === 'message_created') {
@@ -145,7 +108,7 @@ async function handleWebhookEvent(payload) {
         // Decode HTML entities here
         const decodedMessage = decodeHtmlEntities(payload.data.text);
         try {
-            const ticketMapping = await Ticket.findOne({ where: { unthreadTicketId: conversationId } });
+            const ticketMapping = await getTicketByUnthreadTicketId(conversationId);
             if (!ticketMapping) {
                 console.error(`No Discord thread found for Unthread ticket ${conversationId}`);
                 return;
@@ -247,12 +210,12 @@ async function sendMessageToUnthread(conversationId, user, message, email) {
 }
 
 module.exports = {
-    Customer,
-    Ticket,
-    sequelize,
     saveCustomer,
+    getCustomerById,
     createTicket,
     bindTicketWithThread,
+    getTicketByDiscordThreadId,
+    getTicketByUnthreadTicketId,
     handleWebhookEvent,
     sendMessageToUnthread,
 };

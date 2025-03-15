@@ -7,8 +7,8 @@ module.exports = {
     execute(bot) {
         bot.user?.setPresence({
             activities: [{
-                name: `porn`,
-                type: ActivityType.Watching
+                name: `support tickets`,
+                type: ActivityType.Listening
             }]
             
         });

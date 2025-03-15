@@ -34,6 +34,13 @@ module.exports = {
 			
 			// Add the user to the private thread
 			await thread.members.add(interaction.user.id);
+
+			// Send the initial message to the thread
+			await thread.send({
+				content: `
+					> **Ticket ID:** ${ticket.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}\n> **Contact:** ${email}
+				`,
+			});
 			
 			 // Bind the Unthread ticket with the Discord thread
 			// Assuming the ticket object has a property (e.g., id or ticketId) to be used
