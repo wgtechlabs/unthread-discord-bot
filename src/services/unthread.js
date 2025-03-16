@@ -1,61 +1,10 @@
-const { Sequelize, DataTypes } = require('sequelize');
 const { decodeHtmlEntities } = require('../utils/decodeHtmlEntities');
+const { setKey, getKey } = require('../utils/memory');
+
 require('dotenv').config();
 
-// Initialize Sequelize using SQLite (adjust storage as needed)
-const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: './database.sqlite'
-});
+// --- Customer functions ---
 
-// Define the Customer model with Discord ID as the primary key
-const Customer = sequelize.define('Customer', {
-    discordId: {
-        type: DataTypes.STRING,
-        primaryKey: true,
-        allowNull: false,
-    },
-    discordUsername: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-    discordName: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-    customerId: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-    email: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-}, {
-    tableName: 'customers',
-    timestamps: true,
-});
-
-// Define a new Ticket model to bind Unthread ticket with Discord thread
-const Ticket = sequelize.define('Ticket', {
-    unthreadTicketId: {
-        type: DataTypes.STRING,
-        primaryKey: true,
-        allowNull: false,
-    },
-    discordThreadId: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-}, {
-    tableName: 'tickets',
-    timestamps: true,
-});
-
-// Sync the models with the database
-sequelize.sync();
-
-// Function to call the unthread.io API to create a customer
 async function createCustomerInUnthread(user) {
     const response = await fetch('https://api.unthread.io/api/customers', {
         method: 'POST',
@@ -78,24 +27,30 @@ async function createCustomerInUnthread(user) {
     return customerId;
 }
 
-// Save the customer details locally using Sequelize.
-// Modified to accept the email parameter.
 async function saveCustomer(user, email) {
-    const existing = await Customer.findByPk(user.id);
+    const key = `customer:${user.id}`;
+    let existing = await getKey(key);
     if (existing) return existing;
 
     const customerId = await createCustomerInUnthread(user);
-    return await Customer.create({
+    const customer = {
         discordId: user.id,
         discordUsername: user.username,
         discordName: user.tag,
         customerId,
         email,
-    });
+    };
+    await setKey(key, customer);
+    return customer;
 }
 
-// Function to create a ticket via unthread.io API using the customerId
-async function createTicket(user, issue, email) {
+async function getCustomerById(discordId) {
+    return await getKey(`customer:${discordId}`);
+}
+
+// --- Ticket functions ---
+
+async function createTicket(user, title, issue, email) {
     // Ensure the user has a customer record (creates one if needed)
     const customer = await saveCustomer(user, email);
 
@@ -107,7 +62,7 @@ async function createTicket(user, issue, email) {
         },
         body: JSON.stringify({
             type: 'email',
-            title: 'Discord Ticket',
+            title: title,
             markdown: `${issue}`,
             status: 'open',
             triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID,
@@ -129,23 +84,66 @@ async function createTicket(user, issue, email) {
     return data;
 }
 
-// Helper function to bind an Unthread ticket with a Discord thread
 async function bindTicketWithThread(unthreadTicketId, discordThreadId) {
-    return await Ticket.create({
-        unthreadTicketId,
-        discordThreadId,
-    });
+    const ticket = { unthreadTicketId, discordThreadId };
+    await setKey(`ticket:discord:${discordThreadId}`, ticket);
+    await setKey(`ticket:unthread:${unthreadTicketId}`, ticket);
+    return ticket;
 }
 
-// New function to process incoming webhook events from unthread.io
+async function getTicketByDiscordThreadId(discordThreadId) {
+    return await getKey(`ticket:discord:${discordThreadId}`);
+}
+
+async function getTicketByUnthreadTicketId(unthreadTicketId) {
+    return await getKey(`ticket:unthread:${unthreadTicketId}`);
+}
+
+// --- Webhook handler ---
+
 async function handleWebhookEvent(payload) {
     console.log('Received webhook event from Unthread:', payload);
+    
+    // Handle ticket update events
+    if (payload.event === 'conversation_updated') {
+        const { id, status } = payload.data;
+        if (status === 'closed') {
+            const ticketMapping = await getTicketByUnthreadTicketId(id);
+            if (!ticketMapping) {
+                console.error(`No Discord thread found for Unthread ticket ${id}`);
+                return;
+            }
+            const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
+            if (!discordThread) {
+                console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
+                return;
+            }
+            await discordThread.send('> This ticket has been closed.');
+            console.log(`Sent closure notification to Discord thread ${discordThread.id}`);
+        } else if (status === 'open') {
+            const ticketMapping = await getTicketByUnthreadTicketId(id);
+            if (!ticketMapping) {
+                console.error(`No Discord thread found for Unthread ticket ${id}`);
+                return;
+            }
+            const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
+            if (!discordThread) {
+                console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
+                return;
+            }
+            await discordThread.send('> This ticket has been re-opened. Our team will get back to you shortly.');
+            console.log(`Sent re-open notification to Discord thread ${discordThread.id}`);
+        }
+        return;
+    }
+    
+    // Handle new message events
     if (payload.event === 'message_created') {
         const conversationId = payload.data.conversationId;
         // Decode HTML entities here
         const decodedMessage = decodeHtmlEntities(payload.data.text);
         try {
-            const ticketMapping = await Ticket.findOne({ where: { unthreadTicketId: conversationId } });
+            const ticketMapping = await getTicketByUnthreadTicketId(conversationId);
             if (!ticketMapping) {
                 console.error(`No Discord thread found for Unthread ticket ${conversationId}`);
                 return;
@@ -157,8 +155,22 @@ async function handleWebhookEvent(payload) {
             }
             console.log(`Found Discord thread: ${discordThread.id}`);
 
-            // Fetch recent messages in the thread
+            // Fetch the latest 10 messages in the newly created thread
             const messages = await discordThread.messages.fetch({ limit: 10 });
+
+            /**
+             * Skip sending the webhook message if the bot sent the first message in the thread.
+             * This is to prevent send duplicate messages when the bot already sent a summary of the ticket.
+             */
+            if (messages.size >= 2) {
+                const messagesArray = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+                const secondMessage = messagesArray[1];
+                const latestMessage = messages.first();
+                if (secondMessage && latestMessage && secondMessage.id === latestMessage.id) {
+                    console.log('Second message and latest message match. Skipping sending webhook message.');
+                    return;
+                }
+            }
 
             // Log the decoded message
             console.log(`Decoded message: ${decodedMessage}`);
@@ -247,12 +259,12 @@ async function sendMessageToUnthread(conversationId, user, message, email) {
 }
 
 module.exports = {
-    Customer,
-    Ticket,
-    sequelize,
     saveCustomer,
+    getCustomerById,
     createTicket,
     bindTicketWithThread,
+    getTicketByDiscordThreadId,
+    getTicketByUnthreadTicketId,
     handleWebhookEvent,
     sendMessageToUnthread,
 };

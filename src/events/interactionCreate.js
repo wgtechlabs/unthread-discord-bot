@@ -6,9 +6,10 @@ module.exports = {
 	async execute(interaction) {
 		// for support ticket
 		if (interaction.isModalSubmit() && interaction.customId === 'supportModal') {
+			const title = interaction.fields.getTextInputValue('titleInput'); // Get the title input value
 			const issue = interaction.fields.getTextInputValue('issueInput');
 			const email = interaction.fields.getTextInputValue('emailInput');
-			console.log(`Support ticket submitted: ${issue}, email: ${email}`);
+			console.log(`Support ticket submitted: ${title}, ${issue}, email: ${email}`);
 
 			 // Acknowledge the interaction immediately
 			await interaction.deferReply({ ephemeral: true });
@@ -16,7 +17,7 @@ module.exports = {
 			let ticket;
 			// Create ticket via unthread.io API (ensuring customer exists)
 			try {
-				ticket = await createTicket(interaction.user, issue, email);
+				ticket = await createTicket(interaction.user, title, issue, email); // Pass the title input value
 				console.log('Ticket created:', ticket);
 			} catch (error) {
 				console.error('Ticket creation failed:', error);
@@ -33,6 +34,13 @@ module.exports = {
 			
 			// Add the user to the private thread
 			await thread.members.add(interaction.user.id);
+
+			// Send the initial message to the thread
+			await thread.send({
+				content: `
+					> **Ticket #:** ${ticket.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}\n> **Contact:** ${email}
+				`,
+			});
 			
 			 // Bind the Unthread ticket with the Discord thread
 			// Assuming the ticket object has a property (e.g., id or ticketId) to be used
