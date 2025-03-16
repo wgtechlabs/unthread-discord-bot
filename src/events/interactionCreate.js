@@ -38,7 +38,7 @@ module.exports = {
 			// Send the initial message to the thread
 			await thread.send({
 				content: `
-					> **Ticket ID:** ${ticket.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}\n> **Contact:** ${email}
+					> **Ticket #:** ${ticket.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}\n> **Contact:** ${email}
 				`,
 			});
 			
