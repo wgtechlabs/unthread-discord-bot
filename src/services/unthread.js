@@ -1,5 +1,5 @@
 const { decodeHtmlEntities } = require('../utils/decodeHtmlEntities');
-const keyv = require('../utils/database');
+const { setKey, getKey } = require('../utils/memory');
 
 require('dotenv').config();
 
@@ -29,7 +29,7 @@ async function createCustomerInUnthread(user) {
 
 async function saveCustomer(user, email) {
     const key = `customer:${user.id}`;
-    let existing = await keyv.get(key);
+    let existing = await getKey(key);
     if (existing) return existing;
 
     const customerId = await createCustomerInUnthread(user);
@@ -40,12 +40,12 @@ async function saveCustomer(user, email) {
         customerId,
         email,
     };
-    await keyv.set(key, customer);
+    await setKey(key, customer);
     return customer;
 }
 
 async function getCustomerById(discordId) {
-    return await keyv.get(`customer:${discordId}`);
+    return await getKey(`customer:${discordId}`);
 }
 
 // --- Ticket functions ---
@@ -86,17 +86,17 @@ async function createTicket(user, title, issue, email) {
 
 async function bindTicketWithThread(unthreadTicketId, discordThreadId) {
     const ticket = { unthreadTicketId, discordThreadId };
-    await keyv.set(`ticket:discord:${discordThreadId}`, ticket);
-    await keyv.set(`ticket:unthread:${unthreadTicketId}`, ticket);
+    await setKey(`ticket:discord:${discordThreadId}`, ticket);
+    await setKey(`ticket:unthread:${unthreadTicketId}`, ticket);
     return ticket;
 }
 
 async function getTicketByDiscordThreadId(discordThreadId) {
-    return await keyv.get(`ticket:discord:${discordThreadId}`);
+    return await getKey(`ticket:discord:${discordThreadId}`);
 }
 
 async function getTicketByUnthreadTicketId(unthreadTicketId) {
-    return await keyv.get(`ticket:unthread:${unthreadTicketId}`);
+    return await getKey(`ticket:unthread:${unthreadTicketId}`);
 }
 
 // --- Webhook handler ---
