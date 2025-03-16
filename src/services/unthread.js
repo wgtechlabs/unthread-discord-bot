@@ -103,6 +103,41 @@ async function getTicketByUnthreadTicketId(unthreadTicketId) {
 
 async function handleWebhookEvent(payload) {
     console.log('Received webhook event from Unthread:', payload);
+    
+    // Handle ticket update events
+    if (payload.event === 'conversation_updated') {
+        const { id, status } = payload.data;
+        if (status === 'closed') {
+            const ticketMapping = await getTicketByUnthreadTicketId(id);
+            if (!ticketMapping) {
+                console.error(`No Discord thread found for Unthread ticket ${id}`);
+                return;
+            }
+            const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
+            if (!discordThread) {
+                console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
+                return;
+            }
+            await discordThread.send('> This ticket has been closed.');
+            console.log(`Sent closure notification to Discord thread ${discordThread.id}`);
+        } else if (status === 'open') {
+            const ticketMapping = await getTicketByUnthreadTicketId(id);
+            if (!ticketMapping) {
+                console.error(`No Discord thread found for Unthread ticket ${id}`);
+                return;
+            }
+            const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
+            if (!discordThread) {
+                console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
+                return;
+            }
+            await discordThread.send('> This ticket has been re-opened. Our team will get back to you shortly.');
+            console.log(`Sent re-open notification to Discord thread ${discordThread.id}`);
+        }
+        return;
+    }
+    
+    // Handle new message events
     if (payload.event === 'message_created') {
         const conversationId = payload.data.conversationId;
         // Decode HTML entities here
