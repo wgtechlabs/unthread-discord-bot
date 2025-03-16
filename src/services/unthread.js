@@ -120,8 +120,22 @@ async function handleWebhookEvent(payload) {
             }
             console.log(`Found Discord thread: ${discordThread.id}`);
 
-            // Fetch recent messages in the thread
+            // Fetch the latest 10 messages in the newly created thread
             const messages = await discordThread.messages.fetch({ limit: 10 });
+
+            /**
+             * Skip sending the webhook message if the bot sent the first message in the thread.
+             * This is to prevent send duplicate messages when the bot already sent a summary of the ticket.
+             */
+            if (messages.size >= 2) {
+                const messagesArray = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+                const secondMessage = messagesArray[1];
+                const latestMessage = messages.first();
+                if (secondMessage && latestMessage && secondMessage.id === latestMessage.id) {
+                    console.log('Second message and latest message match. Skipping sending webhook message.');
+                    return;
+                }
+            }
 
             // Log the decoded message
             console.log(`Decoded message: ${decodedMessage}`);
