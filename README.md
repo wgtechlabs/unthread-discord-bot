@@ -86,7 +86,7 @@ Use `/support` command to create a support ticket.
 2. Navigate to the "Settings" section.
 3. Under "Webhook Configuration", enter the following URL:
   ```
-  http://<YOUR_PUBLIC_URL>:3000/unthread/webhook
+  http://<YOUR_PUBLIC_URL>:3000/webhook/unthread
   ```
     Replace `<YOUR_PUBLIC_URL>` with the public URL provided by VS Code.
 4. Save the settings.
