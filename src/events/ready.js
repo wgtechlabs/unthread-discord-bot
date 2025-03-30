@@ -6,6 +6,7 @@ module.exports = {
     once: true,
     execute(bot) {
         bot.user?.setPresence({
+            status: 'online', // Explicitly set status to online
             activities: [{
                 name: `support tickets`,
                 type: ActivityType.Listening
