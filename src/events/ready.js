@@ -5,8 +5,10 @@ module.exports = {
     name: Events.ClientReady,
     once: true,
     execute(bot) {
+        // Explicitly set the bot's status to 'online' to ensure it appears online to users
+        // This is important as sometimes Discord bots may default to 'idle' or not show proper status
         bot.user?.setPresence({
-            status: 'online', // Explicitly set status to online
+            status: 'online',
             activities: [{
                 name: `support tickets`,
                 type: ActivityType.Listening
