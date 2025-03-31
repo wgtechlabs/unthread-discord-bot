@@ -86,7 +86,7 @@ Use `/support` command to create a support ticket.
 2. Navigate to the "Settings" section.
 3. Under "Webhook Configuration", enter the following URL:
   ```
-  http://<YOUR_PUBLIC_URL>:3000/unthread/webhook
+  http://<YOUR_PUBLIC_URL>:3000/webhook/unthread
   ```
     Replace `<YOUR_PUBLIC_URL>` with the public URL provided by VS Code.
 4. Save the settings.
@@ -142,7 +142,7 @@ This project is licensed under [GNU General Public License v3.0](https://opensou
 
 This project is created by **[Waren Gonzaga](https://github.com/warengonzaga)** under [WG Technology Labs](https://github.com/wgtechlabs), with the help of awesome [contributors](https://github.com/wgtechlabs/unthread-discord-bot/graphs/contributors).
 
-<!-- [![contributors](https://contrib.rocks/image?repo=wgtechlabs/unthread-discord-bot)](https://github.com/wgtechlabs/unthread-discord-bot/graphs/contributors) -->
+[![contributors](https://contrib.rocks/image?repo=wgtechlabs/unthread-discord-bot)](https://github.com/wgtechlabs/unthread-discord-bot/graphs/contributors)
 
 ---
 
