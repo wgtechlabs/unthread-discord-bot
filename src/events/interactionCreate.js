@@ -19,35 +19,40 @@ module.exports = {
 			try {
 				ticket = await createTicket(interaction.user, title, issue, email); // Pass the title input value
 				console.log('Ticket created:', ticket);
+				
+				if (!ticket.friendlyId) {
+					throw new Error('Ticket was created but no friendlyId was provided');
+				}
+				
+				// Create a private thread in the current channel
+				const thread = await interaction.channel.threads.create({
+					name: `ticket-#${ticket.friendlyId}`,
+					type: ChannelType.PrivateThread,
+					reason: 'Unthread Ticket',
+				});
+				
+				// Add the user to the private thread
+				await thread.members.add(interaction.user.id);
+
+				// Send the initial message to the thread
+				await thread.send({
+					content: `
+						> **Ticket #:** ${ticket.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}\n> **Contact:** ${email}
+					`,
+				});
+				
+				 // Bind the Unthread ticket with the Discord thread
+				// Assuming the ticket object has a property (e.g., id or ticketId) to be used
+				await bindTicketWithThread(ticket.id, thread.id);
+				
+				 // Edit the deferred reply with confirmation
+				await interaction.editReply('Your support ticket has been submitted! A private thread has been created for further communication.');
 			} catch (error) {
 				console.error('Ticket creation failed:', error);
+				await interaction.editReply('Sorry, there was an error creating your support ticket. Please try again later.');
 				return;
 			}
 
-			// Create a private thread in the current channel
-			const thread = await interaction.channel.threads.create({
-					name: `ticket-#${ticket.friendlyId}`,
-					// autoArchiveDuration: 0, // Disable auto archive
-					type: ChannelType.PrivateThread,
-					reason: 'Unthread Ticket',
-			});
-			
-			// Add the user to the private thread
-			await thread.members.add(interaction.user.id);
-
-			// Send the initial message to the thread
-			await thread.send({
-				content: `
-					> **Ticket #:** ${ticket.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}\n> **Contact:** ${email}
-				`,
-			});
-			
-			 // Bind the Unthread ticket with the Discord thread
-			// Assuming the ticket object has a property (e.g., id or ticketId) to be used
-			await bindTicketWithThread(ticket.id, thread.id);
-			
-			 // Edit the deferred reply with confirmation
-			await interaction.editReply('Your support ticket has been submitted! A private thread has been created for further communication.');
 			return;
 		}
 
