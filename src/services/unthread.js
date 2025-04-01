@@ -1,10 +1,28 @@
+/**
+ * Unthread Service Module
+ * 
+ * This module handles all interaction with the Unthread API for the Discord bot.
+ * It manages customer records, ticket creation/retrieval, and webhook event processing.
+ * All communication between Discord and Unthread is managed through these functions.
+ */
+
 const { decodeHtmlEntities } = require('../utils/decodeHtmlEntities');
 const { setKey, getKey } = require('../utils/memory');
 
 require('dotenv').config();
 
-// --- Customer functions ---
+/**
+ * ==================== CUSTOMER MANAGEMENT FUNCTIONS ====================
+ * These functions handle creating and retrieving customer records in Unthread
+ */
 
+/**
+ * Creates a new customer in Unthread's system
+ * 
+ * @param {Object} user - Discord user object containing user details
+ * @returns {string} - The Unthread customer ID
+ * @throws {Error} - If API request fails or response is invalid
+ */
 async function createCustomerInUnthread(user) {
     const response = await fetch('https://api.unthread.io/api/customers', {
         method: 'POST',
@@ -27,6 +45,13 @@ async function createCustomerInUnthread(user) {
     return customerId;
 }
 
+/**
+ * Retrieves customer data or creates a new customer if not exists
+ * 
+ * @param {Object} user - Discord user object
+ * @param {string} email - User's email address
+ * @returns {Object} - Customer data object with Discord and Unthread IDs
+ */
 async function saveCustomer(user, email) {
     const key = `customer:${user.id}`;
     let existing = await getKey(key);
@@ -44,14 +69,32 @@ async function saveCustomer(user, email) {
     return customer;
 }
 
+/**
+ * Retrieves a customer record by Discord user ID
+ * 
+ * @param {string} discordId - Discord user ID
+ * @returns {Object|null} - Customer data object or null if not found
+ */
 async function getCustomerById(discordId) {
     return await getKey(`customer:${discordId}`);
 }
 
-// --- Ticket functions ---
+/**
+ * ==================== TICKET MANAGEMENT FUNCTIONS ====================
+ * These functions handle ticket creation and mapping between Discord threads and Unthread tickets
+ */
 
+/**
+ * Creates a new support ticket in Unthread
+ * 
+ * @param {Object} user - Discord user object
+ * @param {string} title - Ticket title
+ * @param {string} issue - Ticket description/content
+ * @param {string} email - User's email address
+ * @returns {Object} - Unthread API response with ticket details
+ * @throws {Error} - If ticket creation fails
+ */
 async function createTicket(user, title, issue, email) {
-    // Ensure the user has a customer record (creates one if needed)
     const customer = await saveCustomer(user, email);
 
     const response = await fetch('https://api.unthread.io/api/conversations', {
@@ -84,6 +127,13 @@ async function createTicket(user, title, issue, email) {
     return data;
 }
 
+/**
+ * Associates an Unthread ticket with a Discord thread for two-way communication
+ * 
+ * @param {string} unthreadTicketId - Unthread ticket/conversation ID
+ * @param {string} discordThreadId - Discord thread ID
+ * @returns {Object} - Mapping object containing both IDs
+ */
 async function bindTicketWithThread(unthreadTicketId, discordThreadId) {
     const ticket = { unthreadTicketId, discordThreadId };
     await setKey(`ticket:discord:${discordThreadId}`, ticket);
@@ -91,20 +141,41 @@ async function bindTicketWithThread(unthreadTicketId, discordThreadId) {
     return ticket;
 }
 
+/**
+ * Retrieves the ticket mapping by Discord thread ID
+ * 
+ * @param {string} discordThreadId - Discord thread ID
+ * @returns {Object|null} - Ticket mapping or null if not found
+ */
 async function getTicketByDiscordThreadId(discordThreadId) {
     return await getKey(`ticket:discord:${discordThreadId}`);
 }
 
+/**
+ * Retrieves the ticket mapping by Unthread ticket ID
+ * 
+ * @param {string} unthreadTicketId - Unthread ticket/conversation ID
+ * @returns {Object|null} - Ticket mapping or null if not found
+ */
 async function getTicketByUnthreadTicketId(unthreadTicketId) {
     return await getKey(`ticket:unthread:${unthreadTicketId}`);
 }
 
-// --- Webhook handler ---
+/**
+ * ==================== WEBHOOK EVENT HANDLER ====================
+ * Processes incoming webhook events from Unthread
+ */
 
+/**
+ * Main handler for incoming webhook events from Unthread
+ * Processes ticket updates and new messages
+ * 
+ * @param {Object} payload - Webhook event payload from Unthread
+ * @returns {Object} - The processed payload
+ */
 async function handleWebhookEvent(payload) {
     console.log('Received webhook event from Unthread:', payload);
     
-    // Handle ticket update events
     if (payload.event === 'conversation_updated') {
         const { id, status } = payload.data;
         if (status === 'closed') {
@@ -137,10 +208,13 @@ async function handleWebhookEvent(payload) {
         return;
     }
     
-    // Handle new message events
     if (payload.event === 'message_created') {
+        if (payload.data.metadata && payload.data.metadata.source === "discord") {
+            console.log("Message originated from Discord, skipping to avoid duplication");
+            return;
+        }
+
         const conversationId = payload.data.conversationId;
-        // Decode HTML entities here
         const decodedMessage = decodeHtmlEntities(payload.data.text);
         try {
             const ticketMapping = await getTicketByUnthreadTicketId(conversationId);
@@ -155,62 +229,46 @@ async function handleWebhookEvent(payload) {
             }
             console.log(`Found Discord thread: ${discordThread.id}`);
 
-            // Fetch the latest 10 messages in the newly created thread
             const messages = await discordThread.messages.fetch({ limit: 10 });
 
-            /**
-             * Skip sending the webhook message if the bot sent the first message in the thread.
-             * This is to prevent send duplicate messages when the bot already sent a summary of the ticket.
-             */
             if (messages.size >= 2) {
                 const messagesArray = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-                const secondMessage = messagesArray[1];
-                const latestMessage = messages.first();
-                if (secondMessage && latestMessage && secondMessage.id === latestMessage.id) {
-                    console.log('Second message and latest message match. Skipping sending webhook message.');
+                const ticketSummaryMessage = messagesArray[1];
+                
+                if (ticketSummaryMessage && ticketSummaryMessage.content.includes(decodedMessage.trim())) {
+                    console.log('Message content already exists in ticket summary. Skipping webhook message.');
+                    return;
+                }
+                
+                const duplicate = messages.some(msg => msg.content === decodedMessage);
+                if (duplicate) {
+                    console.log('Duplicate message detected. Skipping send.');
                     return;
                 }
             }
 
-            // Log the decoded message
-            console.log(`Decoded message: ${decodedMessage}`);
-
-            // Attempt to find a quoted block (lines starting with ">")
             let quotedMessageMatch = decodedMessage.match(/^(>\s?.+(?:\n|$))+/);
             let replyReference = null;
             let contentToSend = decodedMessage;
 
             if (quotedMessageMatch) {
                 let quotedMessage = quotedMessageMatch[0].trim();
-                // Remove the ">" character from the quoted text
                 quotedMessage = quotedMessage.replace(/^>\s?/gm, '').trim();
-                // Remove the quoted block from the message if any additional text remains
                 const remainingText = decodedMessage.replace(quotedMessageMatch[0], '').trim();
-                // Log the message being used to search
                 console.log(`Message being used to search: ${quotedMessage}`);
                 console.log(`Message being used to search: ${remainingText}`);
-                // Search for a matching message among the recently fetched ones
                 const matchingMsg = messages.find(msg => msg.content.trim() === quotedMessage);
                 if (matchingMsg) {
                     replyReference = matchingMsg.id;
-                    // Use only the remaining text; if empty, use a single space placeholder
                     contentToSend = remainingText || " ";
                     console.log(`Quoted text matched message ${matchingMsg.id}`);
                 }
 
-                // Check if the remaining text matches any message content
                 const remainingTextDuplicate = messages.some(msg => msg.content.trim() === remainingText);
                 if (remainingTextDuplicate) {
                     console.log('Remaining text matches an existing message. Skipping send.');
                     return;
                 }
-            }
-
-            // Check for duplicate candidate messages
-            const duplicate = messages.some(msg => msg.content === decodedMessage);
-            if (duplicate) {
-                console.log('Duplicate message detected. Skipping send.');
-                return;
             }
 
             if (replyReference) {
@@ -230,7 +288,16 @@ async function handleWebhookEvent(payload) {
     return payload;
 }
 
-// New function to send a message from Discord to Unthread
+/**
+ * Sends a message from Discord to Unthread
+ * 
+ * @param {string} conversationId - Unthread conversation/ticket ID
+ * @param {Object} user - Discord user object
+ * @param {string} message - Message content to send
+ * @param {string} email - User's email address
+ * @returns {Object} - Unthread API response
+ * @throws {Error} - If sending the message fails
+ */
 async function sendMessageToUnthread(conversationId, user, message, email) {
     const response = await fetch(`https://api.unthread.io/api/conversations/${conversationId}/messages`, {
         method: 'POST',
@@ -248,6 +315,10 @@ async function sendMessageToUnthread(conversationId, user, message, email) {
                 name: user.tag,
                 email: email,
             },
+            metadata: {
+                source: "discord",
+                discordMessageId: message.id || Date.now().toString(),
+            },
         }),
     });
 
@@ -258,6 +329,7 @@ async function sendMessageToUnthread(conversationId, user, message, email) {
     return await response.json();
 }
 
+// Export all the public functions
 module.exports = {
     saveCustomer,
     getCustomerById,
