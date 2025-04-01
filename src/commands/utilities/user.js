@@ -32,7 +32,7 @@ module.exports = {
 			.setTitle('User Information')
 			.addFields(
 				{ name: 'Username', value: interaction.user.username, inline: true },
-				{ name: 'Joined Server', value: `<t:${Math.floor(interaction.member.joinedAt / 1000)}:F>`, inline: true },
+				{ name: 'Joined Server', value: `<t:${Math.floor(interaction.member.joinedTimestamp / 1000)}:F>`, inline: true },
 				{ name: 'Account Created', value: `<t:${Math.floor(interaction.user.createdTimestamp / 1000)}:F>`, inline: false }
 			)
 			.setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
