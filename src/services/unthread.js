@@ -8,6 +8,7 @@
 
 const { decodeHtmlEntities } = require('../utils/decodeHtmlEntities');
 const { setKey, getKey } = require('../utils/memory');
+const { EmbedBuilder } = require('discord.js');
 
 require('dotenv').config();
 
@@ -225,7 +226,7 @@ async function handleWebhookEvent(payload) {
     console.log('Received webhook event from Unthread:', payload);
     
     if (payload.event === 'conversation_updated') {
-        const { id, status } = payload.data;
+        const { id, status, friendlyId, title } = payload.data;
         if (status === 'closed') {
             const ticketMapping = await getTicketByUnthreadTicketId(id);
             if (!ticketMapping) {
@@ -237,8 +238,24 @@ async function handleWebhookEvent(payload) {
                 console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
                 return;
             }
-            await discordThread.send('> This ticket has been closed.');
-            console.log(`Sent closure notification to Discord thread ${discordThread.id}`);
+
+            const closedEmbed = new EmbedBuilder()
+                .setColor(0xEB1A1A)
+                .setTitle(`Ticket #${friendlyId || 'Unknown'} Closed`)
+                .setDescription('This support ticket has been closed by the support team.')
+                .addFields(
+                    { name: 'Ticket ID', value: `#${friendlyId || id}`, inline: true },
+                    { name: 'Status', value: 'Closed', inline: true }
+                )
+                .setFooter({ text: 'Unthread Support System' })
+                .setTimestamp();
+
+            if (title) {
+                closedEmbed.addFields({ name: 'Title', value: title, inline: false });
+            }
+
+            await discordThread.send({ embeds: [closedEmbed] });
+            console.log(`Sent closure notification embed to Discord thread ${discordThread.id}`);
         } else if (status === 'open') {
             const ticketMapping = await getTicketByUnthreadTicketId(id);
             if (!ticketMapping) {
@@ -250,8 +267,24 @@ async function handleWebhookEvent(payload) {
                 console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
                 return;
             }
-            await discordThread.send('> This ticket has been re-opened. Our team will get back to you shortly.');
-            console.log(`Sent re-open notification to Discord thread ${discordThread.id}`);
+
+            const reopenedEmbed = new EmbedBuilder()
+                .setColor(0xEB1A1A)
+                .setTitle(`Ticket #${friendlyId || 'Unknown'} Reopened`)
+                .setDescription('This support ticket has been reopened. Our team will get back to you shortly.')
+                .addFields(
+                    { name: 'Ticket ID', value: `#${friendlyId || id}`, inline: true },
+                    { name: 'Status', value: 'Open', inline: true }
+                )
+                .setFooter({ text: 'Unthread Support System' })
+                .setTimestamp();
+
+            if (title) {
+                reopenedEmbed.addFields({ name: 'Title', value: title, inline: false });
+            }
+
+            await discordThread.send({ embeds: [reopenedEmbed] });
+            console.log(`Sent reopen notification embed to Discord thread ${discordThread.id}`);
         }
         return;
     }
