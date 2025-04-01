@@ -1,7 +1,7 @@
 {
   "name": "unthread-discord-bot",
   "description": "A simple discord bot integration for unthread.io",
-  "version": "0.1.8",
+  "version": "0.1.20-alpha",
   "private": true,
   "main": "index.js",
   "scripts": {
