@@ -11,6 +11,7 @@ The Unthread Discord Bot is a powerful tool designed to streamline support ticke
 ## ✨ Key Features
 
 - Create support tickets using the `/support` command.
+- Automatically create support tickets from posts in specific forum channels.
 - Easy setup and configuration through the Discord Developer Portal.
 - Integration with Unthread for advanced ticket management.
 - Customizable environment settings for personalized bot behavior.
@@ -92,6 +93,18 @@ Use `/support` command to create a support ticket.
 4. Save the settings.
 
 Your bot should now be able to receive events from Unthread.
+
+### 8. Configure Forum Channels
+
+To enable automatic ticket creation from forum posts:
+
+1. Add forum channel IDs to your `.env` file:
+   ```
+   FORUM_CHANNEL_IDS=123456789012345678,234567890123456789
+   ```
+2. Each comma-separated ID represents a forum channel that will be monitored.
+3. Any new forum posts in these channels will automatically create a corresponding ticket in Unthread.
+4. Replies in the forum post will be synchronized with the Unthread ticket.
 
 ### How to Get Your Discord Server ID
 

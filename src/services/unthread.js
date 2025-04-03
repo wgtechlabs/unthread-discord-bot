@@ -130,8 +130,8 @@ async function createTicket(user, title, issue, email) {
     if (!data.friendlyId && data.id) {
         console.log(`friendlyId not found in initial response. Starting polling for ticket ${data.id}`);
         
-        const maxRetries = 15;        // Increased number of attempts
-        const retryDelay = 4000;      // Increased delay between attempts
+        const maxRetries = 50;       // Increased to 50 attempts
+        const retryDelay = 60000;      // Set to 60000ms (60 seconds)
         
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             console.log(`Waiting for friendlyId, attempt ${attempt + 1}/${maxRetries}`);

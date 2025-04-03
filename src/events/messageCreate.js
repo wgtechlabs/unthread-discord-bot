@@ -1,6 +1,7 @@
 const { Events } = require("discord.js");
 const { version } = require("../../package.json");
 const { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } = require("../services/unthread");
+const { FORUM_CHANNEL_IDS } = process.env;
 
 module.exports = {
   name: Events.MessageCreate,
@@ -12,6 +13,12 @@ module.exports = {
     // If the message is in a thread, check for its mapping to forward to Unthread.
     if (message.channel.isThread()) {
       try {
+        const isForumPost = FORUM_CHANNEL_IDS && 
+                            FORUM_CHANNEL_IDS.split(',').includes(message.channel.parentId) &&
+                            message.id === message.channel.id;
+
+        if (isForumPost) return;
+
         // Retrieve the ticket mapping by Discord thread ID using Keyv
         const ticketMapping = await getTicketByDiscordThreadId(message.channel.id);
         if (ticketMapping) {
@@ -29,17 +36,15 @@ module.exports = {
 
           // Get the customer using Redis
           const customer = await getCustomerById(message.author.id);
-          if (!customer) {
-            console.error(`Customer record not found for ${message.author.id}`);
-          } else {
-            const response = await sendMessageToUnthread(
-              ticketMapping.unthreadTicketId,
-              message.author,
-              messageToSend,
-              customer.email
-            );
-            console.log(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
-          }
+          const email = customer?.email || `${message.author.username}@discord.user`;
+
+          const response = await sendMessageToUnthread(
+            ticketMapping.unthreadTicketId,
+            message.author,
+            messageToSend,
+            email
+          );
+          console.log(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
         }
       } catch (error) {
         console.error("Error sending message to Unthread:", error);

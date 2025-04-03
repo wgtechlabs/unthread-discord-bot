@@ -17,12 +17,15 @@ const client = new Client({
 		GatewayIntentBits.Guilds, 
 		GatewayIntentBits.MessageContent,
 		GatewayIntentBits.GuildMessages,
-		GatewayIntentBits.GuildMessageReactions
+		GatewayIntentBits.GuildMessageReactions,
+		GatewayIntentBits.Guilds,
 	],
 	partials: [
 		Partials.Channel,
 		Partials.Message,
-		Partials.Reaction
+		Partials.Reaction,
+		Partials.ThreadMember,
+		Partials.Thread
 	]
 });
 
