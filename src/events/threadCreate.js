@@ -1,19 +1,27 @@
-const { Events, EmbedBuilder } = require('discord.js'); // Added EmbedBuilder import
+/**
+ * Thread Creation Event Handler
+ * Converts new forum posts in monitored channels to Unthread support tickets.
+ */
+const { Events, EmbedBuilder } = require('discord.js');
 const { createTicket, bindTicketWithThread } = require('../services/unthread');
 const { getKey, setKey } = require('../utils/memory');
 require('dotenv').config();
 
+// Retrieve forum channel IDs from environment variables.
+// These channels are monitored for new threads to convert into tickets.
 const FORUM_CHANNEL_IDS = process.env.FORUM_CHANNEL_IDS ? 
     process.env.FORUM_CHANNEL_IDS.split(',') : [];
 
 module.exports = {
     name: Events.ThreadCreate,
     async execute(thread) {
+        // Ignore threads created in channels not listed in FORUM_CHANNEL_IDS.
         if (!FORUM_CHANNEL_IDS.includes(thread.parentId)) return;
 
         console.log(`New forum post detected in monitored channel: ${thread.name}`);
 
         try {
+            // Fetch the first message in the thread (the original forum post).
             const messages = await thread.messages.fetch({ limit: 1 });
             const firstMessage = messages.first();
 
@@ -22,10 +30,12 @@ module.exports = {
                 return;
             }
 
+            // Extract details from the forum post.
             const author = firstMessage.author;
             const title = thread.name;
             const content = firstMessage.content;
 
+            // Check if the customer exists in memory; if not, create a default entry.
             const customerKey = `customer:${author.id}`;
             const existingCustomer = await getKey(customerKey);
             let email = existingCustomer?.email || `${author.username}@discord.user`;
@@ -34,22 +44,23 @@ module.exports = {
                 await setKey(customerKey, { email });
             }
 
+            // Create a support ticket in Unthread using the forum post details.
             const ticket = await createTicket(author, title, content, email);
             if (!ticket.friendlyId) throw new Error('Ticket was created but no friendlyId was provided');
 
+            // Link the Discord thread with the Unthread ticket for communication.
             await bindTicketWithThread(ticket.id, thread.id);
 
-            // Create an embed for the ticket notification
+            // Notify users in the thread that a ticket has been created.
             const ticketEmbed = new EmbedBuilder()
                 .setColor(0xEB1A1A)
-                .setTitle(`Support Ticket #${ticket.friendlyId}`)
+                .setTitle(`Ticket #${ticket.friendlyId}`)
                 .setDescription('This forum post has been converted to a support ticket. The support team will respond here.')
                 .addFields(
                     { name: 'Ticket ID', value: `#${ticket.friendlyId}`, inline: true },
                     { name: 'Status', value: 'Open', inline: true },
                     { name: 'Title', value: title, inline: false },
-                    { name: 'Created By', value: author.tag, inline: true },
-                    { name: 'Contact', value: email, inline: true }
+                    { name: 'Created By', value: author.tag, inline: true }
                 )
                 .setFooter({ text: 'Unthread Support System' })
                 .setTimestamp();
@@ -58,9 +69,10 @@ module.exports = {
 
             console.log(`Forum post converted to ticket: #${ticket.friendlyId}`);
         } catch (error) {
+            // Log and handle errors during ticket creation.
             console.error('Error creating ticket from forum post:', error);
             try {
-                // Error embed
+                // Notify users in the thread about the error.
                 const errorEmbed = new EmbedBuilder()
                     .setColor(0xFF0000)
                     .setTitle('Error Creating Support Ticket')
