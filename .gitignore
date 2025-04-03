@@ -134,3 +134,6 @@ dist
 
 # Database
 *.sqlite
+
+# VS Code settings
+.vscode/settings.json
