@@ -131,12 +131,12 @@ async function createTicket(user, title, issue, email) {
     if (!data.friendlyId && data.id) {
         logger.debug(`friendlyId not found in initial response. Starting polling for ticket ${data.id}`);
         
-        // Implementation of exponential backoff for retry logic
-        const maxRetries = 18;           // Increased from 12 to 18 attempts
-        const baseDelayMs = 1000;        // Start with 1 second
-        const maxDelayMs = 60000;        // Increased from 40000 to 60000 ms (60 seconds)
-        const jitterFactor = 0.1;        // Add up to 10% random jitter
-        
+        // Enhanced exponential backoff for more persistent retries
+        const maxRetries = 24;           // Increased from 18 to 24 attempts
+        const baseDelayMs = 1000;        // Keep at 1 second (good balance)
+        const maxDelayMs = 120000;       // Increased from 60000 to 120000 ms (2 minutes)
+        const jitterFactor = 0.15;       // Increased from 0.1 to 0.15 (15% jitter)
+                
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             // Calculate exponential delay with jitter
             let delayMs = Math.min(
