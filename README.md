@@ -1,19 +1,26 @@
 # Unthread Discord Bot 🤖
 
-[![made by](https://img.shields.io/badge/made%20by-WG%20Technology%20Labs-0060a0.svg?logo=github&longCache=true&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs) [![sponsors](https://img.shields.io/badge/sponsor-%E2%9D%A4-%23db61a2.svg?&logo=github&logoColor=white&labelColor=181717&style=flat-square)](https://github.com/sponsors/wgtechlabs)
-
-<!-- [![release](https://img.shields.io/github/release/wgtechlabs/unthread-discord-bot.svg?logo=github&labelColor=181717&color=green&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/releases) [![star](https://img.shields.io/github/stars/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&color=yellow&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/stargazers) [![license](https://img.shields.io/github/license/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/blob/main/license) -->
+[![made by](https://img.shields.io/badge/made%20by-WG%20Technology%20Labs-0060a0.svg?logo=github&longCache=true&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs) [![sponsors](https://img.shields.io/badge/sponsor-%E2%9D%A4-%23db61a2.svg?&logo=github&logoColor=white&labelColor=181717&style=flat-square)](https://github.com/sponsors/wgtechlabs) [![release](https://img.shields.io/github/release/wgtechlabs/unthread-discord-bot.svg?logo=github&labelColor=181717&color=green&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/releases) [![star](https://img.shields.io/github/stars/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&color=yellow&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/stargazers) [![license](https://img.shields.io/github/license/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/blob/main/license)
 
 <!-- [![banner](https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/repo_banner.jpg)](https://github.com/wgtechlabs/unthread-discord-bot) -->
 
-The Unthread Discord Bot is a powerful tool designed to streamline support ticket creation and management within Discord servers. By using simple commands, users can easily create support tickets, which are then managed through the Unthread platform. This bot integrates seamlessly with Discord and Unthread, providing a smooth and efficient support experience for both users and administrators.
+The Unthread Discord Bot is an official community project for Unthread, designed to streamline support ticket creation and management within Discord servers. By using simple commands, users can easily create support tickets, which are then managed through the Unthread platform. This bot integrates seamlessly with Discord and Unthread, providing a smooth and efficient support experience for both users and administrators.
 
 ## ✨ Key Features
 
 - Create support tickets using the `/support` command.
+- Automatically create support tickets from posts in specific forum channels.
 - Easy setup and configuration through the Discord Developer Portal.
 - Integration with Unthread for advanced ticket management.
 - Customizable environment settings for personalized bot behavior.
+
+## 📥 Easy Deployment
+
+You can use Railway to deploy this bot with just one click. Railway offers a seamless deployment experience without any configuration hassles.
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/nVHIjj?referralCode=dTwT-i)
+> [!TIP]
+> When you deploy using the Railway button above, you're directly supporting the ongoing development and maintenance of this project. Your support helps keep this bot free and continuously improving with new features. Thank you for your contribution! 🙏✨
 
 <!-- ## 😎 Demo
 
@@ -21,9 +28,40 @@ The Unthread Discord Bot is a powerful tool designed to streamline support ticke
 
 ## 🕹️ Usage
 
-Use `/support` command to create a support ticket.
+### Creating a Support Ticket
 
-## 📦 Installation
+1. **Using the `/support` Command:**
+   - Type `/support` in any text channel where the bot has access.
+   - A modal will appear with fields for:
+     - Ticket Title: A brief description of your issue
+     - Summary: Detailed explanation of your problem
+     - Contact Email (Optional): Your email address for notifications
+
+2. **Using Forum Channels:**
+   - Create a new post in any forum channel that has been configured for ticket creation.
+   - Your post will automatically be converted to a support ticket.
+   - A confirmation message will appear in the thread.
+
+### Managing Tickets
+
+- **Replying to Tickets:**
+  - Simply reply in the private thread or forum post created by the bot.
+  - Your messages will be synced with the Unthread system.
+
+- **Viewing Ticket Status:**
+  - Status updates (open/closed) will be posted in the thread automatically.
+
+### Utility Commands
+
+- `/ping` - Shows bot latency and API ping metrics.
+- `/server` - Provides information about the Discord server.
+- `/user` - Shows details about your user account.
+- `/version` - Displays the current bot version.
+
+## 📦 Manual Installation
+
+> [!WARNING]
+> This is an advanced installation method and is not recommended for beginners. If you're new to Discord bot development, consider using the [Railway deployment method](#-easy-deployment) instead.
 
 ### 1. Create a Discord Application
 
@@ -93,6 +131,18 @@ Use `/support` command to create a support ticket.
 
 Your bot should now be able to receive events from Unthread.
 
+### 8. Configure Forum Channels
+
+To enable automatic ticket creation from forum posts:
+
+1. Add forum channel IDs to your `.env` file:
+   ```
+   FORUM_CHANNEL_IDS=123456789012345678,234567890123456789
+   ```
+2. Each comma-separated ID represents a forum channel that will be monitored.
+3. Any new forum posts in these channels will automatically create a corresponding ticket in Unthread.
+4. Replies in the forum post will be synchronized with the Unthread ticket.
+
 ### How to Get Your Discord Server ID
 
 1. Open Discord and go to your server.
@@ -120,23 +170,25 @@ Read the project's [contributing guide](./contributing.md) for more info.
 
 Please report any issues and bugs by [creating a new issue here](https://github.com/wgtechlabs/unthread-discord-bot/issues/new/choose), also make sure you're reporting an issue that doesn't exist. Any help to improve the project would be appreciated. Thanks! 🙏✨
 
-## 🙏 Sponsor
+## 🙏 Support
 
 Like this project? **Leave a star**! ⭐⭐⭐⭐⭐
 
-Want to support my work and get some perks? [Become a sponsor](https://github.com/sponsors/warengonzaga)! 💖
+There are several ways you can support this project:
 
-Or, you just love what I do? [Buy me a coffee](https://buymeacoffee.com/warengonzaga)! ☕
+- [Become a sponsor](https://github.com/sponsors/warengonzaga) and get some perks! 💖
+- [Buy me a coffee](https://buymeacoffee.com/warengonzaga) if you just love what I do! ☕
+- Deploy using the [Railway Template](https://railway.com/template/nVHIjj?referralCode=dTwT-i) which directly supports the ongoing development! ✨
 
 Recognized my open-source contributions? [Nominate me](https://stars.github.com/nominate) as GitHub Star! 💫
 
 ## 📋 Code of Conduct
 
-Read the project's [code of conduct](./code_of_conduct.md).
+We're committed to providing a welcoming and inclusive environment for all contributors and users. Please review our project's [Code of Conduct](./code_of_conduct.md) to understand our community standards and expectations for participation.
 
 ## 📃 License
 
-This project is licensed under [GNU General Public License v3.0](https://opensource.org/licenses/GPL-3.0).
+This project is licensed under the [GNU Affero General Public License v3.0](https://opensource.org/licenses/AGPL-3.0). This license requires that all modifications to the code must be shared under the same license, especially when the software is used over a network. See the [LICENSE](LICENSE) file for the full license text.
 
 ## 📝 Author
 
@@ -146,4 +198,4 @@ This project is created by **[Waren Gonzaga](https://github.com/warengonzaga)** 
 
 ---
 
-💻 with ❤️ by [Waren Gonzaga](https://warengonzaga.com) and [Him](https://www.youtube.com/watch?v=HHrxS4diLew&t=44s) 🙏
+💻 with ❤️ by [Waren Gonzaga](https://warengonzaga.com), [WG Technology Labs](https://wgtechlabs.com), and [Him](https://www.youtube.com/watch?v=HHrxS4diLew&t=44s) 🙏

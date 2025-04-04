@@ -1,6 +1,8 @@
 const { Events } = require("discord.js");
 const { version } = require("../../package.json");
 const { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } = require("../services/unthread");
+const { FORUM_CHANNEL_IDS } = process.env;
+const logger = require("../utils/logger");
 
 module.exports = {
   name: Events.MessageCreate,
@@ -12,10 +14,18 @@ module.exports = {
     // If the message is in a thread, check for its mapping to forward to Unthread.
     if (message.channel.isThread()) {
       try {
+        const isForumPost = FORUM_CHANNEL_IDS && 
+                            FORUM_CHANNEL_IDS.split(',').includes(message.channel.parentId) &&
+                            message.id === message.channel.id;
+
+        if (isForumPost) return;
+
         // Retrieve the ticket mapping by Discord thread ID using Keyv
         const ticketMapping = await getTicketByDiscordThreadId(message.channel.id);
         if (ticketMapping) {
           let messageToSend = message.content;
+
+          // Handle quoted/referenced message
           if (message.reference && message.reference.messageId) {
             let quotedMessage;
             try {
@@ -23,26 +33,43 @@ module.exports = {
               quotedMessage = `> ${referenced.content}`;
               messageToSend = `${quotedMessage}\n\n${message.content}`;
             } catch (err) {
-              console.error('Error fetching the referenced message:', err);
+              logger.error('Error fetching the referenced message:', err);
+            }
+          }
+
+          // Handle attachments
+          if (message.attachments.size > 0) {
+            const attachments = Array.from(message.attachments.values());
+            if (attachments.length > 0) {
+              const attachmentLinks = attachments.map((attachment, index) => {
+                const type = attachment.contentType?.startsWith('image/') 
+                  ? 'image' 
+                  : attachment.contentType?.startsWith('video/') 
+                    ? 'video' 
+                    : 'file';
+                return `[${type}_${index + 1}](${attachment.url})`;
+              });
+
+              // Add attachments list to the message with separator characters
+              messageToSend = messageToSend || '';
+              messageToSend += `\n\nAttachments: ${attachmentLinks.join(' | ')}`;
             }
           }
 
           // Get the customer using Redis
           const customer = await getCustomerById(message.author.id);
-          if (!customer) {
-            console.error(`Customer record not found for ${message.author.id}`);
-          } else {
-            const response = await sendMessageToUnthread(
-              ticketMapping.unthreadTicketId,
-              message.author,
-              messageToSend,
-              customer.email
-            );
-            console.log(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
-          }
+          const email = customer?.email || `${message.author.username}@discord.user`;
+
+          const response = await sendMessageToUnthread(
+            ticketMapping.unthreadTicketId,
+            message.author,
+            messageToSend,
+            email
+          );
+          logger.info(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
         }
       } catch (error) {
-        console.error("Error sending message to Unthread:", error);
+        logger.error("Error sending message to Unthread:", error);
       }
     }
 
@@ -55,12 +82,12 @@ async function handleLegacyCommands(message) {
   // check ping
   if (message.content === "!!ping") {
     message.reply(`Latency is ${Date.now() - message.createdTimestamp}ms.`);
-    console.log(`[log]: responded to ping command`);
+    logger.info(`responded to ping command`);
   }
 
   // check version
   if (message.content === "!!version") {
     message.reply(`Version: ${version}`);
-    console.log(`[log]: responded to version command in version ${version}`);
+    logger.info(`responded to version command in version ${version}`);
   }
 }

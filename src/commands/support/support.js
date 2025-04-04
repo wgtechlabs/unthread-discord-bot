@@ -34,10 +34,10 @@ module.exports = {
 
         const emailInput = new TextInputBuilder()
             .setCustomId('emailInput')
-            .setLabel('Contact Email')
-            .setPlaceholder('Your email valid address...')
+            .setLabel('Contact Email (Optional)')
+            .setPlaceholder('Your email address or leave blank...')
             .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+            .setRequired(false);
 
         // Add inputs to the modal
         const firstActionRow = new ActionRowBuilder().addComponents(titleInput);
