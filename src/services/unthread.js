@@ -321,9 +321,24 @@ async function handleWebhookEvent(payload) {
                 }
             }
 
+            // Check for Discord CDN attachment patterns and skip if found
+            const discordCdnPattern = /Attachments: (?:<https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^>]+\|(?:image|video|file)_\d+>|\[(?:image|video|file)_\d+\]https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^\]]+\))/i;
+            
+            // More comprehensive check that handles multiple attachments with pipe separators
+            const hasDiscordAttachments = 
+                discordCdnPattern.test(decodedMessage) || 
+                (decodedMessage.includes('Attachments:') && 
+                 decodedMessage.includes('cdn.discordapp.com/attachments/') &&
+                 (decodedMessage.includes('|image_') || decodedMessage.includes('|file_') || decodedMessage.includes('|video_')));
+                
+            if (hasDiscordAttachments) {
+                logger.debug('Discord attachment links detected in webhook message. Skipping to avoid duplication.');
+                return;
+            }
+
             // Skip attachments section when checking for duplicates
             let messageContent = decodedMessage;
-            const attachmentSection = messageContent.match(/\n\nAttachments: \[.+\]/);
+            const attachmentSection = messageContent.match(/\n\nAttachments: (?:\[.+\]|\<.+\>)/);
             if (attachmentSection) {
                 messageContent = messageContent.replace(attachmentSection[0], '').trim();
             }
