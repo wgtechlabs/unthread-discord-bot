@@ -75,8 +75,11 @@ module.exports = {
 
             logger.info(`Forum post converted to ticket: #${ticket.friendlyId}`);
         } catch (error) {
-            // Log and handle errors during ticket creation.
-            logger.error('Error creating ticket from forum post:', error);
+            if (error.message.includes('timeout')) {
+                logger.error('Ticket creation is taking longer than expected. Please wait and try again.');
+            } else {
+                logger.error('An error occurred while creating the ticket:', error.message);
+            }
             try {
                 // Notify users in the thread about the error.
                 const errorEmbed = new EmbedBuilder()

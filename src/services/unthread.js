@@ -131,33 +131,50 @@ async function createTicket(user, title, issue, email) {
     if (!data.friendlyId && data.id) {
         logger.debug(`friendlyId not found in initial response. Starting polling for ticket ${data.id}`);
         
-        const maxRetries = 50;       // Increased to 50 attempts
-        const retryDelay = 60000;      // Set to 60000ms (60 seconds)
+        // Implementation of exponential backoff for retry logic
+        const maxRetries = 18;           // Increased from 12 to 18 attempts
+        const baseDelayMs = 1000;        // Start with 1 second
+        const maxDelayMs = 60000;        // Increased from 40000 to 60000 ms (60 seconds)
+        const jitterFactor = 0.1;        // Add up to 10% random jitter
         
         for (let attempt = 0; attempt < maxRetries; attempt++) {
-            logger.debug(`Waiting for friendlyId, attempt ${attempt + 1}/${maxRetries}`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            // Calculate exponential delay with jitter
+            let delayMs = Math.min(
+                maxDelayMs,
+                baseDelayMs * Math.pow(2, attempt)
+            );
             
-            const ticketResponse = await fetch(`https://api.unthread.io/api/conversations/${data.id}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-KEY': process.env.UNTHREAD_API_KEY,
-                },
-            });
+            // Add random jitter to prevent synchronized retries
+            delayMs = delayMs * (1 + jitterFactor * Math.random());
             
-            if (!ticketResponse.ok) {
-                logger.error(`Failed to fetch ticket: ${ticketResponse.status}, response: ${await ticketResponse.text()}`);
-                continue;
-            }
+            logger.debug(`Waiting for friendlyId, attempt ${attempt + 1}/${maxRetries} with delay of ${Math.round(delayMs)}ms`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
             
-            const updatedData = await ticketResponse.json();
-            logger.debug(`Polling result (attempt ${attempt + 1}):`, JSON.stringify(updatedData, null, 2));
-            
-            if (updatedData.friendlyId) {
-                data = updatedData;
-                logger.info(`Found friendlyId: ${data.friendlyId} after ${attempt + 1} attempts`);
-                break;
+            try {
+                const ticketResponse = await fetch(`https://api.unthread.io/api/conversations/${data.id}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-KEY': process.env.UNTHREAD_API_KEY,
+                    },
+                });
+                
+                if (!ticketResponse.ok) {
+                    logger.error(`Failed to fetch ticket: ${ticketResponse.status}, response: ${await ticketResponse.text()}`);
+                    continue;
+                }
+                
+                const updatedData = await ticketResponse.json();
+                logger.debug(`Polling result (attempt ${attempt + 1}):`, JSON.stringify(updatedData, null, 2));
+                
+                if (updatedData.friendlyId) {
+                    data = updatedData;
+                    logger.info(`Found friendlyId: ${data.friendlyId} after ${attempt + 1} attempts`);
+                    break;
+                }
+            } catch (error) {
+                logger.error(`Error during polling attempt ${attempt + 1}:`, error);
+                // Continue the retry loop rather than failing immediately on network errors
             }
         }
     }
