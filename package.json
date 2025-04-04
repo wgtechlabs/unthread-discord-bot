@@ -1,7 +1,7 @@
 {
   "name": "unthread-discord-bot",
   "description": "A simple discord bot integration for unthread.io",
-  "version": "0.1.20-alpha",
+  "version": "0.2.0-beta",
   "private": true,
   "main": "index.js",
   "scripts": {
@@ -10,7 +10,7 @@
     "deploycommand": "node src/deploy_commands.js"
   },
   "keywords": [],
-  "author": "Waren Gonzaga",
+  "author": "Waren Gonzaga <opensource@warengonzaga.com> (https://warengonzaga.com)",
   "license": "GPL-3.0",
   "repository": {
     "type": "git",
