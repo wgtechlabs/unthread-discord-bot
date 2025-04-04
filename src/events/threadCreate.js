@@ -5,6 +5,7 @@
 const { Events, EmbedBuilder } = require('discord.js');
 const { createTicket, bindTicketWithThread } = require('../services/unthread');
 const { getKey, setKey } = require('../utils/memory');
+const logger = require('../utils/logger');
 require('dotenv').config();
 
 // Retrieve forum channel IDs from environment variables.
@@ -18,7 +19,7 @@ module.exports = {
         // Ignore threads created in channels not listed in FORUM_CHANNEL_IDS.
         if (!FORUM_CHANNEL_IDS.includes(thread.parentId)) return;
 
-        console.log(`New forum post detected in monitored channel: ${thread.name}`);
+        logger.info(`New forum post detected in monitored channel: ${thread.name}`);
 
         try {
             // Fetch the first message in the thread (the original forum post).
@@ -26,7 +27,7 @@ module.exports = {
             const firstMessage = messages.first();
 
             if (!firstMessage) {
-                console.error(`Could not find the initial message for forum post: ${thread.id}`);
+                logger.error(`Could not find the initial message for forum post: ${thread.id}`);
                 return;
             }
 
@@ -67,10 +68,10 @@ module.exports = {
 
             await thread.send({ embeds: [ticketEmbed] });
 
-            console.log(`Forum post converted to ticket: #${ticket.friendlyId}`);
+            logger.info(`Forum post converted to ticket: #${ticket.friendlyId}`);
         } catch (error) {
             // Log and handle errors during ticket creation.
-            console.error('Error creating ticket from forum post:', error);
+            logger.error('Error creating ticket from forum post:', error);
             try {
                 // Notify users in the thread about the error.
                 const errorEmbed = new EmbedBuilder()
@@ -82,7 +83,7 @@ module.exports = {
                 
                 await thread.send({ embeds: [errorEmbed] });
             } catch (sendError) {
-                console.error('Could not send error message to thread:', sendError);
+                logger.error('Could not send error message to thread:', sendError);
             }
         }
     },

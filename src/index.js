@@ -5,6 +5,7 @@ const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
 const { webhookHandler } = require('./services/webhook');
+const logger = require('./utils/logger');
 
 require("dotenv").config();
 
@@ -42,7 +43,7 @@ app.use(
 app.post('/webhook/unthread', webhookHandler);
 
 app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+  logger.info(`Server listening on port ${port}`);
 });
 
 /**
@@ -64,7 +65,7 @@ for (const folder of commandFolders) {
 		if ('data' in command && 'execute' in command) {
 			client.commands.set(command.data.name, command);
 		} else {
-			console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+			logger.warn(`The command at ${filePath} is missing a required "data" or "execute" property.`);
 		}
 	}
 }
@@ -88,6 +89,6 @@ for (const file of eventFiles) {
 client.login(DISCORD_BOT_TOKEN)
   .then(() => {
     global.discordClient = client;
-    console.log('Discord client is ready and set globally.');
+    logger.info('Discord client is ready and set globally.');
   })
-  .catch(console.error);
+  .catch(logger.error);

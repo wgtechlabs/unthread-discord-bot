@@ -9,6 +9,7 @@
 const { decodeHtmlEntities } = require('../utils/decodeHtmlEntities');
 const { setKey, getKey } = require('../utils/memory');
 const { EmbedBuilder } = require('discord.js');
+const logger = require('../utils/logger');
 
 require('dotenv').config();
 
@@ -125,16 +126,16 @@ async function createTicket(user, title, issue, email) {
     }
 
     let data = await response.json();
-    console.log('Initial ticket creation response:', JSON.stringify(data, null, 2));
+    logger.debug('Initial ticket creation response:', JSON.stringify(data, null, 2));
     
     if (!data.friendlyId && data.id) {
-        console.log(`friendlyId not found in initial response. Starting polling for ticket ${data.id}`);
+        logger.debug(`friendlyId not found in initial response. Starting polling for ticket ${data.id}`);
         
         const maxRetries = 50;       // Increased to 50 attempts
         const retryDelay = 60000;      // Set to 60000ms (60 seconds)
         
         for (let attempt = 0; attempt < maxRetries; attempt++) {
-            console.log(`Waiting for friendlyId, attempt ${attempt + 1}/${maxRetries}`);
+            logger.debug(`Waiting for friendlyId, attempt ${attempt + 1}/${maxRetries}`);
             await new Promise(resolve => setTimeout(resolve, retryDelay));
             
             const ticketResponse = await fetch(`https://api.unthread.io/api/conversations/${data.id}`, {
@@ -146,16 +147,16 @@ async function createTicket(user, title, issue, email) {
             });
             
             if (!ticketResponse.ok) {
-                console.error(`Failed to fetch ticket: ${ticketResponse.status}, response: ${await ticketResponse.text()}`);
+                logger.error(`Failed to fetch ticket: ${ticketResponse.status}, response: ${await ticketResponse.text()}`);
                 continue;
             }
             
             const updatedData = await ticketResponse.json();
-            console.log(`Polling result (attempt ${attempt + 1}):`, JSON.stringify(updatedData, null, 2));
+            logger.debug(`Polling result (attempt ${attempt + 1}):`, JSON.stringify(updatedData, null, 2));
             
             if (updatedData.friendlyId) {
                 data = updatedData;
-                console.log(`Found friendlyId: ${data.friendlyId} after ${attempt + 1} attempts`);
+                logger.info(`Found friendlyId: ${data.friendlyId} after ${attempt + 1} attempts`);
                 break;
             }
         }
@@ -215,19 +216,19 @@ async function getTicketByUnthreadTicketId(unthreadTicketId) {
  * @returns {Object} - The processed payload
  */
 async function handleWebhookEvent(payload) {
-    console.log('Received webhook event from Unthread:', payload);
+    logger.debug('Received webhook event from Unthread:', payload);
     
     if (payload.event === 'conversation_updated') {
         const { id, status, friendlyId, title } = payload.data;
         if (status === 'closed') {
             const ticketMapping = await getTicketByUnthreadTicketId(id);
             if (!ticketMapping) {
-                console.error(`No Discord thread found for Unthread ticket ${id}`);
+                logger.error(`No Discord thread found for Unthread ticket ${id}`);
                 return;
             }
             const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
             if (!discordThread) {
-                console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
+                logger.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
                 return;
             }
 
@@ -247,16 +248,16 @@ async function handleWebhookEvent(payload) {
             }
 
             await discordThread.send({ embeds: [closedEmbed] });
-            console.log(`Sent closure notification embed to Discord thread ${discordThread.id}`);
+            logger.info(`Sent closure notification embed to Discord thread ${discordThread.id}`);
         } else if (status === 'open') {
             const ticketMapping = await getTicketByUnthreadTicketId(id);
             if (!ticketMapping) {
-                console.error(`No Discord thread found for Unthread ticket ${id}`);
+                logger.error(`No Discord thread found for Unthread ticket ${id}`);
                 return;
             }
             const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
             if (!discordThread) {
-                console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
+                logger.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
                 return;
             }
 
@@ -276,14 +277,14 @@ async function handleWebhookEvent(payload) {
             }
 
             await discordThread.send({ embeds: [reopenedEmbed] });
-            console.log(`Sent reopen notification embed to Discord thread ${discordThread.id}`);
+            logger.info(`Sent reopen notification embed to Discord thread ${discordThread.id}`);
         }
         return;
     }
     
     if (payload.event === 'message_created') {
         if (payload.data.metadata && payload.data.metadata.source === "discord") {
-            console.log("Message originated from Discord, skipping to avoid duplication");
+            logger.debug("Message originated from Discord, skipping to avoid duplication");
             return;
         }
 
@@ -292,15 +293,15 @@ async function handleWebhookEvent(payload) {
         try {
             const ticketMapping = await getTicketByUnthreadTicketId(conversationId);
             if (!ticketMapping) {
-                console.error(`No Discord thread found for Unthread ticket ${conversationId}`);
+                logger.error(`No Discord thread found for Unthread ticket ${conversationId}`);
                 return;
             }
             const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
             if (!discordThread) {
-                console.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
+                logger.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
                 return;
             }
-            console.log(`Found Discord thread: ${discordThread.id}`);
+            logger.debug(`Found Discord thread: ${discordThread.id}`);
 
             const messages = await discordThread.messages.fetch({ limit: 10 });
 
@@ -309,13 +310,13 @@ async function handleWebhookEvent(payload) {
                 const ticketSummaryMessage = messagesArray[1];
                 
                 if (ticketSummaryMessage && ticketSummaryMessage.content.includes(decodedMessage.trim())) {
-                    console.log('Message content already exists in ticket summary. Skipping webhook message.');
+                    logger.debug('Message content already exists in ticket summary. Skipping webhook message.');
                     return;
                 }
                 
                 const duplicate = messages.some(msg => msg.content === decodedMessage);
                 if (duplicate) {
-                    console.log('Duplicate message detected. Skipping send.');
+                    logger.debug('Duplicate message detected. Skipping send.');
                     return;
                 }
             }
@@ -328,18 +329,18 @@ async function handleWebhookEvent(payload) {
                 let quotedMessage = quotedMessageMatch[0].trim();
                 quotedMessage = quotedMessage.replace(/^>\s?/gm, '').trim();
                 const remainingText = decodedMessage.replace(quotedMessageMatch[0], '').trim();
-                console.log(`Message being used to search: ${quotedMessage}`);
-                console.log(`Message being used to search: ${remainingText}`);
+                logger.debug(`Message being used to search: ${quotedMessage}`);
+                logger.debug(`Message being used to search: ${remainingText}`);
                 const matchingMsg = messages.find(msg => msg.content.trim() === quotedMessage);
                 if (matchingMsg) {
                     replyReference = matchingMsg.id;
                     contentToSend = remainingText || " ";
-                    console.log(`Quoted text matched message ${matchingMsg.id}`);
+                    logger.debug(`Quoted text matched message ${matchingMsg.id}`);
                 }
 
                 const remainingTextDuplicate = messages.some(msg => msg.content.trim() === remainingText);
                 if (remainingTextDuplicate) {
-                    console.log('Remaining text matches an existing message. Skipping send.');
+                    logger.debug('Remaining text matches an existing message. Skipping send.');
                     return;
                 }
             }
@@ -349,13 +350,13 @@ async function handleWebhookEvent(payload) {
                     content: contentToSend,
                     reply: { messageReference: replyReference },
                 });
-                console.log(`Sent reply message to Discord message ${replyReference} in thread ${discordThread.id}`);
+                logger.info(`Sent reply message to Discord message ${replyReference} in thread ${discordThread.id}`);
             } else {
                 await discordThread.send(decodedMessage);
-                console.log(`Sent message to Discord thread ${discordThread.id}`);
+                logger.info(`Sent message to Discord thread ${discordThread.id}`);
             }
         } catch (error) {
-            console.error('Error processing new message webhook event:', error);
+            logger.error('Error processing new message webhook event:', error);
         }
     }
     return payload;

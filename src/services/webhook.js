@@ -1,6 +1,6 @@
-// language: JavaScript
 const { createHmac } = require('crypto');
 const { handleWebhookEvent: unthreadWebhookHandler } = require('./unthread');
+const logger = require('../utils/logger');
 
 const SIGNING_SECRET = process.env.UNTHREAD_WEBHOOK_SECRET;
 
@@ -14,9 +14,9 @@ function verifySignature(req) {
 }
 
 function webhookHandler(req, res) {
-  console.log('Webhook received:', req.rawBody);
+  logger.debug('Webhook received:', req.rawBody);
   if (!verifySignature(req)) {
-    console.error('Signature verification failed.');
+    logger.error('Signature verification failed.');
     res.sendStatus(403);
     return;
   }

@@ -1,5 +1,6 @@
 const { Events, ChannelType, MessageFlags } = require('discord.js');
 const { createTicket, bindTicketWithThread } = require('../services/unthread');
+const logger = require('../utils/logger');
 
 /**
  * InteractionCreate event handler
@@ -16,7 +17,7 @@ module.exports = {
             const title = interaction.fields.getTextInputValue('titleInput'); 
             const issue = interaction.fields.getTextInputValue('issueInput');
             const email = interaction.fields.getTextInputValue('emailInput');
-            console.log(`Support ticket submitted: ${title}, ${issue}, email: ${email}`);
+            logger.debug(`Support ticket submitted: ${title}, ${issue}, email: ${email}`);
 
             // Acknowledge interaction immediately to prevent Discord timeout
             // Using ephemeral reply so only the submitter can see it
@@ -27,7 +28,7 @@ module.exports = {
             try {
                 // Step 1: Create ticket in unthread.io using external API
                 ticket = await createTicket(interaction.user, title, issue, email);
-                console.log('Ticket created:', ticket);
+                logger.debug('Ticket created:', ticket);
                 
                 // Validate ticket creation was successful
                 if (!ticket.friendlyId) {
@@ -61,7 +62,7 @@ module.exports = {
             } catch (error) {
                 // Handle any failures in the ticket creation workflow
                 // This could be API errors, permission issues, or Discord rate limits
-                console.error('Ticket creation failed:', error);
+                logger.error('Ticket creation failed:', error);
                 await interaction.editReply('Sorry, there was an error creating your support ticket. Please try again later.');
                 return;
             }
@@ -78,7 +79,7 @@ module.exports = {
 
         // Check if command exists in our registered commands
         if (!command) {
-            console.error(`No command matching ${interaction.commandName} was found.`);
+            logger.error(`No command matching ${interaction.commandName} was found.`);
             return;
         }
 
@@ -88,7 +89,7 @@ module.exports = {
             await command.execute(interaction);
         } catch (error) {
             // Log the full error for debugging
-            console.error(error);
+            logger.error(error);
             
             // Handle response based on interaction state
             // If we already replied or deferred, use followUp
