@@ -1,5 +1,6 @@
 const { Events, ChannelType, MessageFlags } = require('discord.js');
 const { createTicket, bindTicketWithThread } = require('../services/unthread');
+const { getKey, setKey } = require('../utils/memory');
 const logger = require('../utils/logger');
 
 /**
@@ -16,7 +17,24 @@ module.exports = {
             // Extract form data from modal submission
             const title = interaction.fields.getTextInputValue('titleInput'); 
             const issue = interaction.fields.getTextInputValue('issueInput');
-            const email = interaction.fields.getTextInputValue('emailInput');
+            let email = interaction.fields.getTextInputValue('emailInput');
+            
+            if (!email || email.trim() === '') {
+                const customerKey = `customer:${interaction.user.id}`;
+                const existingCustomer = await getKey(customerKey);
+                email = existingCustomer?.email || `${interaction.user.username}@discord.user`;
+
+                if (!existingCustomer) {
+                    await setKey(customerKey, { email });
+                }
+
+                logger.debug(`Using fallback email for user ${interaction.user.id}: ${email}`);
+            } else {
+                const customerKey = `customer:${interaction.user.id}`;
+                await setKey(customerKey, { email });
+                logger.debug(`Stored email for user ${interaction.user.id}: ${email}`);
+            }
+
             logger.debug(`Support ticket submitted: ${title}, ${issue}, email: ${email}`);
 
             // Acknowledge interaction immediately to prevent Discord timeout
@@ -52,13 +70,18 @@ module.exports = {
                         > **Ticket #:** ${ticket.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}
                     `,
                 });
+
+                // Step 4.1: Send confirmation message
+                await thread.send({
+                    content: `Hello <@${interaction.user.id}>, we have received your ticket and will respond shortly. Please check this thread for updates.`,
+                });
                 
                 // Step 5: Associate the Discord thread with the ticket in the backend
                 // This allows messages in the thread to be synced with the ticket system
                 await bindTicketWithThread(ticket.id, thread.id);
                 
                 // Step 6: Complete the interaction with confirmation message
-                await interaction.editReply('Your support ticket has been submitted! A private thread has been created for further communication.');
+                await interaction.editReply('Your support ticket has been submitted! A private thread has been created for further assistance.');
             } catch (error) {
                 // Handle any failures in the ticket creation workflow
                 // This could be API errors, permission issues, or Discord rate limits

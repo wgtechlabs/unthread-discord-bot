@@ -68,6 +68,11 @@ module.exports = {
 
             await thread.send({ embeds: [ticketEmbed] });
 
+            // Add the confirmation message similar to private threads
+            await thread.send({
+                content: `Hello <@${author.id}>, we have received your ticket and will respond shortly. Please check this thread for updates.`
+            });
+
             logger.info(`Forum post converted to ticket: #${ticket.friendlyId}`);
         } catch (error) {
             // Log and handle errors during ticket creation.
