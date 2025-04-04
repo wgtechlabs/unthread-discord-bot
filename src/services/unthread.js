@@ -321,6 +321,14 @@ async function handleWebhookEvent(payload) {
                 }
             }
 
+            // Skip attachments section when checking for duplicates
+            let messageContent = decodedMessage;
+            const attachmentSection = messageContent.match(/\n\nAttachments: \[.+\]/);
+            if (attachmentSection) {
+                messageContent = messageContent.replace(attachmentSection[0], '').trim();
+            }
+
+            // Look for quoted content, but ignore attachment links
             let quotedMessageMatch = decodedMessage.match(/^(>\s?.+(?:\n|$))+/);
             let replyReference = null;
             let contentToSend = decodedMessage;
@@ -329,19 +337,26 @@ async function handleWebhookEvent(payload) {
                 let quotedMessage = quotedMessageMatch[0].trim();
                 quotedMessage = quotedMessage.replace(/^>\s?/gm, '').trim();
                 const remainingText = decodedMessage.replace(quotedMessageMatch[0], '').trim();
-                logger.debug(`Message being used to search: ${quotedMessage}`);
-                logger.debug(`Message being used to search: ${remainingText}`);
-                const matchingMsg = messages.find(msg => msg.content.trim() === quotedMessage);
-                if (matchingMsg) {
-                    replyReference = matchingMsg.id;
-                    contentToSend = remainingText || " ";
-                    logger.debug(`Quoted text matched message ${matchingMsg.id}`);
-                }
 
-                const remainingTextDuplicate = messages.some(msg => msg.content.trim() === remainingText);
-                if (remainingTextDuplicate) {
-                    logger.debug('Remaining text matches an existing message. Skipping send.');
-                    return;
+                if (!quotedMessage.startsWith("Attachments: [")) {
+                    const matchingMsg = messages.find(msg => msg.content.trim() === quotedMessage);
+                    if (matchingMsg) {
+                        replyReference = matchingMsg.id;
+                        contentToSend = remainingText || " ";
+                    }
+
+                    const remainingTextDuplicate = messages.some(msg => {
+                        let msgContent = msg.content.trim();
+                        const msgAttachmentSection = msgContent.match(/\n\nAttachments: \[.+\]/);
+                        if (msgAttachmentSection) {
+                            msgContent = msgContent.replace(msgAttachmentSection[0], '').trim();
+                        }
+                        return msgContent === remainingText;
+                    });
+
+                    if (remainingTextDuplicate) {
+                        return;
+                    }
                 }
             }
 

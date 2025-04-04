@@ -24,6 +24,8 @@ module.exports = {
         const ticketMapping = await getTicketByDiscordThreadId(message.channel.id);
         if (ticketMapping) {
           let messageToSend = message.content;
+
+          // Handle quoted/referenced message
           if (message.reference && message.reference.messageId) {
             let quotedMessage;
             try {
@@ -32,6 +34,25 @@ module.exports = {
               messageToSend = `${quotedMessage}\n\n${message.content}`;
             } catch (err) {
               logger.error('Error fetching the referenced message:', err);
+            }
+          }
+
+          // Handle attachments
+          if (message.attachments.size > 0) {
+            const attachments = Array.from(message.attachments.values());
+            if (attachments.length > 0) {
+              const attachmentLinks = attachments.map((attachment, index) => {
+                const type = attachment.contentType?.startsWith('image/') 
+                  ? 'image' 
+                  : attachment.contentType?.startsWith('video/') 
+                    ? 'video' 
+                    : 'file';
+                return `[${type}_${index + 1}](${attachment.url})`;
+              });
+
+              // Add attachments list to the message with separator characters
+              messageToSend = messageToSend || '';
+              messageToSend += `\n\nAttachments: ${attachmentLinks.join(' | ')}`;
             }
           }
 
