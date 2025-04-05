@@ -330,26 +330,35 @@ async function handleWebhookEvent(payload) {
         const slackTimestamp = messageId ? messageId.split('-').pop().split('.')[0] : null;
         
         if (slackTimestamp) {
-            // Check if we have any records of a message deleted within a short window (e.g., 5 seconds)
-            // of this webhook being received
+            // Check if we have any records of a message deleted within a short window
             const currentTime = Date.now();
             const messageTimestamp = parseInt(slackTimestamp) * 1000; // Convert to milliseconds
             
             // Only process if the message isn't too old (prevents processing old messages)
             if (currentTime - messageTimestamp < 10000) { // Within 10 seconds
                 // Check recent deleted messages in this channel
-                const deletedMessagesKey = `deleted:channel:${payload.data.channelId}`;
-                const recentlyDeletedMessages = await getKey(deletedMessagesKey) || [];
+                const conversationId = payload.data.conversationId;
+                const ticketMapping = await getTicketByUnthreadTicketId(conversationId);
                 
-                // If we have any deleted messages from this channel in the last few seconds,
-                // there's a good chance this is a race condition with a deleted message
-                const isRecentlyDeleted = recentlyDeletedMessages.some(item => 
-                    currentTime - item.timestamp < 5000 // Within 5 seconds
-                );
-                
-                if (isRecentlyDeleted) {
-                    logger.info(`Skipping webhook processing for message in channel ${payload.data.channelId} - likely a deleted message race condition`);
-                    return;
+                // If we can't find the thread mapping, proceed with sending the message
+                if (!ticketMapping) {
+                    logger.debug(`No Discord thread found for Unthread ticket ${conversationId}, proceeding with message`);
+                } else {
+                    const deletedMessagesKey = `deleted:channel:${ticketMapping.discordThreadId}`;
+                    const recentlyDeletedMessages = await getKey(deletedMessagesKey) || [];
+                    
+                    // If there are any recently deleted messages in the last 5 seconds, 
+                    // skip processing to avoid duplicates
+                    if (recentlyDeletedMessages.length > 0) {
+                        const hasRecentDeletions = recentlyDeletedMessages.some(item => 
+                            currentTime - item.timestamp < 5000 // Within 5 seconds
+                        );
+                        
+                        if (hasRecentDeletions) {
+                            logger.info(`Skipping webhook processing for message - detected recent message deletions in thread ${ticketMapping.discordThreadId}`);
+                            return;
+                        }
+                    }
                 }
             }
         }
