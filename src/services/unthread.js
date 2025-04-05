@@ -19,31 +19,51 @@ require('dotenv').config();
  */
 
 /**
- * Creates a new customer in Unthread's system
+ * Creates a new customer in Unthread's system based on Discord user information.
+ * 
+ * This function sends a POST request to the Unthread customer API and returns the
+ * customer ID used by Unthread to identify this user for future interactions.
  * 
  * @param {Object} user - Discord user object containing user details
- * @returns {string} - The Unthread customer ID
- * @throws {Error} - If API request fails or response is invalid
+ * @param {string} user.username - Username that will be used as the customer name in Unthread
+ * @param {string} user.id - Discord user ID (not sent to Unthread but useful for tracing)
+ * @returns {string} - The Unthread customer ID (either from customerId or id field in response)
+ * @throws {Error} - If API request fails (non-200 response) or response is missing required fields
+ * 
+ * @debug - If API requests are failing, check:
+ *  1. API_KEY validity and permissions in .env file
+ *  2. Network connectivity to api.unthread.io
+ *  3. Response format changes from Unthread API (look for id/customerId field changes)
+ *  4. The full error message will include the status code from the API for debugging
  */
 async function createCustomerInUnthread(user) {
+    // Construct the API request to create a customer in Unthread
     const response = await fetch('https://api.unthread.io/api/customers', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-API-KEY': process.env.UNTHREAD_API_KEY,
         },
+        // Only the username is required by Unthread API for customer creation
+        // Additional fields could be added here in the future if needed
         body: JSON.stringify({ name: user.username }),
     });
 
+    // Handle unsuccessful API responses with descriptive error message
     if (!response.ok) {
         throw new Error(`Failed to create customer: ${response.status}`);
     }
 
     const data = await response.json();
+    
+    // Handle API response variability - Unthread may return customerId or id
     const customerId = data.customerId || data.id;
+    
+    // Validate we actually got a usable customer ID
     if (!customerId) {
         throw new Error(`Customer API response invalid, missing customerId: ${JSON.stringify(data)}`);
     }
+    
     return customerId;
 }
 
@@ -303,6 +323,35 @@ async function handleWebhookEvent(payload) {
         if (payload.data.metadata && payload.data.metadata.source === "discord") {
             logger.debug("Message originated from Discord, skipping to avoid duplication");
             return;
+        }
+        
+        // Extract timestamp from Slack-formatted message ID
+        const messageId = payload.data.id;
+        const slackTimestamp = messageId ? messageId.split('-').pop().split('.')[0] : null;
+        
+        if (slackTimestamp) {
+            // Check if we have any records of a message deleted within a short window (e.g., 5 seconds)
+            // of this webhook being received
+            const currentTime = Date.now();
+            const messageTimestamp = parseInt(slackTimestamp) * 1000; // Convert to milliseconds
+            
+            // Only process if the message isn't too old (prevents processing old messages)
+            if (currentTime - messageTimestamp < 10000) { // Within 10 seconds
+                // Check recent deleted messages in this channel
+                const deletedMessagesKey = `deleted:channel:${payload.data.channelId}`;
+                const recentlyDeletedMessages = await getKey(deletedMessagesKey) || [];
+                
+                // If we have any deleted messages from this channel in the last few seconds,
+                // there's a good chance this is a race condition with a deleted message
+                const isRecentlyDeleted = recentlyDeletedMessages.some(item => 
+                    currentTime - item.timestamp < 5000 // Within 5 seconds
+                );
+                
+                if (isRecentlyDeleted) {
+                    logger.info(`Skipping webhook processing for message in channel ${payload.data.channelId} - likely a deleted message race condition`);
+                    return;
+                }
+            }
         }
 
         const conversationId = payload.data.conversationId;
