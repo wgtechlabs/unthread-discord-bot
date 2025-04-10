@@ -1,4 +1,4 @@
-# Unthread Discord Bot 🤖 - Official Integration 
+# Unthread Discord Bot 🤖 - Official Integration
 
 [![made by](https://img.shields.io/badge/made%20by-WG%20Technology%20Labs-0060a0.svg?logo=github&longCache=true&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs) [![sponsors](https://img.shields.io/badge/sponsor-%E2%9D%A4-%23db61a2.svg?&logo=github&logoColor=white&labelColor=181717&style=flat-square)](https://github.com/sponsors/wgtechlabs) [![release](https://img.shields.io/github/release/wgtechlabs/unthread-discord-bot.svg?logo=github&labelColor=181717&color=green&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/releases) [![star](https://img.shields.io/github/stars/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&color=yellow&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/stargazers) [![license](https://img.shields.io/github/license/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/blob/main/license)
 
@@ -14,7 +14,7 @@ With simple commands and forum integration, support tickets automatically sync b
 | <div align="center">💎 Platinum Sponsor</div> |
 |:-------------------------------------------:|
 | <a href="https://unthread.com"><img src="https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/sponsors/platinum_unthread.png" width="250" alt="Unthread"></a> |
-| <div align="center"><a href="https://unthread.com" target="_blank">Unthread</a> - Powering the future of collaborative customer support.</div> |
+| <div align="center"><a href="https://unthread.com" target="_blank"><b>Unthread</b></a><br/>Streamlined support ticketing for modern teams.</div> |
 <!-- markdownlint-enable MD033 -->
 
 ## 🤔 How It Works
@@ -121,14 +121,8 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
 ### 5. Install and Run the Project Locally
 
 1. Clone the repository and navigate to the project directory.
-2. Install the dependencies:
-  ```sh
-  yarn install
-  ```
-3. Start the bot:
-  ```sh
-  yarn start
-  ```
+2. Install the dependencies: `yarn install`
+3. Start the bot: `yarn start`
 4. The bot should now be running in your Discord server.
 
 ### 6. Port Forwarding for Webhook
@@ -144,12 +138,9 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
 
 1. Log in to your Unthread dashboard.
 2. Navigate to the "Settings" section.
-3. Under "Webhook Configuration", enter the following URL:
-  ```
-  http://<YOUR_PUBLIC_URL>:3000/webhook/unthread
-  ```
-    Replace `<YOUR_PUBLIC_URL>` with the public URL provided by VS Code.
-4. Save the settings.
+3. Under "Webhook Configuration", enter the following URL: `http://<YOUR_PUBLIC_URL>:3000/webhook/unthread`
+4. Replace `<YOUR_PUBLIC_URL>` with the public URL provided by VS Code.
+5. Save the settings.
 
 Your bot should now be able to receive events from Unthread.
 
@@ -157,10 +148,9 @@ Your bot should now be able to receive events from Unthread.
 
 To enable automatic ticket creation from forum posts:
 
-1. Add forum channel IDs to your `.env` file:
-   ```
-   FORUM_CHANNEL_IDS=123456789012345678,234567890123456789
-   ```
+1. Add forum channel IDs to your `.env` file: `FORUM_CHANNEL_IDS=123456789012345678,234567890123456789`
+    - Replace the IDs with the actual IDs of your forum channels.
+    - You can find the channel ID by right-clicking on the channel name in Discord and selecting "Copy ID" (make sure Developer Mode is enabled in your Discord settings).
 2. Each comma-separated ID represents a forum channel that will be monitored.
 3. Any new forum posts in these channels will automatically create a corresponding ticket in Unthread.
 4. Replies in the forum post will be synchronized with the Unthread ticket.
@@ -181,13 +171,13 @@ Alternatively, you can enable Developer Mode to get the server ID:
 3. Enable "Developer Mode".
 4. Right-click on your server name in the server list.
 5. Select "Copy ID" to copy the server ID to your clipboard.
-   
+
 ## 💬 Community Discussions
 
 Join our community discussions to get help, share ideas, and connect with other users:
 
 - 📣 **[Announcements](https://github.com/wgtechlabs/unthread-discord-bot/discussions/categories/announcements)**: Official updates from the maintainer
-- 📸 **[Showcase](https://github.com/wgtechlabs/unthread-discord-bot/discussions/categories/showcase)**: Show and tell your implementation 
+- 📸 **[Showcase](https://github.com/wgtechlabs/unthread-discord-bot/discussions/categories/showcase)**: Show and tell your implementation
 - 💖 **[Wall of Love](https://github.com/wgtechlabs/unthread-discord-bot/discussions/categories/wall-of-love)**: Share your experience with the bot
 - 🛟 **[Help & Support](https://github.com/wgtechlabs/unthread-discord-bot/discussions/categories/help-support)**: Get assistance from the community
 - 🧠 **[Ideas](https://github.com/wgtechlabs/unthread-discord-bot/discussions/categories/ideas)**: Suggest new features and improvements
@@ -232,7 +222,6 @@ There are several ways you can support this project:
 ## ⭐ GitHub Star Nomination
 
 Found this project helpful? Consider nominating me **(@warengonzaga)** for the [GitHub Star program](https://stars.github.com/nominate/)! This recognition supports ongoing development of this project and [my other open-source projects](https://github.com/warengonzaga?tab=repositories). GitHub Stars are recognized for their significant contributions to the developer community - your nomination makes a difference and encourages continued innovation!
-
 
 ## 📋 Code of Conduct
 
