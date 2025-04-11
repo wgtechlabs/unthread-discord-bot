@@ -47,7 +47,8 @@ module.exports = {
 
             // Create a support ticket in Unthread using the forum post details.
             const ticket = await createTicket(author, title, content, email);
-            if (!ticket.friendlyId) throw new Error('Ticket was created but no friendlyId was provided');
+            // No need to check for friendlyId here as createTicket already handles this
+            // and will throw if it can't get one after polling
 
             // Link the Discord thread with the Unthread ticket for communication.
             await bindTicketWithThread(ticket.id, thread.id);
@@ -63,7 +64,7 @@ module.exports = {
                     { name: 'Title', value: title, inline: false },
                     { name: 'Created By', value: author.tag, inline: true }
                 )
-                .setFooter({ text: 'Unthread Support System' })
+                .setFooter({ text: 'Unthread Discord Bot' })
                 .setTimestamp();
 
             await thread.send({ embeds: [ticketEmbed] });
@@ -86,7 +87,7 @@ module.exports = {
                     .setColor(0xFF0000)
                     .setTitle('Error Creating Support Ticket')
                     .setDescription('There was an error creating a support ticket from this forum post. A staff member will assist you shortly.')
-                    .setFooter({ text: 'Unthread Support System' })
+                    .setFooter({ text: 'Unthread Discord Bot' })
                     .setTimestamp();
                 
                 await thread.send({ embeds: [errorEmbed] });
