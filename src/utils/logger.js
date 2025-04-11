@@ -21,6 +21,25 @@
 const debugMode = process.env.DEBUG_MODE === 'true';
 
 /**
+ * Gets a formatted timestamp string for the current time
+ * Format: MM-DD-YYYY HH:MM:SS.mmm
+ * 
+ * @returns {string} Formatted timestamp
+ */
+function getTimestamp() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const year = now.getFullYear();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+    
+    return `${month}-${day}-${year} ${hours}:${minutes}:${seconds}.${ms}`;
+}
+
+/**
  * Log debug information (only visible when DEBUG_MODE=true)
  * Used for detailed troubleshooting information that is too verbose for regular operation
  * 
@@ -30,9 +49,9 @@ function debug(...args) {
     if (debugMode) {
         if (args.length > 0) {
             if (typeof args[0] === 'string') {
-                args[0] = `[DEBUG] ${args[0]}`;  // Prepend label to string message
+                args[0] = `[${getTimestamp()}][DEBUG] ${args[0]}`;
             } else {
-                args.unshift('[DEBUG]');  // Add label as separate argument
+                args.unshift(`[${getTimestamp()}][DEBUG]`);
             }
         }
         console.log(...args);
@@ -49,9 +68,9 @@ function info(...args) {
     // Always show info-level logs regardless of debug mode
     if (args.length > 0) {
         if (typeof args[0] === 'string') {
-            args[0] = `[INFO] ${args[0]}`;  // Prepend label to string message
+            args[0] = `[${getTimestamp()}][INFO] ${args[0]}`;
         } else {
-            args.unshift('[INFO]');  // Add label as separate argument
+            args.unshift(`[${getTimestamp()}][INFO]`);
         }
     }
     console.log(...args);
@@ -67,9 +86,9 @@ function info(...args) {
 function warn(...args) {
     if (args.length > 0) {
         if (typeof args[0] === 'string') {
-            args[0] = `[WARN] ${args[0]}`;  // Prepend label to string message
+            args[0] = `[${getTimestamp()}][WARN] ${args[0]}`;
         } else {
-            args.unshift('[WARN]');  // Add label as separate argument
+            args.unshift(`[${getTimestamp()}][WARN]`);
         }
     }
     console.warn(...args);  // Uses console.warn for proper error stream routing
@@ -84,9 +103,9 @@ function warn(...args) {
 function error(...args) {
     if (args.length > 0) {
         if (typeof args[0] === 'string') {
-            args[0] = `[ERROR] ${args[0]}`;  // Prepend label to string message
+            args[0] = `[${getTimestamp()}][ERROR] ${args[0]}`;
         } else {
-            args.unshift('[ERROR]');  // Add label as separate argument
+            args.unshift(`[${getTimestamp()}][ERROR]`);
         }
     }
     console.error(...args);  // Uses console.error for proper error stream routing
