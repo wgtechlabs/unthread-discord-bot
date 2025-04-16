@@ -229,9 +229,15 @@ async function createTicket(user, title, issue, email) {
  * @returns {Object} - Mapping object containing both IDs
  */
 async function bindTicketWithThread(unthreadTicketId, discordThreadId) {
-    const ticket = { unthreadTicketId, discordThreadId };
-    await setKey(`ticket:discord:${discordThreadId}`, ticket);
-    await setKey(`ticket:unthread:${unthreadTicketId}`, ticket);
+    const ticket = { 
+        unthreadTicketId, 
+        discordThreadId,
+        createdAt: Date.now()
+    };
+    // Store with TTL = 0 for permanent persistence (no expiration)
+    await setKey(`ticket:discord:${discordThreadId}`, ticket, 0);
+    await setKey(`ticket:unthread:${unthreadTicketId}`, ticket, 0);
+    logger.info(`Created persistent ticket mapping: Discord thread ${discordThreadId} <-> Unthread ticket ${unthreadTicketId}`);
     return ticket;
 }
 
