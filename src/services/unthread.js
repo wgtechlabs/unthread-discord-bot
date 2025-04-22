@@ -8,6 +8,7 @@
 
 const { decodeHtmlEntities } = require('../utils/decodeHtmlEntities');
 const { setKey, getKey } = require('../utils/memory');
+const { withRetry } = require('../utils/retry');
 const { EmbedBuilder } = require('discord.js');
 const logger = require('../utils/logger');
 
@@ -148,36 +149,13 @@ async function createTicket(user, title, issue, email) {
     let data = await response.json();
     logger.debug('Initial ticket creation response:', JSON.stringify(data, null, 2));
     
+    // If friendlyId is missing, fetch the ticket with retry until it's available
     if (!data.friendlyId && data.id) {
-        logger.debug(`friendlyId not found in initial response. Starting polling for ticket ${data.id}`);
+        logger.debug(`friendlyId not found in initial response. Fetching ticket ${data.id} with retry logic`);
         
-        // Use a hybrid approach - more aggressive early polling with predictable growth
-        const maxWaitTimeMs = 600000;   // 10 minutes total maximum wait time
-        const startTime = Date.now();   // Track actual elapsed time
-        let totalElapsedTime = 0;
-        
-        // Start with more frequent polling
-        let currentInterval = 5000;     // Start with 5 second intervals (more responsive)
-        const maxInterval = 60000;      // Maximum 60 second interval
-        const initialIntervals = [5000, 10000, 15000, 20000, 30000]; // Fixed early intervals
-        
-        let attempt = 0;
-        
-        // Continue polling until max wait time is reached
-        while (totalElapsedTime < maxWaitTimeMs) {
-            // Use pre-defined intervals for early attempts, then use the current interval
-            const delayMs = attempt < initialIntervals.length ? 
-                initialIntervals[attempt] : currentInterval;
-            
-            logger.info(`Polling for friendlyId: attempt ${attempt+1}, waiting ${delayMs/1000}s (${Math.round(totalElapsedTime/1000)}s elapsed of ${maxWaitTimeMs/1000}s limit)`);
-            
-            // Wait for the current interval
-            await new Promise(resolve => setTimeout(resolve, delayMs));
-            
-            // Update total elapsed time based on actual wall clock time
-            totalElapsedTime = Date.now() - startTime;
-            
-            try {
+        // Use our withRetry utility to poll for the friendlyId
+        data = await withRetry(
+            async () => {
                 const ticketResponse = await fetch(`https://api.unthread.io/api/conversations/${data.id}`, {
                     method: 'GET',
                     headers: {
@@ -187,35 +165,26 @@ async function createTicket(user, title, issue, email) {
                 });
                 
                 if (!ticketResponse.ok) {
-                    logger.error(`Failed to fetch ticket: ${ticketResponse.status}, response: ${await ticketResponse.text()}`);
-                } else {
-                    const updatedData = await ticketResponse.json();
-                    
-                    if (updatedData.friendlyId) {
-                        data = updatedData;
-                        logger.info(`✅ Found friendlyId: ${data.friendlyId} after ${attempt+1} attempts (${Math.round(totalElapsedTime/1000)}s)`);
-                        break;
-                    }
-                    
-                    logger.debug(`Polling attempt ${attempt+1}: Still no friendlyId`, JSON.stringify(updatedData, null, 2));
+                    throw new Error(`Failed to fetch ticket: ${ticketResponse.status}`);
                 }
-            } catch (error) {
-                logger.error(`Error during polling attempt ${attempt+1}:`, error);
-                // Continue polling despite errors
+                
+                const updatedData = await ticketResponse.json();
+                
+                // If friendlyId is still not available, throw an error to trigger retry
+                if (!updatedData.friendlyId) {
+                    throw new Error('friendlyId not yet available');
+                }
+                
+                return updatedData;
+            },
+            {
+                operationName: `Fetch ticket with friendlyId`,
+                maxAttempts: 6,   // Total of 6 attempts
+                baseDelayMs: 5000 // Start with 5s delay (subsequent delays: 10s, 15s, 20s, 25s)
             }
-            
-            // After the initial intervals, grow the interval linearly
-            if (attempt >= initialIntervals.length) {
-                currentInterval = Math.min(currentInterval + 10000, maxInterval); // Add 10s each time up to max
-            }
-            
-            attempt++;
-        }
+        );
         
-        // If we've exhausted our wait time but still don't have a friendlyId, throw an error
-        if (!data.friendlyId) {
-            throw new Error(`Ticket was created (ID: ${data.id}) but no friendlyId was received after ${Math.round(totalElapsedTime/1000)} seconds of polling.`);
-        }
+        logger.info(`✅ Successfully retrieved ticket with friendlyId: ${data.friendlyId}`);
     }
     
     return data;

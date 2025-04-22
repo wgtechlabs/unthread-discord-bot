@@ -5,6 +5,7 @@
 const { Events, EmbedBuilder } = require('discord.js');
 const { createTicket, bindTicketWithThread } = require('../services/unthread');
 const { getKey, setKey } = require('../utils/memory');
+const { withRetry } = require('../utils/retry');
 const logger = require('../utils/logger');
 require('dotenv').config();
 
@@ -22,32 +23,24 @@ module.exports = {
         logger.info(`New forum post detected in monitored channel: ${thread.name}`);
 
         try {
-            // Fetch the first message with a retry mechanism
-            let firstMessage = null;
-            const maxAttempts = 5;
-            let attempt = 0;
-            
-            while (!firstMessage && attempt < maxAttempts) {
-                logger.info(`Attempt ${attempt+1}/${maxAttempts} to fetch initial forum post message...`);
-                
-                const messages = await thread.messages.fetch({ limit: 1 });
-                firstMessage = messages.first();
-                
-                if (!firstMessage && attempt < maxAttempts - 1) {
-                    // Calculate backoff delay - simple increasing delay (3s, 6s, 9s, 12s)
-                    const delayMs = 3000 * (attempt + 1);
-                    logger.info(`No message found yet, waiting ${delayMs/1000}s before retry...`);
-                    await new Promise(resolve => setTimeout(resolve, delayMs));
+            // Fetch the first message with our retry mechanism
+            const firstMessage = await withRetry(
+                async () => {
+                    const messages = await thread.messages.fetch({ limit: 1 });
+                    const message = messages.first();
+                    
+                    if (!message) {
+                        throw new Error('No message found in thread');
+                    }
+                    
+                    return message;
+                },
+                {
+                    operationName: 'Fetch initial forum post message',
+                    baseDelayMs: 3000,
+                    maxAttempts: 5
                 }
-                
-                attempt++;
-            }
-
-            if (!firstMessage) {
-                logger.error(`Could not find the initial message for forum post: ${thread.id} after ${maxAttempts} attempts`);
-                // No need to send error message to the thread as users don't know a conversion was attempted
-                return;
-            }
+            );
 
             // Extract details from the forum post.
             const author = firstMessage.author;
