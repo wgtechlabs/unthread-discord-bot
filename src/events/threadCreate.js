@@ -22,12 +22,30 @@ module.exports = {
         logger.info(`New forum post detected in monitored channel: ${thread.name}`);
 
         try {
-            // Fetch the first message in the thread (the original forum post).
-            const messages = await thread.messages.fetch({ limit: 1 });
-            const firstMessage = messages.first();
+            // Fetch the first message with a retry mechanism
+            let firstMessage = null;
+            const maxAttempts = 5;
+            let attempt = 0;
+            
+            while (!firstMessage && attempt < maxAttempts) {
+                logger.info(`Attempt ${attempt+1}/${maxAttempts} to fetch initial forum post message...`);
+                
+                const messages = await thread.messages.fetch({ limit: 1 });
+                firstMessage = messages.first();
+                
+                if (!firstMessage && attempt < maxAttempts - 1) {
+                    // Calculate backoff delay - simple increasing delay (3s, 6s, 9s, 12s)
+                    const delayMs = 3000 * (attempt + 1);
+                    logger.info(`No message found yet, waiting ${delayMs/1000}s before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                }
+                
+                attempt++;
+            }
 
             if (!firstMessage) {
-                logger.error(`Could not find the initial message for forum post: ${thread.id}`);
+                logger.error(`Could not find the initial message for forum post: ${thread.id} after ${maxAttempts} attempts`);
+                // No need to send error message to the thread as users don't know a conversion was attempted
                 return;
             }
 
@@ -47,8 +65,6 @@ module.exports = {
 
             // Create a support ticket in Unthread using the forum post details.
             const ticket = await createTicket(author, title, content, email);
-            // No need to check for friendlyId here as createTicket already handles this
-            // and will throw if it can't get one after polling
 
             // Link the Discord thread with the Unthread ticket for communication.
             await bindTicketWithThread(ticket.id, thread.id);
