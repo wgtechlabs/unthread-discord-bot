@@ -110,8 +110,9 @@ async function createTicket(user, title, issue, email) {
             },
             {
                 operationName: `Fetch ticket with friendlyId`,
-                maxAttempts: 6,   // Total of 6 attempts
-                baseDelayMs: 5000 // Start with 5s delay (subsequent delays: 10s, 15s, 20s, 25s)
+                maxAttempts: 12,    // Increased from 6 to 12 attempts
+                baseDelayMs: 15000  // Increased from 5000 to 15000 (15s)
+                // This will provide delays of: 15s, 30s, 45s... up to around 3 minutes total
             }
         );
         

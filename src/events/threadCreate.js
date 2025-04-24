@@ -38,8 +38,9 @@ module.exports = {
                 },
                 {
                     operationName: 'Fetch initial forum post message',
-                    baseDelayMs: 3000,
-                    maxAttempts: 5
+                    maxAttempts: 12,    // Increased from 5 to 12 attempts
+                    baseDelayMs: 10000  // Increased from 3000 to 10000 (10s)
+                    // This will provide delays of: 10s, 20s, 30s... up to around 2 minutes total
                 }
             );
 
