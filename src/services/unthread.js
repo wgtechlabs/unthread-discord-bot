@@ -14,6 +14,7 @@ const logger = require('../utils/logger');
 const { isDuplicateMessage, containsDiscordAttachments, processQuotedContent } = require('../utils/messageUtils');
 const { findDiscordThreadByTicketId } = require('../utils/threadUtils');
 const { getOrCreateCustomer, getCustomerByDiscordId } = require('../utils/customerUtils');
+const { version } = require('../../package.json');
 
 require('dotenv').config();
 
@@ -189,7 +190,7 @@ async function handleWebhookEvent(payload) {
                         { name: 'Ticket ID', value: `#${friendlyId || id}`, inline: true },
                         { name: 'Status', value: 'Closed', inline: true }
                     )
-                    .setFooter({ text: 'Unthread Discord Bot' })
+                    .setFooter({ text: `Unthread Discord Bot v${version}` })
                     .setTimestamp();
 
                 if (title) {
@@ -214,7 +215,7 @@ async function handleWebhookEvent(payload) {
                         { name: 'Ticket ID', value: `#${friendlyId || id}`, inline: true },
                         { name: 'Status', value: 'Open', inline: true }
                     )
-                    .setFooter({ text: 'Unthread Discord Bot' })
+                    .setFooter({ text: `Unthread Discord Bot v${version}` })
                     .setTimestamp();
 
                 if (title) {
@@ -293,6 +294,15 @@ async function handleWebhookEvent(payload) {
                 
                 // Check ticket summary for duplicate content
                 const sortedMessages = messagesArray.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+                
+                // New check: Is this a forum post with its original content being echoed back?
+                // This specifically handles the case of forum posts having their content duplicated
+                const firstMessage = sortedMessages[0];
+                if (firstMessage && firstMessage.content.trim() === decodedMessage.trim()) {
+                    logger.debug('Message appears to be echoing the initial forum post. Skipping to prevent duplication.');
+                    return;
+                }
+                
                 const ticketSummaryMessage = sortedMessages[1];
                 
                 if (ticketSummaryMessage && ticketSummaryMessage.content.includes(decodedMessage.trim())) {

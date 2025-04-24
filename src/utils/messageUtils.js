@@ -29,6 +29,12 @@ function isDuplicateMessage(messages, newContent) {
     }
 
     const trimmedContent = newContent.trim();
+    
+    // Skip duplicate checks for very short messages (less than 5 chars)
+    // These are more likely to trigger false positives
+    if (trimmedContent.length < 5) {
+        return false;
+    }
 
     // Check for exact content match
     const exactDuplicate = messages.some(msg => msg.content === trimmedContent);
@@ -38,18 +44,32 @@ function isDuplicateMessage(messages, newContent) {
     }
 
     // Check for content containment (handles forum post content that may have extra formatting)
-    const contentDuplicate = messages.some(msg => {
-        // Normalize whitespace for comparison
-        const strippedMsg = msg.content.replace(/\s+/g, ' ').trim();
-        const strippedNewContent = trimmedContent.replace(/\s+/g, ' ').trim();
-        
-        // If message body is contained within any existing message or vice versa
-        return strippedMsg.includes(strippedNewContent) || strippedNewContent.includes(strippedMsg);
-    });
+    // Only apply fuzzy matching for messages with sufficient content
+    if (trimmedContent.length >= 10) {
+        const contentDuplicate = messages.some(msg => {
+            // Normalize whitespace for comparison
+            const strippedMsg = msg.content.replace(/\s+/g, ' ').trim();
+            const strippedNewContent = trimmedContent.replace(/\s+/g, ' ').trim();
+            
+            // Only consider it a duplicate if one contains the other AND
+            // they're relatively close in length (to avoid false positives)
+            if (strippedMsg.includes(strippedNewContent) && 
+                strippedMsg.length <= strippedNewContent.length * 1.5) {
+                return true;
+            }
+            
+            if (strippedNewContent.includes(strippedMsg) && 
+                strippedNewContent.length <= strippedMsg.length * 1.5) {
+                return true;
+            }
+            
+            return false;
+        });
 
-    if (contentDuplicate) {
-        logger.debug('Content duplicate message detected (fuzzy match)');
-        return true;
+        if (contentDuplicate) {
+            logger.debug('Content duplicate message detected (fuzzy match)');
+            return true;
+        }
     }
 
     return false;

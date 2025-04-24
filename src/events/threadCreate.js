@@ -7,6 +7,7 @@ const { createTicket, bindTicketWithThread } = require('../services/unthread');
 const { withRetry } = require('../utils/retry');
 const logger = require('../utils/logger');
 const { getOrCreateCustomer, getCustomerByDiscordId } = require('../utils/customerUtils');
+const { version } = require('../../package.json');
 require('dotenv').config();
 
 // Retrieve forum channel IDs from environment variables.
@@ -68,7 +69,7 @@ module.exports = {
                     { name: 'Title', value: title, inline: false },
                     { name: 'Created By', value: author.tag, inline: true }
                 )
-                .setFooter({ text: 'Unthread Discord Bot' })
+                .setFooter({ text: `Unthread Discord Bot v${version}` })
                 .setTimestamp();
 
             await thread.send({ embeds: [ticketEmbed] });
@@ -91,7 +92,7 @@ module.exports = {
                     .setColor(0xFF0000)
                     .setTitle('Error Creating Support Ticket')
                     .setDescription('There was an error creating a support ticket from this forum post. A staff member will assist you shortly.')
-                    .setFooter({ text: 'Unthread Discord Bot' })
+                    .setFooter({ text: `Unthread Discord Bot v${version}` })
                     .setTimestamp();
                 
                 await thread.send({ embeds: [errorEmbed] });

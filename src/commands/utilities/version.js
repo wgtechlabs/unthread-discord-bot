@@ -31,7 +31,7 @@ module.exports = {
 			.setColor(0xEB1A1A)
 			.setTitle('Bot Version')
 			.setDescription(`Current version: v${version}`)
-			.setFooter({ text: 'Unthread Discord Bot' })
+			.setFooter({ text: `Unthread Discord Bot v${version}` })
 			.setTimestamp();
 		
 		await interaction.reply({ embeds: [embed] });
