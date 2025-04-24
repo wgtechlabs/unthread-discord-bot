@@ -1,7 +1,7 @@
 const { Events, ChannelType, MessageFlags } = require('discord.js');
 const { createTicket, bindTicketWithThread } = require('../services/unthread');
-const { getKey, setKey } = require('../utils/memory');
 const logger = require('../utils/logger');
+const { getOrCreateCustomer, getCustomerByDiscordId, updateCustomer } = require('../utils/customerUtils');
 
 /**
  * InteractionCreate event handler
@@ -20,18 +20,19 @@ module.exports = {
             let email = interaction.fields.getTextInputValue('emailInput');
             
             if (!email || email.trim() === '') {
-                const customerKey = `customer:${interaction.user.id}`;
-                const existingCustomer = await getKey(customerKey);
+                // If no email provided, try to get existing customer record
+                const existingCustomer = await getCustomerByDiscordId(interaction.user.id);
                 email = existingCustomer?.email || `${interaction.user.username}@discord.user`;
-
-                if (!existingCustomer) {
-                    await setKey(customerKey, { email });
-                }
-
                 logger.debug(`Using fallback email for user ${interaction.user.id}: ${email}`);
             } else {
-                const customerKey = `customer:${interaction.user.id}`;
-                await setKey(customerKey, { email });
+                // If email provided, update or create customer record
+                const existingCustomer = await getCustomerByDiscordId(interaction.user.id);
+                if (existingCustomer) {
+                    existingCustomer.email = email;
+                    await updateCustomer(existingCustomer);
+                } else {
+                    await getOrCreateCustomer(interaction.user, email);
+                }
                 logger.debug(`Stored email for user ${interaction.user.id}: ${email}`);
             }
 

@@ -4,9 +4,9 @@
  */
 const { Events, EmbedBuilder } = require('discord.js');
 const { createTicket, bindTicketWithThread } = require('../services/unthread');
-const { getKey, setKey } = require('../utils/memory');
 const { withRetry } = require('../utils/retry');
 const logger = require('../utils/logger');
+const { getOrCreateCustomer, getCustomerByDiscordId } = require('../utils/customerUtils');
 require('dotenv').config();
 
 // Retrieve forum channel IDs from environment variables.
@@ -47,14 +47,9 @@ module.exports = {
             const title = thread.name;
             const content = firstMessage.content;
 
-            // Check if the customer exists in memory; if not, create a default entry.
-            const customerKey = `customer:${author.id}`;
-            const existingCustomer = await getKey(customerKey);
-            let email = existingCustomer?.email || `${author.username}@discord.user`;
-
-            if (!existingCustomer) {
-                await setKey(customerKey, { email });
-            }
+            // Retrieve or create customer using the new customerUtils module.
+            const customer = await getOrCreateCustomer(author, `${author.username}@discord.user`);
+            const email = customer.email;
 
             // Create a support ticket in Unthread using the forum post details.
             const ticket = await createTicket(author, title, content, email);

@@ -11,6 +11,9 @@ const { setKey, getKey } = require('../utils/memory');
 const { withRetry } = require('../utils/retry');
 const { EmbedBuilder } = require('discord.js');
 const logger = require('../utils/logger');
+const { isDuplicateMessage, containsDiscordAttachments, processQuotedContent } = require('../utils/messageUtils');
+const { findDiscordThreadByTicketId } = require('../utils/threadUtils');
+const { getOrCreateCustomer, getCustomerByDiscordId } = require('../utils/customerUtils');
 
 require('dotenv').config();
 
@@ -19,87 +22,14 @@ require('dotenv').config();
  * These functions handle creating and retrieving customer records in Unthread
  */
 
-/**
- * Creates a new customer in Unthread's system based on Discord user information.
- * 
- * This function sends a POST request to the Unthread customer API and returns the
- * customer ID used by Unthread to identify this user for future interactions.
- * 
- * @param {Object} user - Discord user object containing user details
- * @param {string} user.username - Username that will be used as the customer name in Unthread
- * @param {string} user.id - Discord user ID (not sent to Unthread but useful for tracing)
- * @returns {string} - The Unthread customer ID (either from customerId or id field in response)
- * @throws {Error} - If API request fails (non-200 response) or response is missing required fields
- * 
- * @debug - If API requests are failing, check:
- *  1. API_KEY validity and permissions in .env file
- *  2. Network connectivity to api.unthread.io
- *  3. Response format changes from Unthread API (look for id/customerId field changes)
- *  4. The full error message will include the status code from the API for debugging
- */
-async function createCustomerInUnthread(user) {
-    // Construct the API request to create a customer in Unthread
-    const response = await fetch('https://api.unthread.io/api/customers', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-API-KEY': process.env.UNTHREAD_API_KEY,
-        },
-        // Only the username is required by Unthread API for customer creation
-        // Additional fields could be added here in the future if needed
-        body: JSON.stringify({ name: user.username }),
-    });
-
-    // Handle unsuccessful API responses with descriptive error message
-    if (!response.ok) {
-        throw new Error(`Failed to create customer: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    // Handle API response variability - Unthread may return customerId or id
-    const customerId = data.customerId || data.id;
-    
-    // Validate we actually got a usable customer ID
-    if (!customerId) {
-        throw new Error(`Customer API response invalid, missing customerId: ${JSON.stringify(data)}`);
-    }
-    
-    return customerId;
-}
-
-/**
- * Retrieves customer data or creates a new customer if not exists
- * 
- * @param {Object} user - Discord user object
- * @param {string} email - User's email address
- * @returns {Object} - Customer data object with Discord and Unthread IDs
- */
+// These functions are now provided by customerUtils.js
+// Maintaining these functions for backward compatibility but they delegate to customerUtils
 async function saveCustomer(user, email) {
-    const key = `customer:${user.id}`;
-    let existing = await getKey(key);
-    if (existing) return existing;
-
-    const customerId = await createCustomerInUnthread(user);
-    const customer = {
-        discordId: user.id,
-        discordUsername: user.username,
-        discordName: user.tag,
-        customerId,
-        email,
-    };
-    await setKey(key, customer);
-    return customer;
+    return await getOrCreateCustomer(user, email);
 }
 
-/**
- * Retrieves a customer record by Discord user ID
- * 
- * @param {string} discordId - Discord user ID
- * @returns {Object|null} - Customer data object or null if not found
- */
 async function getCustomerById(discordId) {
-    return await getKey(`customer:${discordId}`);
+    return await getCustomerByDiscordId(discordId);
 }
 
 /**
@@ -118,7 +48,7 @@ async function getCustomerById(discordId) {
  * @throws {Error} - If ticket creation fails
  */
 async function createTicket(user, title, issue, email) {
-    const customer = await saveCustomer(user, email);
+    const customer = await getOrCreateCustomer(user, email);
 
     const response = await fetch('https://api.unthread.io/api/conversations', {
         method: 'POST',
@@ -248,63 +178,55 @@ async function handleWebhookEvent(payload) {
     if (payload.event === 'conversation_updated') {
         const { id, status, friendlyId, title } = payload.data;
         if (status === 'closed') {
-            const ticketMapping = await getTicketByUnthreadTicketId(id);
-            if (!ticketMapping) {
-                logger.error(`No Discord thread found for Unthread ticket ${id}`);
+            try {
+                const { discordThread } = await findDiscordThreadByTicketId(id, getTicketByUnthreadTicketId);
+                
+                const closedEmbed = new EmbedBuilder()
+                    .setColor(0xEB1A1A)
+                    .setTitle(`Ticket #${friendlyId || 'Unknown'} Closed`)
+                    .setDescription('This support ticket has been closed by the support team.')
+                    .addFields(
+                        { name: 'Ticket ID', value: `#${friendlyId || id}`, inline: true },
+                        { name: 'Status', value: 'Closed', inline: true }
+                    )
+                    .setFooter({ text: 'Unthread Discord Bot' })
+                    .setTimestamp();
+
+                if (title) {
+                    closedEmbed.addFields({ name: 'Title', value: title, inline: false });
+                }
+
+                await discordThread.send({ embeds: [closedEmbed] });
+                logger.info(`Sent closure notification embed to Discord thread ${discordThread.id}`);
+            } catch (error) {
+                logger.error(`Unable to process ticket closure for ticket ${id}: ${error.message}`);
                 return;
             }
-            const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
-            if (!discordThread) {
-                logger.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
-                return;
-            }
-
-            const closedEmbed = new EmbedBuilder()
-                .setColor(0xEB1A1A)
-                .setTitle(`Ticket #${friendlyId || 'Unknown'} Closed`)
-                .setDescription('This support ticket has been closed by the support team.')
-                .addFields(
-                    { name: 'Ticket ID', value: `#${friendlyId || id}`, inline: true },
-                    { name: 'Status', value: 'Closed', inline: true }
-                )
-                .setFooter({ text: 'Unthread Discord Bot' })
-                .setTimestamp();
-
-            if (title) {
-                closedEmbed.addFields({ name: 'Title', value: title, inline: false });
-            }
-
-            await discordThread.send({ embeds: [closedEmbed] });
-            logger.info(`Sent closure notification embed to Discord thread ${discordThread.id}`);
         } else if (status === 'open') {
-            const ticketMapping = await getTicketByUnthreadTicketId(id);
-            if (!ticketMapping) {
-                logger.error(`No Discord thread found for Unthread ticket ${id}`);
+            try {
+                const { discordThread } = await findDiscordThreadByTicketId(id, getTicketByUnthreadTicketId);
+                
+                const reopenedEmbed = new EmbedBuilder()
+                    .setColor(0xEB1A1A)
+                    .setTitle(`Ticket #${friendlyId || 'Unknown'} Reopened`)
+                    .setDescription('This support ticket has been reopened. Our team will get back to you shortly.')
+                    .addFields(
+                        { name: 'Ticket ID', value: `#${friendlyId || id}`, inline: true },
+                        { name: 'Status', value: 'Open', inline: true }
+                    )
+                    .setFooter({ text: 'Unthread Discord Bot' })
+                    .setTimestamp();
+
+                if (title) {
+                    reopenedEmbed.addFields({ name: 'Title', value: title, inline: false });
+                }
+
+                await discordThread.send({ embeds: [reopenedEmbed] });
+                logger.info(`Sent reopen notification embed to Discord thread ${discordThread.id}`);
+            } catch (error) {
+                logger.error(`Unable to process ticket reopening for ticket ${id}: ${error.message}`);
                 return;
             }
-            const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
-            if (!discordThread) {
-                logger.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
-                return;
-            }
-
-            const reopenedEmbed = new EmbedBuilder()
-                .setColor(0xEB1A1A)
-                .setTitle(`Ticket #${friendlyId || 'Unknown'} Reopened`)
-                .setDescription('This support ticket has been reopened. Our team will get back to you shortly.')
-                .addFields(
-                    { name: 'Ticket ID', value: `#${friendlyId || id}`, inline: true },
-                    { name: 'Status', value: 'Open', inline: true }
-                )
-                .setFooter({ text: 'Unthread Discord Bot' })
-                .setTimestamp();
-
-            if (title) {
-                reopenedEmbed.addFields({ name: 'Title', value: title, inline: false });
-            }
-
-            await discordThread.send({ embeds: [reopenedEmbed] });
-            logger.info(`Sent reopen notification embed to Discord thread ${discordThread.id}`);
         }
         return;
     }
@@ -356,88 +278,41 @@ async function handleWebhookEvent(payload) {
         const conversationId = payload.data.conversationId;
         const decodedMessage = decodeHtmlEntities(payload.data.text);
         try {
-            const ticketMapping = await getTicketByUnthreadTicketId(conversationId);
-            if (!ticketMapping) {
-                logger.error(`No Discord thread found for Unthread ticket ${conversationId}`);
-                return;
-            }
-            const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
-            if (!discordThread) {
-                logger.error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
-                return;
-            }
-            logger.debug(`Found Discord thread: ${discordThread.id}`);
-
+            const { discordThread } = await findDiscordThreadByTicketId(conversationId, getTicketByUnthreadTicketId);
+            
             const messages = await discordThread.messages.fetch({ limit: 10 });
+            const messagesArray = Array.from(messages.values());
 
+            // Check if thread has at least 2 messages (initial message + ticket summary)
             if (messages.size >= 2) {
-                const messagesArray = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-                const ticketSummaryMessage = messagesArray[1];
+                // Check for duplicate messages using our utility function
+                if (isDuplicateMessage(messagesArray, decodedMessage)) {
+                    logger.debug('Duplicate message detected. Skipping send.');
+                    return;
+                }
+                
+                // Check ticket summary for duplicate content
+                const sortedMessages = messagesArray.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+                const ticketSummaryMessage = sortedMessages[1];
                 
                 if (ticketSummaryMessage && ticketSummaryMessage.content.includes(decodedMessage.trim())) {
                     logger.debug('Message content already exists in ticket summary. Skipping webhook message.');
                     return;
                 }
-                
-                const duplicate = messages.some(msg => msg.content === decodedMessage);
-                if (duplicate) {
-                    logger.debug('Duplicate message detected. Skipping send.');
-                    return;
-                }
             }
 
-            // Check for Discord CDN attachment patterns and skip if found
-            const discordCdnPattern = /Attachments: (?:<https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^>]+\|(?:image|video|file)_\d+>|\[(?:image|video|file)_\d+\]https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^\]]+\))/i;
-            
-            // More comprehensive check that handles multiple attachments with pipe separators
-            const hasDiscordAttachments = 
-                discordCdnPattern.test(decodedMessage) || 
-                (decodedMessage.includes('Attachments:') && 
-                 decodedMessage.includes('cdn.discordapp.com/attachments/') &&
-                 (decodedMessage.includes('|image_') || decodedMessage.includes('|file_') || decodedMessage.includes('|video_')));
-                
-            if (hasDiscordAttachments) {
+            // Check for Discord attachment patterns and skip if found
+            if (containsDiscordAttachments(decodedMessage)) {
                 logger.debug('Discord attachment links detected in webhook message. Skipping to avoid duplication.');
                 return;
             }
 
-            // Skip attachments section when checking for duplicates
-            let messageContent = decodedMessage;
-            const attachmentSection = messageContent.match(/\n\nAttachments: (?:\[.+\]|\<.+\>)/);
-            if (attachmentSection) {
-                messageContent = messageContent.replace(attachmentSection[0], '').trim();
-            }
-
-            // Look for quoted content, but ignore attachment links
-            let quotedMessageMatch = decodedMessage.match(/^(>\s?.+(?:\n|$))+/);
-            let replyReference = null;
-            let contentToSend = decodedMessage;
-
-            if (quotedMessageMatch) {
-                let quotedMessage = quotedMessageMatch[0].trim();
-                quotedMessage = quotedMessage.replace(/^>\s?/gm, '').trim();
-                const remainingText = decodedMessage.replace(quotedMessageMatch[0], '').trim();
-
-                if (!quotedMessage.startsWith("Attachments: [")) {
-                    const matchingMsg = messages.find(msg => msg.content.trim() === quotedMessage);
-                    if (matchingMsg) {
-                        replyReference = matchingMsg.id;
-                        contentToSend = remainingText || " ";
-                    }
-
-                    const remainingTextDuplicate = messages.some(msg => {
-                        let msgContent = msg.content.trim();
-                        const msgAttachmentSection = msgContent.match(/\n\nAttachments: \[.+\]/);
-                        if (msgAttachmentSection) {
-                            msgContent = msgContent.replace(msgAttachmentSection[0], '').trim();
-                        }
-                        return msgContent === remainingText;
-                    });
-
-                    if (remainingTextDuplicate) {
-                        return;
-                    }
-                }
+            // Process quoted content and handle replies
+            const { replyReference, contentToSend, isDuplicate } = processQuotedContent(decodedMessage, messagesArray);
+            
+            if (isDuplicate) {
+                logger.debug('Reply content is a duplicate of an existing message. Skipping send.');
+                return;
             }
 
             if (replyReference) {
