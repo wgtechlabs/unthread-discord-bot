@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@keyv/redis": "^4.3.1",
-    "cacheable": "^1.8.9",
+    "cacheable": "^1.10.0",
     "crypto": "^1.0.1",
     "discord.js": "^14.20.0",
     "dotenv": "^16.4.7",
