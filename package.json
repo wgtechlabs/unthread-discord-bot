@@ -32,7 +32,7 @@
     "discord.js": "^14.20.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "keyv": "^5.3.1"
+    "keyv": "^5.3.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
