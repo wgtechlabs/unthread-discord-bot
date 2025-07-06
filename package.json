@@ -26,13 +26,13 @@
     "node": ">=18.16.0"
   },
   "dependencies": {
-    "@keyv/redis": "^4.3.1",
+    "@keyv/redis": "^4.4.0",
     "cacheable": "^1.8.9",
     "crypto": "^1.0.1",
-    "discord.js": "^14.18.0",
-    "dotenv": "^16.4.7",
+    "discord.js": "^14.20.0",
+    "dotenv": "^16.5.0",
     "express": "^4.21.2",
-    "keyv": "^5.3.1"
+    "keyv": "^5.3.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
