@@ -8,15 +8,6 @@ The Unthread Discord Bot seamlessly connects your Discord community with Unthrea
 
 With simple commands and forum integration, support tickets automatically sync between both platforms, streamlining your workflow and improving response times. Whether you're managing a gaming community, running a business server, or supporting an open-source project, this bot provides the tools you need for efficient, organized customer support.
 
-## 🤗 Special Thanks
-
-<!-- markdownlint-disable MD033 -->
-| <div align="center">💎 Platinum Sponsor</div> |
-|:-------------------------------------------:|
-| <a href="https://unthread.com"><img src="https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/sponsors/platinum_unthread.png" width="250" alt="Unthread"></a> |
-| <div align="center"><a href="https://unthread.com" target="_blank"><b>Unthread</b></a><br/>Streamlined support ticketing for modern teams.</div> |
-<!-- markdownlint-enable MD033 -->
-
 ## 🤔 How It Works
 
 1. Users create tickets via the `/support` command or by posting in configured forum channels
