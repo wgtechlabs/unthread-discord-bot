@@ -64,7 +64,6 @@ async function createTicket(user, title, issue, email) {
             status: 'open',
             triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID,
             emailInboxId: process.env.UNTHREAD_EMAIL_INBOX_ID,
-            customerId: customer.customerId,
             onBehalfOf: {
                 name: user.tag,
                 email: email,
