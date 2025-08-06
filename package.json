@@ -25,6 +25,7 @@
   "engines": {
     "node": ">=18.16.0"
   },
+  "packageManager": "yarn@4.9.2",
   "dependencies": {
     "@keyv/redis": "^4.4.0",
     "cacheable": "^1.10.0",
