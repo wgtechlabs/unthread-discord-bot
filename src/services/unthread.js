@@ -64,17 +64,23 @@ async function createTicket(user, title, issue, email) {
             status: 'open',
             triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID,
             emailInboxId: process.env.UNTHREAD_EMAIL_INBOX_ID,
-            customerId: customer.customerId,
             onBehalfOf: {
                 name: user.tag,
                 email: email,
-                id: customer.customerId,
             },
         }),
     });
 
     if (!response.ok) {
-        throw new Error(`Failed to create ticket: ${response.status}`);
+        let errorDetails = '';
+        try {
+            const errorData = await response.json();
+            errorDetails = JSON.stringify(errorData, null, 2);
+        } catch (parseError) {
+            errorDetails = await response.text();
+        }
+        logger.error(`Unthread API Error - Status: ${response.status}, Details: ${errorDetails}`);
+        throw new Error(`Failed to create ticket: ${response.status} - ${errorDetails}`);
     }
 
     let data = await response.json();
@@ -378,7 +384,15 @@ async function sendMessageToUnthread(conversationId, user, message, email) {
     });
 
     if (!response.ok) {
-        throw new Error(`Failed to send message to Unthread: ${response.status}`);
+        let errorDetails = '';
+        try {
+            const errorData = await response.json();
+            errorDetails = JSON.stringify(errorData, null, 2);
+        } catch (parseError) {
+            errorDetails = await response.text();
+        }
+        logger.error(`Unthread API Error - Status: ${response.status}, Details: ${errorDetails}`);
+        throw new Error(`Failed to send message to Unthread: ${response.status} - ${errorDetails}`);
     }
 
     return await response.json();
