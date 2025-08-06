@@ -51,7 +51,7 @@ async function getCustomerById(discordId) {
 async function createTicket(user, title, issue, email) {
     // Enhanced debugging: Initial request context
     logger.info(`Creating ticket for user: ${user.tag} (${user.id})`);
-    logger.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? process.env.UNTHREAD_API_KEY.length + 'chars' : 'NOT_SET'}, TRIAGE_ID=${process.env.UNTHREAD_TRIAGE_CHANNEL_ID || 'NOT_SET'}, INBOX_ID=${process.env.UNTHREAD_EMAIL_INBOX_ID || 'NOT_SET'}`);
+    logger.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? process.env.UNTHREAD_API_KEY.length + 'chars' : 'NOT_SET'}, TRIAGE_ID=${JSON.stringify(process.env.UNTHREAD_TRIAGE_CHANNEL_ID || 'NOT_SET')}, INBOX_ID=${JSON.stringify(process.env.UNTHREAD_EMAIL_INBOX_ID || 'NOT_SET')}`);
     
     const customer = await getOrCreateCustomer(user, email);
     logger.debug(`Customer: ${customer?.id || 'unknown'} (${customer?.email || email})`);
@@ -61,8 +61,8 @@ async function createTicket(user, title, issue, email) {
         title: title,
         markdown: `${issue}`,
         status: 'open',
-        triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID,
-        emailInboxId: process.env.UNTHREAD_EMAIL_INBOX_ID,
+        triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID?.trim(),
+        emailInboxId: process.env.UNTHREAD_EMAIL_INBOX_ID?.trim(),
         onBehalfOf: {
             name: user.tag,
             email: email,
