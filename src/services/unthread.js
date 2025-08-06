@@ -391,7 +391,6 @@ async function sendMessageToUnthread(conversationId, user, message, email) {
         },
         metadata: {
             source: "discord",
-            discordMessageId: message.id || Date.now().toString(),
         },
     };
 
