@@ -49,7 +49,28 @@ async function getCustomerById(discordId) {
  * @throws {Error} - If ticket creation fails
  */
 async function createTicket(user, title, issue, email) {
+    // Enhanced debugging: Initial request context
+    logger.info(`Creating ticket for user: ${user.tag} (${user.id})`);
+    logger.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? process.env.UNTHREAD_API_KEY.length + 'chars' : 'NOT_SET'}, TRIAGE_ID=${JSON.stringify(process.env.UNTHREAD_TRIAGE_CHANNEL_ID || 'NOT_SET')}, INBOX_ID=${JSON.stringify(process.env.UNTHREAD_EMAIL_INBOX_ID || 'NOT_SET')}`);
+    
     const customer = await getOrCreateCustomer(user, email);
+    logger.debug(`Customer: ${customer?.id || 'unknown'} (${customer?.email || email})`);
+
+    const requestPayload = {
+        type: 'email',
+        title: title,
+        markdown: `${issue}`,
+        status: 'open',
+        triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID?.trim(),
+        emailInboxId: process.env.UNTHREAD_EMAIL_INBOX_ID?.trim(),
+        onBehalfOf: {
+            name: user.tag,
+            email: email,
+        },
+    };
+
+    logger.info(`POST https://api.unthread.io/api/conversations`);
+    logger.debug(`Payload: ${JSON.stringify(requestPayload)}`);
 
     const response = await fetch('https://api.unthread.io/api/conversations', {
         method: 'POST',
@@ -57,38 +78,33 @@ async function createTicket(user, title, issue, email) {
             'Content-Type': 'application/json',
             'X-API-KEY': process.env.UNTHREAD_API_KEY,
         },
-        body: JSON.stringify({
-            type: 'email',
-            title: title,
-            markdown: `${issue}`,
-            status: 'open',
-            triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID,
-            emailInboxId: process.env.UNTHREAD_EMAIL_INBOX_ID,
-            onBehalfOf: {
-                name: user.tag,
-                email: email,
-            },
-        }),
+        body: JSON.stringify(requestPayload),
     });
+
+    logger.info(`Response: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
         let errorDetails = '';
+        let rawErrorResponse = '';
         try {
-            const errorData = await response.json();
-            errorDetails = JSON.stringify(errorData, null, 2);
+            rawErrorResponse = await response.text();
+            const errorData = JSON.parse(rawErrorResponse);
+            errorDetails = JSON.stringify(errorData);
         } catch (parseError) {
-            errorDetails = await response.text();
+            errorDetails = rawErrorResponse;
         }
-        logger.error(`Unthread API Error - Status: ${response.status}, Details: ${errorDetails}`);
+        logger.error(`API Error: ${errorDetails}`);
+        logger.error(`Request payload was: ${JSON.stringify(requestPayload)}`);
         throw new Error(`Failed to create ticket: ${response.status} - ${errorDetails}`);
     }
 
     let data = await response.json();
+    logger.info(`Ticket created: ${data.id} (#${data.friendlyId || 'pending'})`);
     logger.debug('Initial ticket creation response:', JSON.stringify(data, null, 2));
     
     // If friendlyId is missing, fetch the ticket with retry until it's available
     if (!data.friendlyId && data.id) {
-        logger.debug(`friendlyId not found in initial response. Fetching ticket ${data.id} with retry logic`);
+        logger.debug(`FriendlyId not found, fetching ticket ${data.id} with retry logic`);
         
         // Use our withRetry utility to poll for the friendlyId
         data = await withRetry(
@@ -122,7 +138,7 @@ async function createTicket(user, title, issue, email) {
             }
         );
         
-        logger.info(`✅ Successfully retrieved ticket with friendlyId: ${data.friendlyId}`);
+        logger.info(`Ticket updated: ${data.id} (#${data.friendlyId})`);
     }
     
     return data;
@@ -360,38 +376,50 @@ async function handleWebhookEvent(payload) {
  * @throws {Error} - If sending the message fails
  */
 async function sendMessageToUnthread(conversationId, user, message, email) {
+    logger.info(`Sending message to conversation: ${conversationId}`);
+    logger.debug(`User: ${user.tag}, Message length: ${message.length} chars`);
+    
+    const requestPayload = {
+        body: {
+            type: "markdown",
+            value: message,
+        },
+        isAutoresponse: false,
+        onBehalfOf: {
+            name: user.tag,
+            email: email,
+        },
+        metadata: {
+            source: "discord",
+        },
+    };
+
+    logger.debug(`POST /api/conversations/${conversationId}/messages`);
+    logger.debug(`Payload: ${JSON.stringify(requestPayload)}`);
+
     const response = await fetch(`https://api.unthread.io/api/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-API-KEY': process.env.UNTHREAD_API_KEY,
         },
-        body: JSON.stringify({
-            body: {
-                type: "markdown",
-                value: message,
-            },
-            isAutoresponse: false,
-            onBehalfOf: {
-                name: user.tag,
-                email: email,
-            },
-            metadata: {
-                source: "discord",
-                discordMessageId: message.id || Date.now().toString(),
-            },
-        }),
+        body: JSON.stringify(requestPayload),
     });
+
+    logger.info(`Message response: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
         let errorDetails = '';
+        let rawErrorResponse = '';
         try {
-            const errorData = await response.json();
-            errorDetails = JSON.stringify(errorData, null, 2);
+            rawErrorResponse = await response.text();
+            const errorData = JSON.parse(rawErrorResponse);
+            errorDetails = JSON.stringify(errorData);
         } catch (parseError) {
-            errorDetails = await response.text();
+            errorDetails = rawErrorResponse;
         }
-        logger.error(`Unthread API Error - Status: ${response.status}, Details: ${errorDetails}`);
+        logger.error(`Message API Error: ${errorDetails}`);
+        logger.error(`Request payload was: ${JSON.stringify(requestPayload)}`);
         throw new Error(`Failed to send message to Unthread: ${response.status} - ${errorDetails}`);
     }
 

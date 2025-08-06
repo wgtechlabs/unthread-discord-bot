@@ -49,9 +49,9 @@ function debug(...args) {
     if (debugMode) {
         if (args.length > 0) {
             if (typeof args[0] === 'string') {
-                args[0] = `[${getTimestamp()}][DEBUG] ${args[0]}`;
+                args[0] = `[DEBUG] ${args[0]}`;
             } else {
-                args.unshift(`[${getTimestamp()}][DEBUG]`);
+                args.unshift(`[DEBUG]`);
             }
         }
         console.log(...args);
@@ -68,9 +68,9 @@ function info(...args) {
     // Always show info-level logs regardless of debug mode
     if (args.length > 0) {
         if (typeof args[0] === 'string') {
-            args[0] = `[${getTimestamp()}][INFO] ${args[0]}`;
+            args[0] = `[INFO] ${args[0]}`;
         } else {
-            args.unshift(`[${getTimestamp()}][INFO]`);
+            args.unshift(`[INFO]`);
         }
     }
     console.log(...args);
@@ -86,9 +86,9 @@ function info(...args) {
 function warn(...args) {
     if (args.length > 0) {
         if (typeof args[0] === 'string') {
-            args[0] = `[${getTimestamp()}][WARN] ${args[0]}`;
+            args[0] = `[WARN] ${args[0]}`;
         } else {
-            args.unshift(`[${getTimestamp()}][WARN]`);
+            args.unshift(`[WARN]`);
         }
     }
     console.warn(...args);  // Uses console.warn for proper error stream routing
@@ -103,9 +103,9 @@ function warn(...args) {
 function error(...args) {
     if (args.length > 0) {
         if (typeof args[0] === 'string') {
-            args[0] = `[${getTimestamp()}][ERROR] ${args[0]}`;
+            args[0] = `[ERROR] ${args[0]}`;
         } else {
-            args.unshift(`[${getTimestamp()}][ERROR]`);
+            args.unshift(`[ERROR]`);
         }
     }
     console.error(...args);  // Uses console.error for proper error stream routing
