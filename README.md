@@ -8,8 +8,6 @@ The Unthread Discord Bot seamlessly connects your Discord community with Unthrea
 
 With simple commands and forum integration, support tickets automatically sync between both platforms, streamlining your workflow and improving response times. Whether you're managing a gaming community, running a business server, or supporting an open-source project, this bot provides the tools you need for efficient, organized customer support.
 
-> **Current Version**: 0.2.0-beta.6.10 | **Status**: Active Development | **Node.js**: 18.16.0+ Required
-
 ## 🤗 Special Thanks
 
 <!-- markdownlint-disable MD033 -->
