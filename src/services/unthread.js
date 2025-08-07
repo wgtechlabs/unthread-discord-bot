@@ -76,7 +76,7 @@ async function createTicket(user, title, issue, email) {
     logger.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? process.env.UNTHREAD_API_KEY.length + 'chars' : 'NOT_SET'}, TRIAGE_ID=${JSON.stringify(process.env.UNTHREAD_TRIAGE_CHANNEL_ID || 'NOT_SET')}, INBOX_ID=${JSON.stringify(process.env.UNTHREAD_EMAIL_INBOX_ID || 'NOT_SET')}`);
     
     const customer = await getOrCreateCustomer(user, email);
-    logger.debug(`Customer: ${customer?.id || 'unknown'} (${customer?.email || email})`);
+    logger.debug(`Customer: ${customer?.customerId || 'unknown'} (${customer?.email || email})`);
 
     const requestPayload = {
         type: 'email',
@@ -85,6 +85,7 @@ async function createTicket(user, title, issue, email) {
         status: 'open',
         triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID?.trim(),
         emailInboxId: process.env.UNTHREAD_EMAIL_INBOX_ID?.trim(),
+        customerId: customer?.customerId,
         onBehalfOf: {
             name: user.tag,
             email: email,
@@ -233,7 +234,7 @@ async function handleWebhookEvent(payload) {
                     {
                         maxAttempts: 2,
                         maxRetryWindow: 5000, // 5 seconds - shorter for existing tickets
-                        baseDelay: 1000
+                        baseDelayMs: 1000
                     }
                 );
                 
@@ -350,7 +351,7 @@ async function handleWebhookEvent(payload) {
                 {
                     maxAttempts: 3,
                     maxRetryWindow: 10000, // 10 seconds - reasonable for new ticket creation
-                    baseDelay: 1000 // 1 second base delay
+                    baseDelayMs: 1000 // 1 second base delay
                 }
             );
             

@@ -28,7 +28,7 @@ const logger = require('./logger');
  * @param {Object} options - Retry configuration options
  * @param {number} options.maxAttempts - Maximum number of retry attempts (default: 3)
  * @param {number} options.maxRetryWindow - Maximum time window for retries in ms (default: 10000)
- * @param {number} options.baseDelay - Base delay between retries in ms (default: 1000)
+ * @param {number} options.baseDelayMs - Base delay between retries in ms (default: 1000)
  * @returns {Promise<{ticketMapping: Object, discordThread: Object}>} - Object containing mapping and thread
  * @throws {Error} - If thread not found after all retries or other error occurs
  */
@@ -36,7 +36,7 @@ async function findDiscordThreadByTicketIdWithRetry(unthreadTicketId, lookupFunc
     const {
         maxAttempts = 3,
         maxRetryWindow = 10000, // 10 seconds
-        baseDelay = 1000 // 1 second
+        baseDelayMs = 1000 // 1 second
     } = options;
     
     const startTime = Date.now();
@@ -59,7 +59,7 @@ async function findDiscordThreadByTicketIdWithRetry(unthreadTicketId, lookupFunc
             const isMappingError = error.message.includes('No Discord thread found for Unthread ticket');
             
             if (!isLastAttempt && withinRetryWindow && isMappingError) {
-                const delay = baseDelay * attempt; // Progressive delay: 1s, 2s, 3s
+                const delay = baseDelayMs * attempt; // Progressive delay: 1s, 2s, 3s
                 logger.debug(`Mapping not found for ticket ${unthreadTicketId}, attempt ${attempt}/${maxAttempts}. Retrying in ${delay}ms... (${timeSinceStart}ms since start)`);
                 
                 await new Promise(resolve => setTimeout(resolve, delay));

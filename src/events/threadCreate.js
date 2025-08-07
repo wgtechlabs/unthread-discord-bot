@@ -18,9 +18,16 @@ require('dotenv').config();
 module.exports = {
     name: Events.ThreadCreate,
     async execute(thread) {
-        // Ignore threads created in channels that are not validated forum channels.
-        const isValidForum = await isValidatedForumChannel(thread.parentId);
-        if (!isValidForum) return;
+        try {
+            // Ignore threads created in channels that are not validated forum channels.
+            const isValidForum = await isValidatedForumChannel(thread.parentId);
+            if (!isValidForum) return;
+        } catch (error) {
+            logger.error('❌ Error validating forum channel:', error.message);
+            logger.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
+            logger.error('⚠️ Skipping thread processing due to validation error');
+            return;
+        }
 
         logger.info(`New forum post detected in monitored channel: ${thread.name}`);
 
@@ -83,9 +90,11 @@ module.exports = {
 
         logger.info(`✅ Permission check passed for forum thread "${thread.name}" in channel "${parentChannel.name}"`);
 
+        let firstMessage; // Declare in higher scope for error logging access
+
         try {
             // Fetch the first message with our retry mechanism
-            const firstMessage = await withRetry(
+            firstMessage = await withRetry(
                 async () => {
                     const messages = await thread.messages.fetch({ limit: 1 });
                     const message = messages.first();
