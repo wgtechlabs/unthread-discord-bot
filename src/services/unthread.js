@@ -3,18 +3,16 @@
  * 
  * This module handles all interaction with the Unthread API for the Discord bot.
  * It manages customer records, ticket creation/retrieval, and webhook event processing.
- * All communication between Dis        } else if (status === 'open') {
-            try {
-                // Use retry logic for ticket reopening events with shorter window
-                const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
-                    id, 
-                    getTicketByUnthreadTicketId,
-                    {
-                        maxAttempts: 2,
-                        maxRetryWindow: 5000, // 5 seconds - shorter for existing tickets
-                        baseDelay: 1000
-                    }
-                );d and Unthread is managed through these functions.
+ * All communication between Discord and Unthread is managed through these functions.
+ * 
+ * Key Features:
+ * - Customer creation and management
+ * - Ticket creation and status updates
+ * - Webhook event processing for real-time synchronization
+ * - Message forwarding between Discord and Unthread
+ * - Thread-to-ticket mapping management
+ * 
+ * @module services/unthread
  */
 
 const { decodeHtmlEntities } = require('../utils/decodeHtmlEntities');
@@ -34,12 +32,25 @@ require('dotenv').config();
  * These functions handle creating and retrieving customer records in Unthread
  */
 
-// These functions are now provided by customerUtils.js
-// Maintaining these functions for backward compatibility but they delegate to customerUtils
+/**
+ * Legacy wrapper for customer creation (now delegates to customerUtils)
+ * 
+ * @deprecated Use getOrCreateCustomer from customerUtils directly
+ * @param {Object} user - Discord user object  
+ * @param {string} email - User's email address
+ * @returns {Object} Customer data object
+ */
 async function saveCustomer(user, email) {
     return await getOrCreateCustomer(user, email);
 }
 
+/**
+ * Legacy wrapper for customer retrieval (now delegates to customerUtils)
+ * 
+ * @deprecated Use getCustomerByDiscordId from customerUtils directly
+ * @param {string} discordId - Discord user ID
+ * @returns {Object|null} Customer data object or null if not found
+ */
 async function getCustomerById(discordId) {
     return await getCustomerByDiscordId(discordId);
 }

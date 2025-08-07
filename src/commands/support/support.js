@@ -1,11 +1,50 @@
+/**
+ * Support Command Module
+ * 
+ * Provides the /support slash command for creating support tickets.
+ * This command opens a modal interface for users to submit ticket details,
+ * then creates a private thread for ticket management.
+ * 
+ * Features:
+ * - Modal-based ticket creation interface
+ * - Permission validation for thread creation
+ * - Forum channel conflict detection
+ * - Thread-based ticket management
+ * 
+ * @module commands/support/support
+ */
+
 const { SlashCommandBuilder, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } = require('discord.js');
 const { isValidatedForumChannel } = require('../../utils/channelUtils');
 
+/**
+ * Support Command Definition
+ * 
+ * Creates a slash command that allows users to submit support tickets.
+ * The command validates permissions and channel types before presenting
+ * a modal interface for ticket details.
+ */
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('support')
         .setDescription('Open a support ticket'),
     
+    /**
+     * Executes the support command
+     * 
+     * Validates the execution context and presents a ticket creation modal.
+     * Performs the following checks:
+     * 1. Ensures command is not used in threads
+     * 2. Verifies channel is not configured for forum-based tickets
+     * 3. Checks bot permissions for thread creation
+     * 4. Presents modal interface for ticket submission
+     * 
+     * @async
+     * @param {Discord.Interaction} interaction - The slash command interaction
+     * @returns {Promise<void>}
+     * 
+     * @throws {Error} If permissions are insufficient or channel is invalid
+     */
     async execute(interaction) {
         // Check if the command is used in any thread (forum posts, private threads, etc.)
         if (interaction.channel.isThread()) {

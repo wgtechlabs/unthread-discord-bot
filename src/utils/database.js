@@ -1,16 +1,44 @@
 /**
- * Initialize Keyv with Redis
- * To be used as a database for caching with Keyv and caching with Cacheable.
- * @module src/utils/database
+ * Database Module - Redis Integration
+ * 
+ * Initializes and manages the Redis database connection using Keyv.
+ * This module provides persistent storage for caching and data persistence
+ * across application restarts and serves as the secondary storage for
+ * the Cacheable library.
+ * 
+ * Features:
+ * - Redis connection management with Keyv
+ * - Connection health monitoring
+ * - Automatic error handling and logging
+ * - TTL (Time To Live) support for data expiration
+ * 
+ * Environment Requirements:
+ *   REDIS_URL - Redis connection string (e.g., redis://localhost:6379)
+ * 
+ * @module utils/database
  */
 const { createKeyv } = require('@keyv/redis');
 const logger = require('./logger');
 require("dotenv").config();
 
-// Initialize Keyv with Redis
+/**
+ * Redis Keyv Instance
+ * 
+ * Creates and configures a Keyv instance connected to Redis.
+ * This instance is used throughout the application for persistent data storage.
+ */
 const keyv = createKeyv(process.env.REDIS_URL);
 
-// Test Redis connection and log status
+/**
+ * Tests the Redis connection and logs the result
+ * 
+ * Performs a round-trip test by setting and retrieving a test value
+ * to verify that Redis is properly connected and functioning.
+ * This helps with debugging connection issues during startup.
+ * 
+ * @async
+ * @returns {Promise<void>}
+ */
 async function testRedisConnection() {
     try {
         // Test connection by setting and getting a test value
@@ -33,7 +61,12 @@ async function testRedisConnection() {
 // Test connection when module loads
 testRedisConnection();
 
-// Handle any errors on the keyv instance
+/**
+ * Redis Error Handler
+ * 
+ * Handles Redis connection errors and logs them appropriately.
+ * This helps with monitoring Redis health and debugging issues.
+ */
 keyv.on('error', (error) => {
     logger.error('Redis error:', error.message);
 });
