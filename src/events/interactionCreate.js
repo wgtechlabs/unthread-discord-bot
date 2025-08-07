@@ -1,6 +1,7 @@
 const { Events, ChannelType, MessageFlags } = require('discord.js');
 const { createTicket, bindTicketWithThread } = require('../services/unthread');
 const logger = require('../utils/logger');
+const { setKey } = require('../utils/memory');
 const { getOrCreateCustomer, getCustomerByDiscordId, updateCustomer } = require('../utils/customerUtils');
 
 /**
@@ -43,6 +44,7 @@ module.exports = {
             await interaction.deferReply({ ephemeral: true });
 
             let ticket;
+            let thread;
             // ===== TICKET CREATION WORKFLOW =====
             try {
                 // Step 1: Create ticket in unthread.io using external API
@@ -56,37 +58,51 @@ module.exports = {
                 
                 // Step 2: Create a private Discord thread for this ticket
                 // This creates a separate conversation space for this support ticket
-                const thread = await interaction.channel.threads.create({
+                thread = await interaction.channel.threads.create({
                     name: `ticket-#${ticket.friendlyId}`,
                     type: ChannelType.PrivateThread,
                     reason: 'Unthread Ticket',
                 });
                 
-                // Step 3: Add the user who submitted the ticket to the private thread
+                // Step 3: IMMEDIATELY associate the Discord thread with the ticket
+                // This prevents race conditions with incoming webhooks by ensuring the mapping exists
+                // before any messages are sent that could trigger webhook events
+                await bindTicketWithThread(ticket.id, thread.id);
+                
+                // Step 4: Add the user who submitted the ticket to the private thread
                 await thread.members.add(interaction.user.id);
 
-                // Step 4: Send initial context information to the thread
+                // Step 5: Send initial context information to the thread
                 await thread.send({
                     content: `
                         > **Ticket #:** ${ticket.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}
                     `,
                 });
 
-                // Step 4.1: Send confirmation message
+                // Step 6: Send confirmation message
                 await thread.send({
                     content: `Hello <@${interaction.user.id}>, we have received your ticket and will respond shortly. Please check this thread for updates.`,
                 });
                 
-                // Step 5: Associate the Discord thread with the ticket in the backend
-                // This allows messages in the thread to be synced with the ticket system
-                await bindTicketWithThread(ticket.id, thread.id);
-                
-                // Step 6: Complete the interaction with confirmation message
+                // Step 7: Complete the interaction with confirmation message
                 await interaction.editReply('Your support ticket has been submitted! A private thread has been created for further assistance.');
             } catch (error) {
                 // Handle any failures in the ticket creation workflow
                 // This could be API errors, permission issues, or Discord rate limits
                 logger.error('Ticket creation failed:', error);
+                
+                // Cleanup: If we created a mapping but failed afterwards, clean it up
+                if (ticket && ticket.id && thread && thread.id) {
+                    try {
+                        // Remove the mapping to prevent orphaned entries
+                        await setKey(`ticket:discord:${thread.id}`, null, 1); // Set with short TTL to delete
+                        await setKey(`ticket:unthread:${ticket.id}`, null, 1);
+                        logger.info(`Cleaned up orphaned ticket mapping: Discord thread ${thread.id} <-> Unthread ticket ${ticket.id}`);
+                    } catch (cleanupError) {
+                        logger.error('Failed to cleanup orphaned ticket mapping:', cleanupError);
+                    }
+                }
+                
                 await interaction.editReply('Sorry, there was an error creating your support ticket. Please try again later.');
                 return;
             }
