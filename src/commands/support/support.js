@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } = require('discord.js');
+const { isValidatedForumChannel } = require('../../utils/channelUtils');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -6,9 +7,22 @@ module.exports = {
         .setDescription('Open a support ticket'),
     
     async execute(interaction) {
-        // Check if the command is used in a thread and if so, prevent execution
-        if (interaction.channel.isThread && interaction.channel.isThread()) {
-            await interaction.reply({ content: 'The `/support` command can only be used in a text channel.', ephemeral: true });
+        // Check if the command is used in any thread (forum posts, private threads, etc.)
+        if (interaction.channel.isThread()) {
+            await interaction.reply({ 
+                content: '❌ **Cannot use `/support` command in threads**\n\nThe `/support` command can only be used in text channels. Please use `/support` in the main channel instead of inside threads or forum posts.', 
+                ephemeral: true 
+            });
+            return;
+        }
+
+        // Check if the current channel is configured as a forum channel
+        const isConfiguredForumChannel = await isValidatedForumChannel(interaction.channel.id);
+        if (isConfiguredForumChannel) {
+            await interaction.reply({ 
+                content: '❌ **Cannot use `/support` command here**\n\nThis channel is configured for forum-based tickets. Please create a new forum post instead of using the `/support` command.', 
+                ephemeral: true 
+            });
             return;
         }
 

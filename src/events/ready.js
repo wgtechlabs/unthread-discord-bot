@@ -1,6 +1,7 @@
 const { Events, ActivityType } = require('discord.js');
 const packageJSON = require('../../package.json');
 const logger = require('../utils/logger');
+const { getValidatedForumChannelIds } = require('../utils/channelUtils');
 
 /**
  * Client Ready Event Handler
@@ -23,7 +24,7 @@ const logger = require('../utils/logger');
 module.exports = {
     name: Events.ClientReady,
     once: true,
-    execute(bot) {
+    async execute(bot) {
         // Explicitly set the bot's status to 'online' to ensure it appears online to users
         // This is important as sometimes Discord bots may default to 'idle' or not show proper status
         bot.user?.setPresence({
@@ -37,5 +38,24 @@ module.exports = {
 
         // Log successful initialization with version information for monitoring
         logger.info(`Logged in as ${bot.user.tag} @ v${packageJSON.version}`);
+
+        // Validate forum channel configuration on startup
+        try {
+            const validForumChannels = await getValidatedForumChannelIds();
+            if (process.env.FORUM_CHANNEL_IDS) {
+                const allChannelIds = process.env.FORUM_CHANNEL_IDS.split(',').map(id => id.trim()).filter(id => id);
+                const invalidCount = allChannelIds.length - validForumChannels.length;
+                
+                if (invalidCount > 0) {
+                    logger.warn(`⚠️  ${invalidCount} channel(s) in FORUM_CHANNEL_IDS are not forum channels and will be ignored`);
+                }
+                
+                if (validForumChannels.length > 0) {
+                    logger.info(`✅ Monitoring ${validForumChannels.length} forum channel(s) for ticket creation`);
+                }
+            }
+        } catch (error) {
+            logger.error('Error validating forum channels on startup:', error);
+        }
     },
 };

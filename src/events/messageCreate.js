@@ -1,7 +1,7 @@
 const { Events } = require("discord.js");
 const { version } = require("../../package.json");
 const { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } = require("../services/unthread");
-const { FORUM_CHANNEL_IDS } = process.env;
+const { isValidatedForumChannel } = require("../utils/channelUtils");
 const logger = require("../utils/logger");
 
 /**
@@ -40,7 +40,7 @@ module.exports = {
    * @debug
    * Common issues to check if messages aren't being forwarded:
    * 1. Verify the thread has a ticket mapping in the cache
-   * 2. Check FORUM_CHANNEL_IDS environment variable is properly configured
+   * 2. Check FORUM_CHANNEL_IDS environment variable contains valid forum channel IDs
    * 3. Ensure the Unthread API key has proper permissions
    * 4. Look for errors in the sendMessageToUnthread response
    */
@@ -53,9 +53,8 @@ module.exports = {
       try {
         // Skip processing if this is the initial forum post that created the thread
         // (Forum post IDs match their containing thread ID)
-        const isForumPost = FORUM_CHANNEL_IDS && 
-                            FORUM_CHANNEL_IDS.split(',').includes(message.channel.parentId) &&
-                            message.id === message.channel.id;
+        const isValidForum = await isValidatedForumChannel(message.channel.parentId);
+        const isForumPost = isValidForum && message.id === message.channel.id;
 
         if (isForumPost) {
           logger.debug(`Skipping forum post ID ${message.id} that created thread ${message.channel.id}`);

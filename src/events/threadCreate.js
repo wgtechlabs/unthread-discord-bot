@@ -1,25 +1,26 @@
 /**
  * Thread Creation Event Handler
- * Converts new forum posts in monitored channels to Unthread support tickets.
+ * Converts new forum posts in validated forum channels to Unthread support tickets.
+ * 
+ * Now includes channel type validation to ensure only actual forum channels
+ * are processed, preventing conflicts with text channels accidentally added
+ * to FORUM_CHANNEL_IDS.
  */
 const { Events, EmbedBuilder } = require('discord.js');
 const { createTicket, bindTicketWithThread } = require('../services/unthread');
 const { withRetry } = require('../utils/retry');
 const logger = require('../utils/logger');
 const { getOrCreateCustomer, getCustomerByDiscordId } = require('../utils/customerUtils');
+const { isValidatedForumChannel } = require('../utils/channelUtils');
 const { version } = require('../../package.json');
 require('dotenv').config();
-
-// Retrieve forum channel IDs from environment variables.
-// These channels are monitored for new threads to convert into tickets.
-const FORUM_CHANNEL_IDS = process.env.FORUM_CHANNEL_IDS ? 
-    process.env.FORUM_CHANNEL_IDS.split(',') : [];
 
 module.exports = {
     name: Events.ThreadCreate,
     async execute(thread) {
-        // Ignore threads created in channels not listed in FORUM_CHANNEL_IDS.
-        if (!FORUM_CHANNEL_IDS.includes(thread.parentId)) return;
+        // Ignore threads created in channels that are not validated forum channels.
+        const isValidForum = await isValidatedForumChannel(thread.parentId);
+        if (!isValidForum) return;
 
         logger.info(`New forum post detected in monitored channel: ${thread.name}`);
 
