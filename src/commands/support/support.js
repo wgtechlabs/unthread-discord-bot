@@ -24,7 +24,11 @@ module.exports = {
 
         if (!botMember.permissionsIn(interaction.channel).has(requiredPermissions)) {
             await interaction.reply({
-                content: 'I don\'t have the necessary permissions to create support tickets in this channel. Please use this command in an authorized channel or contact an administrator.',
+                content: `❌ **Cannot create support tickets here**
+
+Missing permissions: **Manage Threads**, **Create Private Threads**, **Send Messages**, **Send Messages in Threads**, **View Channel**
+
+Ask an admin to grant these permissions or use \`/support\` in an authorized channel.`,
                 ephemeral: true
             });
             return;
