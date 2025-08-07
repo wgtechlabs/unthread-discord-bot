@@ -8,6 +8,8 @@ The Unthread Discord Bot seamlessly connects your Discord community with Unthrea
 
 With simple commands and forum integration, support tickets automatically sync between both platforms, streamlining your workflow and improving response times. Whether you're managing a gaming community, running a business server, or supporting an open-source project, this bot provides the tools you need for efficient, organized customer support.
 
+> **Current Version**: 0.2.0-beta.6.10 | **Status**: Active Development | **Node.js**: 18.16.0+ Required
+
 ## 🤗 Special Thanks
 
 <!-- markdownlint-disable MD033 -->
@@ -32,9 +34,14 @@ Ready to transform your Discord support experience? Get started in minutes with 
 - **Effortless Integration**: Connect your Discord server to Unthread's powerful ticket management system in minutes
 - **Real-time Synchronization**: All ticket updates and responses automatically sync between Discord and Unthread
 - **Forum Channel Support**: Transform any forum post into a fully-managed support ticket without extra steps
-- **Customizable Configuration**: Tailor the bot's behavior to your community's specific support needs
+- **Advanced Caching**: Redis-powered caching system for improved performance and reliability
+- **Permission Validation**: Intelligent permission checking to prevent conflicts and ensure proper functionality
+- **Thread-based Management**: Each ticket creates a dedicated thread for organized communication
 - **Webhook Notifications**: Receive instant updates when ticket statuses change or new replies are added
 - **User-friendly Interface**: Simple commands and clear notifications enhance the support experience for everyone
+- **Debug Mode**: Comprehensive logging system for development and troubleshooting
+- **Retry Mechanism**: Built-in retry logic for handling API failures and network issues
+- **Customer Management**: Automatic customer profile creation and management integration
 
 ## 📥 Easy Deployment
 
@@ -85,6 +92,13 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
 > [!WARNING]
 > This is an advanced installation method and is not recommended for beginners. If you're new to Discord bot development, consider using the [Railway deployment method](#-easy-deployment) instead.
 
+### Prerequisites
+
+- **Node.js**: Version 18.16.0 or higher
+- **Yarn**: Version 4.9.2 (recommended package manager)
+- **Discord Application**: Bot token and proper permissions
+- **Unthread Account**: API access and configuration
+
 ### 1. Create a Discord Application
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
@@ -102,8 +116,24 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
 
 1. Navigate to the "OAuth2" tab and then to the "URL Generator" sub-tab.
 2. Under "SCOPES", select `bot` and `applications.commands`.
-3. Under "BOT PERMISSIONS", select the necessary permissions for your bot.
-4. Use the following link to invite your bot to your server. Replace `YOUR_BOT_CLIENT_ID` with your actual bot client ID: <https://discord.com/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID&permissions=1084479760448&integration_type=0&scope=bot+applications.commands>
+3. Under "BOT PERMISSIONS", select the following required permissions:
+   - Send Messages
+   - Send Messages in Threads
+   - Create Public Threads
+   - Create Private Threads
+   - Manage Threads
+   - Embed Links
+   - Read Message History
+   - Use Slash Commands
+   - View Channels
+
+4. Use the generated URL to invite your bot to your server, or use this pre-configured link (replace `YOUR_BOT_CLIENT_ID` with your actual bot client ID):
+
+   ```url
+   https://discord.com/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID&permissions=1084479760448&integration_type=0&scope=bot+applications.commands
+   ```
+
+> **Note**: The bot requires these specific permissions to create and manage threads for ticket handling. Missing permissions may cause functionality issues.
 
 ### 4. Fill Out the Environment Files
 
@@ -117,43 +147,106 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
    - `UNTHREAD_TRIAGE_CHANNEL_ID`: Your Unthread triage channel ID.
    - `UNTHREAD_EMAIL_INBOX_ID`: Your Unthread email inbox ID.
    - `UNTHREAD_WEBHOOK_SECRET`: Your Unthread webhook secret.
+   - `REDIS_URL`: Redis connection URL for caching (optional but recommended for production).
+   - `FORUM_CHANNEL_IDS`: Comma-separated list of forum channel IDs for automatic ticket creation.
+   - `DEBUG_MODE`: Set to `true` for verbose logging during development (default: `false`).
+   - `PORT`: Port for the webhook server (default: `3000`).
 
 ### 5. Install and Run the Project Locally
 
-1. Clone the repository and navigate to the project directory.
-2. Install the dependencies: `yarn install`
-3. Start the bot: `yarn start`
-4. The bot should now be running in your Discord server.
+1. Clone the repository and navigate to the project directory:
 
-### 6. Port Forwarding for Webhook
+   ```bash
+   git clone https://github.com/wgtechlabs/unthread-discord-bot.git
+   cd unthread-discord-bot
+   ```
+
+2. Install the dependencies using Yarn:
+
+   ```bash
+   yarn install
+   ```
+
+   > **Note**: This project uses Yarn 4.9.2. If you don't have Yarn installed, you can install it with `npm install -g yarn`.
+
+3. Deploy the slash commands to your Discord server:
+
+   ```bash
+   yarn deploycommand
+   ```
+
+4. Start the bot:
+
+   ```bash
+   yarn start
+   ```
+
+   Or for development with auto-restart:
+
+   ```bash
+   yarn dev
+   ```
+
+5. The bot should now be running in your Discord server and the webhook server will be listening on the specified port.
+
+### 6. Port Forwarding for Webhook (Development)
+
+For local development, you'll need to expose your webhook endpoint to receive events from Unthread:
+
+#### Option 1: Using VS Code Port Forwarding (Recommended for development)
 
 1. Open your project in VS Code.
 2. Open the Command Palette (Ctrl+Shift+P or Cmd+Shift+P on Mac).
 3. Type `Ports: Focus on Ports View` and select it.
 4. In the Ports view, click on the `+` icon to add a new port.
-5. Enter `3000` as the port number and press Enter.
+5. Enter `3000` (or your configured PORT) as the port number and press Enter.
 6. Click on the globe icon next to the port to make it publicly accessible.
+7. Copy the generated public URL for use in the Unthread webhook configuration.
+
+#### Option 2: Using ngrok (Alternative)
+
+1. Install ngrok: [https://ngrok.com/download](https://ngrok.com/download)
+2. Run ngrok to expose your local port:
+
+   ```bash
+   ngrok http 3000
+   ```
+
+3. Copy the generated HTTPS URL for use in the Unthread webhook configuration.
+
+> **Note**: For production deployments, use the actual domain/IP of your server instead of port forwarding tools.
 
 ### 7. Configure Webhook in Unthread Dashboard
 
 1. Log in to your Unthread dashboard.
-2. Navigate to the "Settings" section.
-3. Under "Webhook Configuration", enter the following URL: `http://<YOUR_PUBLIC_URL>:3000/webhook/unthread`
-4. Replace `<YOUR_PUBLIC_URL>` with the public URL provided by VS Code.
+2. Navigate to the "Settings" or "Integrations" section.
+3. Under "Webhook Configuration", enter the following URL: `https://<YOUR_PUBLIC_URL>/webhook/unthread`
+   - Replace `<YOUR_PUBLIC_URL>` with the public URL from your port forwarding setup
+   - For production: Use your actual server domain (e.g., `https://your-bot-server.com/webhook/unthread`)
+4. Set the webhook secret to match your `UNTHREAD_WEBHOOK_SECRET` environment variable.
 5. Save the settings.
 
-Your bot should now be able to receive events from Unthread.
+Your bot should now be able to receive events from Unthread and sync ticket updates in real-time.
 
-### 8. Configure Forum Channels
+### 8. Configure Forum Channels (Optional)
 
 To enable automatic ticket creation from forum posts:
 
-1. Add forum channel IDs to your `.env` file: `FORUM_CHANNEL_IDS=123456789012345678,234567890123456789`
-    - Replace the IDs with the actual IDs of your forum channels.
-    - You can find the channel ID by right-clicking on the channel name in Discord and selecting "Copy ID" (make sure Developer Mode is enabled in your Discord settings).
-2. Each comma-separated ID represents a forum channel that will be monitored.
+1. Add forum channel IDs to your `.env` file:
+
+   ```env
+   FORUM_CHANNEL_IDS=123456789012345678,234567890123456789
+   ```
+
+   - Replace the IDs with the actual IDs of your forum channels.
+   - You can find the channel ID by right-clicking on the channel name in Discord and selecting "Copy ID" (make sure Developer Mode is enabled in your Discord settings).
+
+2. Each comma-separated ID represents a forum channel that will be monitored for new posts.
 3. Any new forum posts in these channels will automatically create a corresponding ticket in Unthread.
 4. Replies in the forum post will be synchronized with the Unthread ticket.
+5. The bot includes validation to ensure only actual forum channels are processed, preventing conflicts with text channels.
+
+> **Important**: Only add actual forum channel IDs to this list. The bot will validate channel types to prevent issues.
 
 ### How to Get Your Discord Server ID
 
@@ -192,6 +285,32 @@ Need assistance with the bot? Here's how to get help:
 - **Ask a Question**: Create a [new discussion](https://github.com/wgtechlabs/unthread-discord-bot/discussions/new?category=help-support) if you can't find answers to your specific issue.
 - **Documentation**: Review the [usage instructions](#%EF%B8%8F-usage) in this README for common commands and features.
 - **Known Issues**: Browse [existing issues](https://github.com/wgtechlabs/unthread-discord-bot/issues) to see if your problem has already been reported.
+
+### Common Troubleshooting
+
+**Bot not responding to commands:**
+
+- Ensure the bot has the required permissions in your server
+- Check if the bot is online in your Discord server
+- Verify that slash commands are deployed with `yarn deploycommand`
+
+**Forum channel tickets not creating:**
+
+- Confirm the channel IDs in `FORUM_CHANNEL_IDS` are actual forum channels (not text channels)
+- Enable Debug Mode (`DEBUG_MODE=true`) to see detailed logs
+- Check bot permissions in the specific forum channels
+
+**Webhook issues:**
+
+- Verify the webhook URL is accessible from the internet
+- Check that the `UNTHREAD_WEBHOOK_SECRET` matches your Unthread configuration
+- Ensure the Express server is running on the correct port
+
+**Redis connection problems:**
+
+- Verify your `REDIS_URL` is correctly formatted
+- Test Redis connectivity independently
+- Redis is optional for basic functionality but recommended for production
 
 ### Reporting Issues
 
