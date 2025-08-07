@@ -3,7 +3,18 @@
  * 
  * This module handles all interaction with the Unthread API for the Discord bot.
  * It manages customer records, ticket creation/retrieval, and webhook event processing.
- * All communication between Discord and Unthread is managed through these functions.
+ * All communication between Dis        } else if (status === 'open') {
+            try {
+                // Use retry logic for ticket reopening events with shorter window
+                const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
+                    id, 
+                    getTicketByUnthreadTicketId,
+                    {
+                        maxAttempts: 2,
+                        maxRetryWindow: 5000, // 5 seconds - shorter for existing tickets
+                        baseDelay: 1000
+                    }
+                );d and Unthread is managed through these functions.
  */
 
 const { decodeHtmlEntities } = require('../utils/decodeHtmlEntities');
@@ -12,7 +23,7 @@ const { withRetry } = require('../utils/retry');
 const { EmbedBuilder } = require('discord.js');
 const logger = require('../utils/logger');
 const { isDuplicateMessage, containsDiscordAttachments, processQuotedContent } = require('../utils/messageUtils');
-const { findDiscordThreadByTicketId } = require('../utils/threadUtils');
+const { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } = require('../utils/threadUtils');
 const { getOrCreateCustomer, getCustomerByDiscordId } = require('../utils/customerUtils');
 const { version } = require('../../package.json');
 
@@ -203,7 +214,17 @@ async function handleWebhookEvent(payload) {
         const { id, status, friendlyId, title } = payload.data;
         if (status === 'closed') {
             try {
-                const { discordThread } = await findDiscordThreadByTicketId(id, getTicketByUnthreadTicketId);
+                // Use retry logic for ticket closure events with shorter window
+                // These are typically for existing tickets, so less likely to have race conditions
+                const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
+                    id, 
+                    getTicketByUnthreadTicketId,
+                    {
+                        maxAttempts: 2,
+                        maxRetryWindow: 5000, // 5 seconds - shorter for existing tickets
+                        baseDelay: 1000
+                    }
+                );
                 
                 const closedEmbed = new EmbedBuilder()
                     .setColor(0xEB1A1A)
@@ -223,7 +244,11 @@ async function handleWebhookEvent(payload) {
                 await discordThread.send({ embeds: [closedEmbed] });
                 logger.info(`Sent closure notification embed to Discord thread ${discordThread.id}`);
             } catch (error) {
-                logger.error(`Unable to process ticket closure for ticket ${id}: ${error.message}`);
+                if (error.context && error.context.likelyRaceCondition) {
+                    logger.warn(`Ticket closure processing failed due to likely race condition for ticket ${id}: ${error.message}`);
+                } else {
+                    logger.error(`Unable to process ticket closure for ticket ${id}: ${error.message}`);
+                }
                 return;
             }
         } else if (status === 'open') {
@@ -248,7 +273,11 @@ async function handleWebhookEvent(payload) {
                 await discordThread.send({ embeds: [reopenedEmbed] });
                 logger.info(`Sent reopen notification embed to Discord thread ${discordThread.id}`);
             } catch (error) {
-                logger.error(`Unable to process ticket reopening for ticket ${id}: ${error.message}`);
+                if (error.context && error.context.likelyRaceCondition) {
+                    logger.warn(`Ticket reopening processing failed due to likely race condition for ticket ${id}: ${error.message}`);
+                } else {
+                    logger.error(`Unable to process ticket reopening for ticket ${id}: ${error.message}`);
+                }
                 return;
             }
         }
@@ -302,7 +331,17 @@ async function handleWebhookEvent(payload) {
         const conversationId = payload.data.conversationId;
         const decodedMessage = decodeHtmlEntities(payload.data.text);
         try {
-            const { discordThread } = await findDiscordThreadByTicketId(conversationId, getTicketByUnthreadTicketId);
+            // Use retry-enabled lookup for message_created events to handle race conditions
+            // This prevents errors when webhooks arrive before ticket mappings are fully propagated
+            const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
+                conversationId, 
+                getTicketByUnthreadTicketId,
+                {
+                    maxAttempts: 3,
+                    maxRetryWindow: 10000, // 10 seconds - reasonable for new ticket creation
+                    baseDelay: 1000 // 1 second base delay
+                }
+            );
             
             const messages = await discordThread.messages.fetch({ limit: 10 });
             const messagesArray = Array.from(messages.values());
@@ -359,7 +398,19 @@ async function handleWebhookEvent(payload) {
                 logger.info(`Sent message to Discord thread ${discordThread.id}`);
             }
         } catch (error) {
-            logger.error('Error processing new message webhook event:', error);
+            // Enhanced error handling with context for race condition detection
+            if (error.context && error.context.likelyRaceCondition) {
+                // This looks like a race condition - log as warning instead of error
+                logger.warn(`Webhook processing failed due to likely race condition for ticket ${payload.data.conversationId}: ${error.message}`, {
+                    ticketId: payload.data.conversationId,
+                    retryAttempts: error.context.attemptsMade,
+                    totalRetryTime: error.context.totalRetryTime,
+                    eventType: payload.event
+                });
+            } else {
+                // This appears to be a genuine error
+                logger.error(`Error processing new message webhook event for ticket ${payload.data.conversationId}:`, error);
+            }
         }
     }
     return payload;
