@@ -48,9 +48,9 @@ import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import express from 'express';
 import * as dotenv from 'dotenv';
 import { BotConfig } from './types/discord';
-
-const { webhookHandler } = require('./services/webhook');
-const logger = require('./utils/logger');
+import { webhookHandler } from './services/webhook';
+import logger from './utils/logger';
+import './types/global';
 
 // Load environment variables
 dotenv.config();

@@ -130,4 +130,4 @@ const logger: Logger = {
 };
 
 // Export the logging functions for use in other modules
-export = logger;
+export default logger;

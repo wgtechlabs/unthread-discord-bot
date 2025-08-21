@@ -15,9 +15,9 @@
 import { Request, Response } from 'express';
 import { createHmac } from 'crypto';
 import { WebhookPayload } from '../types/unthread';
+import logger from '../utils/logger';
 
 const { handleWebhookEvent: unthreadWebhookHandler } = require('./unthread');
-const logger = require('../utils/logger');
 
 const SIGNING_SECRET = process.env.UNTHREAD_WEBHOOK_SECRET;
 
@@ -77,10 +77,13 @@ function verifySignature(req: WebhookRequest): boolean {
  * @param req - The Express request object
  * @param res - The Express response object
  */
-function webhookHandler(req: WebhookRequest, res: Response): void {
-	logger.debug('Webhook received:', req.rawBody);
+function webhookHandler(req: Request, res: Response): void {
+	// Cast to WebhookRequest for access to rawBody
+	const webhookReq = req as WebhookRequest;
 	
-	if (!verifySignature(req)) {
+	logger.debug('Webhook received:', webhookReq.rawBody);
+	
+	if (!verifySignature(webhookReq)) {
 		logger.error('Signature verification failed.');
 		res.sendStatus(403);
 		return;
@@ -112,8 +115,4 @@ function webhookHandler(req: WebhookRequest, res: Response): void {
 /**
  * Webhook service exports
  */
-const webhookService = {
-	webhookHandler,
-};
-
-export = webhookService;
+export { webhookHandler };

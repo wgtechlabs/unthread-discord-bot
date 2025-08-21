@@ -7,11 +7,9 @@
  * @module utils/channelUtils
  */
 
-const logger = require('./logger');
-
-// Import discord.js types and constants (will be available through the Discord client)
-// Using require for now to maintain compatibility during transition
-const { ChannelType } = require('discord.js');
+import logger from './logger';
+import { ChannelType } from 'discord.js';
+import '../types/global';
 
 /**
  * Global Discord client interface (extended in main application)
@@ -20,10 +18,6 @@ interface GlobalDiscordClient {
 	channels: {
 		fetch: (channelId: string) => Promise<any>;
 	};
-}
-
-declare global {
-	var discordClient: GlobalDiscordClient | undefined;
 }
 
 /**
