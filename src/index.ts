@@ -11,9 +11,35 @@
  * - Command and event loader system
  * - Global client reference for webhook integration
  * 
+ * Architecture:
+ * - Built with TypeScript for type safety and maintainability
+ * - Follows KISS (Keep It Simple, Stupid) principle
+ * - Clean code approach with comprehensive documentation
+ * - Modular design with clear separation of concerns
+ * 
+ * Environment Variables Required:
+ * - DISCORD_BOT_TOKEN: Bot token from Discord Developer Portal
+ * - CLIENT_ID: Application ID from Discord Developer Portal 
+ * - GUILD_ID: Discord server ID where commands will be deployed
+ * - UNTHREAD_API_KEY: API key for Unthread integration
+ * - UNTHREAD_WEBHOOK_SECRET: Secret for webhook signature verification
+ * - PORT: Port for webhook server (optional, defaults to 3000)
+ * 
  * @module index
  * @author Waren Gonzaga
  * @version 0.2.0-beta.6.14
+ * @since 0.1.0
+ * 
+ * @example
+ * // Start the bot in development mode
+ * yarn dev
+ * 
+ * @example  
+ * // Build and start in production
+ * yarn build && yarn start
+ * 
+ * @see {@link https://discord.js.org/} Discord.js Documentation
+ * @see {@link https://unthread.com/} Unthread Platform
  */
 
 import * as fs from 'fs';
