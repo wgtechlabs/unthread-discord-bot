@@ -1,10 +1,12 @@
 {
   "recommendations": [
-    "bierner.markdown-preview-github-styles", 
+    "bierner.markdown-preview-github-styles",
     "bierner.github-markdown-preview",
     "bierner.markdown-shiki",
     "bierner.color-info",
     "oderwat.indent-rainbow",
     "warengonzaga.bini-theme",
+    "arcanis.vscode-zipfs",
+    "dbaeumer.vscode-eslint"
   ]
 }
