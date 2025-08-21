@@ -23,7 +23,9 @@
 import { Events, ActivityType, Client } from 'discord.js';
 import * as packageJSON from '../../package.json';
 import logger from '../utils/logger';
-import { getValidatedForumChannelIds } from '../utils/channelUtils';
+import channelUtils from '../utils/channelUtils';
+
+const { getValidatedForumChannelIds } = channelUtils;
 
 /**
  * Ready event handler
@@ -73,4 +75,4 @@ const readyEvent = {
 	},
 };
 
-export = readyEvent;
+export default readyEvent;

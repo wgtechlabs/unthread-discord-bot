@@ -42,4 +42,4 @@ const htmlEntityDecoder = {
 	decodeHtmlEntities,
 };
 
-export = htmlEntityDecoder;
+export default htmlEntityDecoder;

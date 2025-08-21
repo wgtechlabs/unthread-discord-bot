@@ -88,4 +88,4 @@ const memoryCache: CacheOperations = {
 	deleteKey,
 };
 
-export = memoryCache;
+export default memoryCache;

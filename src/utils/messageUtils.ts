@@ -238,4 +238,4 @@ const messageUtils = {
 	processQuotedContent,
 };
 
-export = messageUtils;
+export default messageUtils;

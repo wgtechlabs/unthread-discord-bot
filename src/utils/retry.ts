@@ -92,4 +92,4 @@ const retryUtils = {
 	withRetry,
 };
 
-export = retryUtils;
+export default retryUtils;

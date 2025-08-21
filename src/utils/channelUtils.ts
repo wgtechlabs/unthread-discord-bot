@@ -123,4 +123,4 @@ const channelUtils = {
 	isValidatedForumChannel,
 };
 
-export = channelUtils;
+export default channelUtils;

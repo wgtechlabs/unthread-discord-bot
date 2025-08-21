@@ -25,7 +25,9 @@ import {
 	GuildMember,
 	TextChannel
 } from 'discord.js';
-import { isValidatedForumChannel } from '../../utils/channelUtils';
+import channelUtils from '../../utils/channelUtils';
+
+const { isValidatedForumChannel } = channelUtils;
 
 /**
  * Support Command Definition
@@ -131,4 +133,4 @@ Ask an admin to grant these permissions or use \`/support\` in an authorized cha
 	},
 };
 
-export = supportCommand;
+export default supportCommand;
