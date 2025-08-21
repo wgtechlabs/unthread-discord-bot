@@ -22,9 +22,8 @@
 
 import { Events, ActivityType, Client } from 'discord.js';
 import * as packageJSON from '../../package.json';
-
-const logger = require('../utils/logger');
-const { getValidatedForumChannelIds } = require('../utils/channelUtils');
+import logger from '../utils/logger';
+import { getValidatedForumChannelIds } from '../utils/channelUtils';
 
 /**
  * Ready event handler

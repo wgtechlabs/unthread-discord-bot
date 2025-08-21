@@ -9,7 +9,8 @@
  */
 
 import { CacheOperations } from '../types/discord';
-const cachedData = require('./cache');
+// @ts-ignore - JavaScript module without type declarations
+import * as cachedData from './cache';
 
 /**
  * Sets a key-value pair in the cache with optional expiration time

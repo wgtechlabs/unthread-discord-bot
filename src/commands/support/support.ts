@@ -25,8 +25,7 @@ import {
 	GuildMember,
 	TextChannel
 } from 'discord.js';
-
-const { isValidatedForumChannel } = require('../../utils/channelUtils');
+import { isValidatedForumChannel } from '../../utils/channelUtils';
 
 /**
  * Support Command Definition
