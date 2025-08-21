@@ -33,6 +33,7 @@
   "packageManager": "yarn@4.9.2",
   "dependencies": {
     "@keyv/redis": "^4.4.0",
+    "@wgtechlabs/log-engine": "2.2.0",
     "cacheable": "^1.10.0",
     "crypto": "^1.0.1",
     "discord.js": "^14.20.0",

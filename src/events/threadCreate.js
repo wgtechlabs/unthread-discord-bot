@@ -23,9 +23,9 @@ module.exports = {
             const isValidForum = await isValidatedForumChannel(thread.parentId);
             if (!isValidForum) return;
         } catch (error) {
-            logger.error('❌ Error validating forum channel:', error.message);
+            logger.error('Error validating forum channel:', error.message);
             logger.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
-            logger.error('⚠️ Skipping thread processing due to validation error');
+            logger.error('Skipping thread processing due to validation error');
             return;
         }
 
@@ -55,7 +55,7 @@ module.exports = {
                 }
             });
             
-            logger.error(`❌ Cannot create support tickets in forum channel "${parentChannel.name}" (${parentChannel.id})`);
+            logger.error(`Cannot create support tickets in forum channel "${parentChannel.name}" (${parentChannel.id})`);
             logger.error(`Missing permissions: ${permissionNames.join(', ')}`);
             logger.error(`Action required: Ask a server administrator to grant the bot these permissions in the forum channel.`);
             logger.error(`Guild: ${thread.guild.name} (${thread.guild.id})`);
@@ -81,14 +81,14 @@ module.exports = {
                 }
             });
             
-            logger.error(`❌ Cannot process forum thread "${thread.name}" (${thread.id})`);
+            logger.error(`Cannot process forum thread "${thread.name}" (${thread.id})`);
             logger.error(`Missing thread permissions: ${threadPermissionNames.join(', ')}`);
             logger.error(`Action required: Ask a server administrator to grant the bot these permissions for forum threads.`);
             logger.error(`Guild: ${thread.guild.name} (${thread.guild.id})`);
             return;
         }
 
-        logger.info(`✅ Permission check passed for forum thread "${thread.name}" in channel "${parentChannel.name}"`);
+        logger.info(`Permission check passed for forum thread "${thread.name}" in channel "${parentChannel.name}"`);
 
         let firstMessage; // Declare in higher scope for error logging access
 
@@ -152,10 +152,10 @@ module.exports = {
             logger.info(`Forum post converted to ticket: #${ticket.friendlyId}`);
         } catch (error) {
             if (error.message.includes('timeout')) {
-                logger.error('⏱️ Ticket creation is taking longer than expected. Please wait and try again.');
+                logger.error('Ticket creation is taking longer than expected. Please wait and try again.');
                 logger.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
             } else {
-                logger.error('❌ An error occurred while creating the ticket:', error.message);
+                logger.error('An error occurred while creating the ticket:', error.message);
                 logger.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
                 logger.error(`Author: ${firstMessage?.author?.tag || 'Unknown'} (${firstMessage?.author?.id || 'Unknown'})`);
             }
@@ -177,17 +177,17 @@ module.exports = {
                         .setTimestamp();
                     
                     await thread.send({ embeds: [errorEmbed] });
-                    logger.info('📧 Sent error notification to user in thread');
+                    logger.info('Sent error notification to user in thread');
                 } else {
-                    logger.warn('⚠️ Cannot send error message to user - missing permissions');
-                    logger.warn('💡 Users will not be notified of the ticket creation failure');
-                    logger.warn('🔧 Administrator action required: Grant bot "Send Messages in Threads" and "View Channel" permissions');
+                    logger.warn('Cannot send error message to user - missing permissions');
+                    logger.warn('Users will not be notified of the ticket creation failure');
+                    logger.warn('Administrator action required: Grant bot "Send Messages in Threads" and "View Channel" permissions');
                 }
             } catch (sendError) {
-                logger.error('❌ Could not send error message to thread:', sendError.message);
+                logger.error('Could not send error message to thread:', sendError.message);
                 if (sendError.code === 50001) {
-                    logger.error('🔐 Error Code 50001: Missing Access - Bot lacks permission to send messages in this thread');
-                    logger.error('🔧 Administrator action required: Grant bot "Send Messages in Threads" permission');
+                    logger.error('Error Code 50001: Missing Access - Bot lacks permission to send messages in this thread');
+                    logger.error('Administrator action required: Grant bot "Send Messages in Threads" permission');
                 }
                 logger.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
             }
