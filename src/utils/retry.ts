@@ -8,7 +8,7 @@
  */
 
 import { RetryConfig } from '../types/utils';
-const logger = require('./logger');
+import logger from './logger';
 
 /**
  * Retry operation configuration options

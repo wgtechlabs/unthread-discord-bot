@@ -16,8 +16,8 @@ import { Request, Response } from 'express';
 import { createHmac } from 'crypto';
 import { WebhookPayload } from '../types/unthread';
 import logger from '../utils/logger';
-
-const { handleWebhookEvent: unthreadWebhookHandler } = require('./unthread');
+// @ts-ignore - JavaScript module without type declarations
+import { handleWebhookEvent as unthreadWebhookHandler } from './unthread';
 
 const SIGNING_SECRET = process.env.UNTHREAD_WEBHOOK_SECRET;
 

@@ -11,7 +11,7 @@
  */
 
 import { MessageProcessingResult } from '../types/utils';
-const logger = require('./logger');
+import logger from './logger';
 
 /**
  * Represents a message for processing
