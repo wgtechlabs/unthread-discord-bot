@@ -85,6 +85,38 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
 - `/user` - Shows details about your user account.
 - `/version` - Displays the current bot version.
 
+## 🏗️ Architecture
+
+This bot is built with **TypeScript** for enhanced maintainability, type safety, and developer experience. The codebase follows clean coding principles and the KISS (Keep It Simple, Stupid) methodology for easy maintenance and extensibility.
+
+### Technology Stack
+
+- **TypeScript**: For type safety and better code maintainability
+- **Discord.js v14**: Modern Discord API interactions
+- **Express.js**: Webhook server for Unthread integration
+- **Node.js 18+**: Runtime environment
+- **Yarn with PnP**: Package management and dependency resolution
+- **ESLint**: Code quality and consistent formatting
+- **Redis** (optional): Caching for improved performance
+
+### Build System
+
+The project uses TypeScript compilation with Yarn SDK integration:
+
+```bash
+# Development with live reload
+yarn dev
+
+# Build for production
+yarn build
+
+# Deploy commands only
+yarn deploycommand
+
+# Production start
+yarn start
+```
+
 ## 📦 Manual Installation
 
 > [!WARNING]
@@ -93,7 +125,8 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
 ### Prerequisites
 
 - **Node.js**: Version 18.16.0 or higher
-- **Yarn**: Version 4.9.2 (recommended package manager)
+- **Yarn**: Version 4.9.2 (required for proper dependency management)
+- **TypeScript**: Automatically managed via Yarn SDK
 - **Discord Application**: Bot token and proper permissions
 - **Unthread Account**: API access and configuration
 
@@ -159,33 +192,59 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
    cd unthread-discord-bot
    ```
 
-2. Install the dependencies using Yarn:
+2. Enable Corepack and install dependencies:
 
    ```bash
+   corepack enable
    yarn install
    ```
 
-   > **Note**: This project uses Yarn 4.9.2. If you don't have Yarn installed, you can install it with `npm install -g yarn`.
+   > **Note**: This project uses Yarn 4.9.2 with Plug'n'Play for efficient dependency management. Corepack ensures you're using the correct Yarn version.
 
-3. Deploy the slash commands to your Discord server:
+3. Build the TypeScript project:
+
+   ```bash
+   yarn build
+   ```
+
+4. Deploy the slash commands to your Discord server:
 
    ```bash
    yarn deploycommand
    ```
 
-4. Start the bot:
+5. Start the bot in production mode:
 
    ```bash
    yarn start
    ```
 
-   Or for development with auto-restart:
+   Or for development with TypeScript compilation and auto-restart:
 
    ```bash
    yarn dev
    ```
 
-5. The bot should now be running in your Discord server and the webhook server will be listening on the specified port.
+6. The bot should now be running in your Discord server and the webhook server will be listening on the specified port.
+
+### Development Workflow
+
+For active development, use these commands:
+
+```bash
+# Development with live reload (TypeScript)
+yarn dev
+
+# Type checking and linting
+yarn lint
+yarn lint:fix
+
+# Build only (creates dist/ folder)
+yarn build
+
+# Deploy commands only (development mode)
+yarn deploycommand:dev
+```
 
 ### 6. Port Forwarding for Webhook (Development)
 

@@ -3,11 +3,16 @@
   "description": "A simple official discord bot integration for unthread.io ticketing system.",
   "version": "0.2.0-beta.6.14",
   "private": true,
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node src/deploy_commands.js && node src/index.js",
-    "dev": "nodemon src/index.js",
-    "deploycommand": "node src/deploy_commands.js"
+    "build": ".yarn/sdks/typescript/bin/tsc",
+    "start": "npm run build && yarn node dist/deploy_commands.js && yarn node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "dev:watch": "nodemon --exec ts-node src/index.ts",
+    "deploycommand": "npm run build && yarn node dist/deploy_commands.js",
+    "deploycommand:dev": "ts-node src/deploy_commands.ts",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
   },
   "keywords": [],
   "author": "Waren Gonzaga <opensource@warengonzaga.com> (https://warengonzaga.com)",
@@ -36,6 +41,13 @@
     "keyv": "^5.3.4"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.40.0",
+    "@typescript-eslint/parser": "^8.40.0",
+    "eslint": "^9.33.0",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
   }
 }
