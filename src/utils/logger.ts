@@ -1,8 +1,8 @@
 /**
  * Logger Module
  * 
- * A simple logging utility that provides different logging levels with prefix labels.
- * Controls output verbosity based on environment configuration.
+ * A clean logging utility that integrates with @wgtechlabs/log-engine.
+ * Provides different logging levels with clean output - no emojis, only error type and local time.
  * 
  * Usage:
  *   import logger from './utils/logger';
@@ -20,28 +20,71 @@
 
 import { Logger } from '../types/discord';
 
-// Determine if debug mode is enabled from environment variables
-// This controls whether debug-level logs are displayed
+// Import LogEngine and LogMode from @wgtechlabs/log-engine
+// Note: Using require() as this package may not have full TypeScript definitions
+const { LogEngine, LogMode } = require('@wgtechlabs/log-engine') as any;
+
+// Configure LogEngine based on environment variables
+// This controls the logging level and output behavior
 const debugMode: boolean = process.env.DEBUG_MODE === 'true';
 
+// Set the log mode based on DEBUG_MODE environment variable
+// In debug mode, show all logs; otherwise show info and above
+const logMode = debugMode ? LogMode.DEBUG : LogMode.INFO;
+
 /**
- * Gets a formatted timestamp string for the current time
- * Format: MM-DD-YYYY HH:MM:SS.mmm
+ * Gets a formatted local timestamp string for the current time
+ * Format: HH:MM:SS
  * 
- * @returns Formatted timestamp
+ * @returns Formatted local time
  */
-function getTimestamp(): string {
-	const now = new Date();
-	const month = String(now.getMonth() + 1).padStart(2, '0');
-	const day = String(now.getDate()).padStart(2, '0');
-	const year = now.getFullYear();
-	const hours = String(now.getHours()).padStart(2, '0');
-	const minutes = String(now.getMinutes()).padStart(2, '0');
-	const seconds = String(now.getSeconds()).padStart(2, '0');
-	const ms = String(now.getMilliseconds()).padStart(3, '0');
+function getLocalTime(): string {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
     
-	return `${month}-${day}-${year} ${hours}:${minutes}:${seconds}.${ms}`;
+    return `${hours}:${minutes}:${seconds}`;
 }
+
+/**
+ * Custom output handler that shows only error type and local time
+ * Removes ISO timestamp and follows clean, minimal format
+ * 
+ * @param level - Log level (DEBUG, INFO, WARN, ERROR)
+ * @param message - Log message (may contain ANSI codes and timestamps)
+ * @param data - Additional data (optional)
+ */
+function customOutputHandler(level: string, message: string, data?: any): void {
+    const localTime = getLocalTime();
+    const levelUpper = level.toUpperCase();
+    
+    // Remove ANSI color codes and extract the actual message content
+    let cleanMessage = message.replace(/\u001b\[[0-9;]*m/g, '');
+    
+    // Extract just the message text after the formatted prefixes
+    // Pattern: [timestamp][time][LEVEL]: actual message
+    const messageMatch = cleanMessage.match(/^.*?\[.*?\].*?\[.*?\].*?\[.*?\]:\s*(.*)$/);
+    if (messageMatch && messageMatch[1]) {
+        cleanMessage = messageMatch[1].trim();
+        
+        // Remove any JSON data that might be appended to the message
+        cleanMessage = cleanMessage.replace(/\s*\{.*\}$/, '');
+    }
+    
+    if (data !== undefined && data !== null) {
+        console.log(`[${localTime}][${levelUpper}]: ${cleanMessage}`, data);
+    } else {
+        console.log(`[${localTime}][${levelUpper}]: ${cleanMessage}`);
+    }
+}
+
+// Configure LogEngine with custom output handler to meet requirements
+LogEngine.configure({ 
+    mode: logMode,
+    outputHandler: customOutputHandler,
+    suppressConsoleOutput: true  // Disable default console output to use our custom handler
+});
 
 /**
  * Log debug information (only visible when DEBUG_MODE=true)
@@ -50,17 +93,7 @@ function getTimestamp(): string {
  * @param args - Arguments to log (strings, objects, etc.)
  */
 function debug(...args: any[]): void {
-	if (debugMode) {
-		if (args.length > 0) {
-			if (typeof args[0] === 'string') {
-				args[0] = `[DEBUG] ${args[0]}`;
-			}
-			else {
-				args.unshift('[DEBUG]');
-			}
-		}
-		console.log(...args);
-	}
+    LogEngine.debug(...args);
 }
 
 /**
@@ -70,16 +103,7 @@ function debug(...args: any[]): void {
  * @param args - Arguments to log (strings, objects, etc.)
  */
 function info(...args: any[]): void {
-	// Always show info-level logs regardless of debug mode
-	if (args.length > 0) {
-		if (typeof args[0] === 'string') {
-			args[0] = `[INFO] ${args[0]}`;
-		}
-		else {
-			args.unshift('[INFO]');
-		}
-	}
-	console.log(...args);
+    LogEngine.info(...args);
 }
 
 /**
@@ -90,15 +114,7 @@ function info(...args: any[]): void {
  * @param args - Arguments to log (strings, objects, etc.)
  */
 function warn(...args: any[]): void {
-	if (args.length > 0) {
-		if (typeof args[0] === 'string') {
-			args[0] = `[WARN] ${args[0]}`;
-		}
-		else {
-			args.unshift('[WARN]');
-		}
-	}
-	console.warn(...args);  // Uses console.warn for proper error stream routing
+    LogEngine.warn(...args);
 }
 
 /**
@@ -108,15 +124,7 @@ function warn(...args: any[]): void {
  * @param args - Arguments to log (strings, objects, etc.)
  */
 function error(...args: any[]): void {
-	if (args.length > 0) {
-		if (typeof args[0] === 'string') {
-			args[0] = `[ERROR] ${args[0]}`;
-		}
-		else {
-			args.unshift('[ERROR]');
-		}
-	}
-	console.error(...args);  // Uses console.error for proper error stream routing
+    LogEngine.error(...args);
 }
 
 /**
