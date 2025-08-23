@@ -1,9 +1,9 @@
 /**
  * Retry Utility Module
- * 
+ *
  * This module provides a simple retry mechanism for operations that may fail temporarily.
  * It uses a linear backoff strategy with configurable attempts and delay.
- * 
+ *
  * @module utils/retry
  */
 
@@ -21,12 +21,12 @@ interface RetryOptions {
 
 /**
  * Executes an operation with retry logic
- * 
+ *
  * @param operation - Async function to execute with retry logic
  * @param options - Configuration options for retry behavior
  * @returns Result of the operation if successful
  * @throws Error if all retry attempts fail
- * 
+ *
  * @example
  * // Fetch data with retry
  * const result = await withRetry(
@@ -39,8 +39,8 @@ interface RetryOptions {
  * );
  */
 async function withRetry<T>(
-	operation: () => Promise<T>, 
-	options: RetryOptions = {}
+	operation: () => Promise<T>,
+	options: RetryOptions = {},
 ): Promise<T> {
 	const {
 		maxAttempts = 5,
@@ -54,21 +54,21 @@ async function withRetry<T>(
 	while (attempt < maxAttempts) {
 		try {
 			logger.info(`Attempt ${attempt + 1}/${maxAttempts} for ${operationName}...`);
-			
+
 			// Execute the operation
 			const result = await operation();
-			
+
 			// If we get here, the operation succeeded
 			if (attempt > 0) {
 				logger.info(`${operationName} succeeded on attempt ${attempt + 1}`);
 			}
-			
+
 			return result;
 		}
 		catch (error) {
 			lastError = error as Error;
 			logger.debug(`Attempt ${attempt + 1} failed: ${lastError.message}`);
-			
+
 			if (attempt < maxAttempts - 1) {
 				// Calculate delay with linear backoff
 				const delayMs = baseDelayMs * (attempt + 1);
@@ -76,10 +76,10 @@ async function withRetry<T>(
 				await new Promise(resolve => setTimeout(resolve, delayMs));
 			}
 		}
-		
+
 		attempt++;
 	}
-	
+
 	// If we get here, all attempts failed
 	logger.error(`${operationName} failed after ${maxAttempts} attempts. Last error: ${lastError?.message}`);
 	throw new Error(`${operationName} failed after ${maxAttempts} attempts: ${lastError?.message || 'Unknown error'}`);

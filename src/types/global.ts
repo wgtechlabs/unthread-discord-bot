@@ -1,9 +1,9 @@
 /**
  * Global Type Declarations
- * 
+ *
  * Contains global type declarations and augmentations for the application.
  * This file extends the global namespace with custom properties.
- * 
+ *
  * @module types/global
  */
 

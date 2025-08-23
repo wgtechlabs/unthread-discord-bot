@@ -1,8 +1,8 @@
 /**
  * Utility Type Definitions
- * 
+ *
  * Contains common utility types and interfaces used across the application.
- * 
+ *
  * @module types/utils
  */
 

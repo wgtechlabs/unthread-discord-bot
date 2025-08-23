@@ -1,9 +1,9 @@
 /**
  * Discord Bot Type Definitions
- * 
+ *
  * Contains type definitions for Discord bot-specific objects and configurations.
  * These extend or supplement the discord.js types for bot-specific use cases.
- * 
+ *
  * @module types/discord
  */
 

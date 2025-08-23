@@ -1,9 +1,9 @@
 /**
  * Channel Utilities
- * 
+ *
  * This module provides utility functions for validating Discord channel types
  * and ensuring proper channel handling throughout the application.
- * 
+ *
  * @module utils/channelUtils
  */
 
@@ -22,7 +22,7 @@ interface GlobalDiscordClient {
 
 /**
  * Checks if a channel is actually a forum channel
- * 
+ *
  * @param channelId - The Discord channel ID to check
  * @returns True if the channel is a forum channel, false otherwise
  */
@@ -50,7 +50,7 @@ async function isForumChannel(channelId: string): Promise<boolean> {
 /**
  * Validates and filters forum channel IDs from environment variable
  * Only returns IDs that are actually forum channels
- * 
+ *
  * @param forumChannelIds - Comma-separated list of channel IDs
  * @returns Array of validated forum channel IDs
  */
@@ -86,7 +86,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 async function getValidatedForumChannelIds(): Promise<string[]> {
 	const now = Date.now();
-	
+
 	// Return cached result if still valid
 	if (cachedForumChannelIds && (now - lastValidationTime) < CACHE_DURATION) {
 		return cachedForumChannelIds;
@@ -98,13 +98,13 @@ async function getValidatedForumChannelIds(): Promise<string[]> {
 	lastValidationTime = now;
 
 	logger.info(`Validated ${cachedForumChannelIds.length} forum channels from FORUM_CHANNEL_IDS`);
-	
+
 	return cachedForumChannelIds;
 }
 
 /**
  * Checks if a given channel ID is in the validated forum channels list
- * 
+ *
  * @param channelId - The channel ID to check
  * @returns True if the channel is a validated forum channel
  */

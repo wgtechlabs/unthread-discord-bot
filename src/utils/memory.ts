@@ -1,10 +1,10 @@
 /**
  * Memory Cache Utility Module
- * 
+ *
  * This module provides functions to interact with the in-memory cache system.
  * It serves as a simple key-value store for temporarily persisting data throughout
  * the bot's lifecycle, with configurable expiration times.
- * 
+ *
  * @module utils/memory
  */
 
@@ -14,19 +14,19 @@ import cachedData from './cache';
 
 /**
  * Sets a key-value pair in the cache with optional expiration time
- * 
+ *
  * This function stores data in the cache with a configurable Time-To-Live (TTL).
  * Keys expire automatically after the TTL period, helping to prevent stale data issues.
- * 
+ *
  * @param key - The unique identifier for storing the value
  * @param value - The value to store (will be serialized internally by the cache)
  * @param customTtl - Optional custom TTL in milliseconds (defaults to 24 hours)
  * @returns A promise that resolves to true if the key was set, false if operation failed
- * 
+ *
  * @example
  * // Store a user's data for 1 hour (3600000 ms)
  * await setKey('user:123456789', userData, 3600000);
- * 
+ *
  * @debug
  * If values aren't being stored properly, check:
  * 1. The cache implementation in cache.js for errors
@@ -41,14 +41,14 @@ async function setKey(key: string, value: any, customTtl?: number): Promise<bool
 
 /**
  * Retrieves a value from the cache by its key
- * 
+ *
  * Fetches previously stored data from the cache if it exists and hasn't expired.
  * Returns null or undefined (depending on cache implementation) if the key doesn't exist
  * or has expired.
- * 
+ *
  * @param key - The key to retrieve the value for
  * @returns A promise that resolves to the stored value, or null/undefined if not found
- * 
+ *
  * @example
  * // Retrieve user data
  * const userData = await getKey('user:123456789');
@@ -57,7 +57,7 @@ async function setKey(key: string, value: any, customTtl?: number): Promise<bool
  * } else {
  *   // Data not found or expired, fetch fresh data
  * }
- * 
+ *
  * @debug
  * If expected values aren't being retrieved:
  * 1. Check if the key exactly matches what was used during setKey()
@@ -71,7 +71,7 @@ async function getKey(key: string): Promise<any> {
 
 /**
  * Deletes a key from the cache
- * 
+ *
  * @param key - The key to delete
  * @returns A promise that resolves when the key is deleted
  */

@@ -1,9 +1,9 @@
 /**
  * Unthread API Type Definitions
- * 
+ *
  * Contains type definitions for all Unthread API request and response objects.
  * These interfaces ensure type safety when interacting with the Unthread service.
- * 
+ *
  * @module types/unthread
  */
 
@@ -100,9 +100,9 @@ export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent';
 /**
  * Webhook event types from Unthread
  */
-export type WebhookEventType = 
+export type WebhookEventType =
 	| 'ticket.created'
-	| 'ticket.updated' 
+	| 'ticket.updated'
 	| 'ticket.solved'
 	| 'ticket.closed'
 	| 'message.created'
