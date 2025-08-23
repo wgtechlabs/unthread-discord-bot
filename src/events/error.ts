@@ -1,5 +1,5 @@
-const { Events } = require('discord.js');
-const logger = require('../utils/logger');
+import { Events } from 'discord.js';
+import * as logger from '../utils/logger';
 
 /**
  * Global Discord.js Error Event Handler
@@ -14,11 +14,9 @@ const logger = require('../utils/logger');
  * - Examine Discord developer portal for rate limits or token issues
  * - Review bot permissions in problematic servers
  */
-module.exports = {
-    name: Events.Error,
-    once: false,
-    execute(error) {
-        // Log the error with full stack trace for troubleshooting
-        logger.error(`Discord.js Client Error: ${error.stack || error}`);
-    },
-};
+export const name = Events.Error;
+export const once = false;
+export function execute(error: Error): void {
+    // Log the error with full stack trace for troubleshooting
+    logger.error(`Discord.js Client Error: ${error.stack || error}`);
+}
