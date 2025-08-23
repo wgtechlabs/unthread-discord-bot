@@ -12,14 +12,14 @@
  * - Secondary storage using the configured database
  * 
  * Usage:
- *   const cache = require('./utils/cache');
+ *   import cache from './utils/cache';
  *   await cache.set('key', 'value', 300000); // Cache for 5 minutes
  *   const value = await cache.get('key');
  * 
  * @module utils/cache
  */
-const { Cacheable } = require('cacheable');
-const secondary = require('./database');
+import { Cacheable } from 'cacheable';
+import secondary from './database';
 
 /**
  * Main cache instance with database backing
@@ -29,4 +29,4 @@ const secondary = require('./database');
  */
 const cache = new Cacheable({ secondary });
 
-module.exports = cache;
+export default cache;

@@ -57,9 +57,9 @@ export interface Logger {
  * Cache key-value operations interface
  */
 export interface CacheOperations {
-	getKey: (key: string) => Promise<string | null>;
-	setKey: (key: string, value: string, ttl?: number) => Promise<void>;
-	deleteKey: (key: string) => Promise<void>;
+	getKey: (key: string) => Promise<any>;
+	setKey: (key: string, value: any, ttl?: number) => Promise<boolean>;
+	deleteKey: (key: string) => Promise<boolean>;
 }
 
 /**

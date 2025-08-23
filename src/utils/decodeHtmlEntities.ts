@@ -43,3 +43,6 @@ const htmlEntityDecoder = {
 };
 
 export default htmlEntityDecoder;
+
+// Export individual functions for named imports
+export { decodeHtmlEntities };

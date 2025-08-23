@@ -34,7 +34,7 @@ import cachedData from './cache';
  * 3. Whether the key follows the expected format pattern
  * 4. Memory constraints if storing large objects
  */
-async function setKey(key: string, value: any, customTtl?: number): Promise<void> {
+async function setKey(key: string, value: any, customTtl?: number): Promise<boolean> {
 	const ttl = customTtl || 86400000; // Use custom TTL or default to 24 hours
 	return await cachedData.set(key, value, ttl);
 }
@@ -65,7 +65,7 @@ async function setKey(key: string, value: any, customTtl?: number): Promise<void
  * 3. Look for potential cache eviction in cache.js if memory limits are reached
  * 4. Confirm the value was successfully stored with setKey() in the first place
  */
-async function getKey(key: string): Promise<string | null> {
+async function getKey(key: string): Promise<any> {
 	return await cachedData.get(key);
 }
 
@@ -75,7 +75,7 @@ async function getKey(key: string): Promise<string | null> {
  * @param key - The key to delete
  * @returns A promise that resolves when the key is deleted
  */
-async function deleteKey(key: string): Promise<void> {
+async function deleteKey(key: string): Promise<boolean> {
 	return await cachedData.delete(key);
 }
 
@@ -89,3 +89,6 @@ const memoryCache: CacheOperations = {
 };
 
 export default memoryCache;
+
+// Export individual functions for named imports
+export { setKey, getKey, deleteKey };

@@ -139,3 +139,6 @@ const logger: Logger = {
 
 // Export the logging functions for use in other modules
 export default logger;
+
+// Export individual functions for named imports
+export { debug, info, warn, error };

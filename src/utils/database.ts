@@ -17,9 +17,8 @@
  * 
  * @module utils/database
  */
-const { createKeyv } = require('@keyv/redis');
-const logger = require('./logger');
-require("dotenv").config();
+import { createKeyv } from '@keyv/redis';
+import * as logger from './logger';
 
 /**
  * Redis Keyv Instance
@@ -39,7 +38,7 @@ const keyv = createKeyv(process.env.REDIS_URL);
  * @async
  * @returns {Promise<void>}
  */
-async function testRedisConnection() {
+async function testRedisConnection(): Promise<void> {
     try {
         // Test connection by setting and getting a test value
         const testKey = 'redis:connection:test';
@@ -53,7 +52,7 @@ async function testRedisConnection() {
         } else {
             logger.warn('Redis connection test failed: value mismatch');
         }
-    } catch (error) {
+    } catch (error: any) {
         logger.error('Redis connection error:', error.message);
     }
 }
@@ -67,8 +66,8 @@ testRedisConnection();
  * Handles Redis connection errors and logs them appropriately.
  * This helps with monitoring Redis health and debugging issues.
  */
-keyv.on('error', (error) => {
+keyv.on('error', (error: Error) => {
     logger.error('Redis error:', error.message);
 });
 
-module.exports = keyv;
+export default keyv;

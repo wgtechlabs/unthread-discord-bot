@@ -124,3 +124,6 @@ const channelUtils = {
 };
 
 export default channelUtils;
+
+// Export individual functions for named imports
+export { isForumChannel, validateForumChannelIds, getValidatedForumChannelIds, isValidatedForumChannel };
