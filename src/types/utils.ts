@@ -64,7 +64,8 @@ export interface FileAttachment {
 	url: string;
 	size: number;
 	contentType: string;
-	data?: any; // Buffer type will be available once Node.js types are properly loaded
+	// Buffer type will be available once Node.js types are properly loaded
+	data?: any;
 }
 
 /**

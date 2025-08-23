@@ -99,7 +99,8 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 
     LogEngine.info(`Permission check passed for forum thread "${thread.name}" in channel "${parentChannel.name}"`);
 
-	let firstMessage: Message | undefined; // Declare in higher scope for error logging access
+	// Declare in higher scope for error logging access
+	let firstMessage: Message | undefined;
 
 	try {
 		// Fetch the first message with our retry mechanism
@@ -116,8 +117,10 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 			},
 			{
 				operationName: 'Fetch initial forum post message',
-				maxAttempts: 12, // Increased from 5 to 12 attempts
-				baseDelayMs: 10000, // Increased from 3000 to 10000 (10s)
+				// Increased from 5 to 12 attempts
+				maxAttempts: 12,
+				// Increased from 3000 to 10000 (10s)
+				baseDelayMs: 10000,
 				// This will provide delays of: 10s, 20s, 30s... up to around 2 minutes total
 			},
 		);

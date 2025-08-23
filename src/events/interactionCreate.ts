@@ -1,4 +1,4 @@
-import { Events, ChannelType, MessageFlags, Interaction, CommandInteraction, ModalSubmitInteraction } from 'discord.js';
+import { Events, MessageFlags, Interaction, CommandInteraction, ModalSubmitInteraction } from 'discord.js';
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { LogEngine } from '../config/logger';
 import { setKey } from '../utils/memory';
@@ -129,7 +129,8 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 
 async function handleSlashCommand(interaction: CommandInteraction): Promise<void> {
 	// Look up the command handler based on the command name
-	const client = interaction.client as any; // Type assertion for extended client
+	// Type assertion for extended client
+	const client = interaction.client as any;
 	const command = client.commands.get(interaction.commandName);
 
     // Check if command exists in our registered commands
