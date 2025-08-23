@@ -22,7 +22,7 @@
 
 import { Events, ActivityType, Client } from 'discord.js';
 import * as packageJSON from '../../package.json';
-import logger from '../utils/logger';
+import { LogEngine } from '../config/logger';
 import channelUtils from '../utils/channelUtils';
 
 const { getValidatedForumChannelIds } = channelUtils;
@@ -51,7 +51,7 @@ const readyEvent = {
 		});
 
 		// Log successful initialization with version information for monitoring
-		logger.info(`Logged in as ${bot.user?.tag} @ v${packageJSON.version}`);
+		LogEngine.info(`Logged in as ${bot.user?.tag} @ v${packageJSON.version}`);
 
 		// Validate forum channel configuration on startup
 		try {
@@ -61,16 +61,16 @@ const readyEvent = {
 				const invalidCount = allChannelIds.length - validForumChannels.length;
 				
 				if (invalidCount > 0) {
-					logger.warn(`${invalidCount} channel(s) in FORUM_CHANNEL_IDS are not forum channels and will be ignored`);
+					LogEngine.warn(`${invalidCount} channel(s) in FORUM_CHANNEL_IDS are not forum channels and will be ignored`);
 				}
 				
 				if (validForumChannels.length > 0) {
-					logger.info(`Monitoring ${validForumChannels.length} forum channel(s) for ticket creation`);
+					LogEngine.info(`Monitoring ${validForumChannels.length} forum channel(s) for ticket creation`);
 				}
 			}
 		}
 		catch (error) {
-			logger.error('Error validating forum channels on startup:', error);
+			LogEngine.error('Error validating forum channels on startup:', error);
 		}
 	},
 };

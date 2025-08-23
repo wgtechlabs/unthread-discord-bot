@@ -8,7 +8,7 @@
  */
 
 import { RetryConfig } from '../types/utils';
-import logger from './logger';
+import { LogEngine } from '../config/logger';
 
 /**
  * Retry operation configuration options
@@ -53,26 +53,26 @@ async function withRetry<T>(
 
 	while (attempt < maxAttempts) {
 		try {
-			logger.info(`Attempt ${attempt + 1}/${maxAttempts} for ${operationName}...`);
+			LogEngine.info(`Attempt ${attempt + 1}/${maxAttempts} for ${operationName}...`);
 			
 			// Execute the operation
 			const result = await operation();
 			
 			// If we get here, the operation succeeded
 			if (attempt > 0) {
-				logger.info(`${operationName} succeeded on attempt ${attempt + 1}`);
+				LogEngine.info(`${operationName} succeeded on attempt ${attempt + 1}`);
 			}
 			
 			return result;
 		}
 		catch (error) {
 			lastError = error as Error;
-			logger.debug(`Attempt ${attempt + 1} failed: ${lastError.message}`);
+			LogEngine.debug(`Attempt ${attempt + 1} failed: ${lastError.message}`);
 			
 			if (attempt < maxAttempts - 1) {
 				// Calculate delay with linear backoff
 				const delayMs = baseDelayMs * (attempt + 1);
-				logger.info(`Retrying in ${delayMs / 1000}s... (attempt ${attempt + 1}/${maxAttempts})`);
+				LogEngine.info(`Retrying in ${delayMs / 1000}s... (attempt ${attempt + 1}/${maxAttempts})`);
 				await new Promise(resolve => setTimeout(resolve, delayMs));
 			}
 		}
@@ -81,7 +81,7 @@ async function withRetry<T>(
 	}
 	
 	// If we get here, all attempts failed
-	logger.error(`${operationName} failed after ${maxAttempts} attempts. Last error: ${lastError?.message}`);
+	LogEngine.error(`${operationName} failed after ${maxAttempts} attempts. Last error: ${lastError?.message}`);
 	throw new Error(`${operationName} failed after ${maxAttempts} attempts: ${lastError?.message || 'Unknown error'}`);
 }
 

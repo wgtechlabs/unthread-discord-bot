@@ -15,7 +15,7 @@
 import { Request, Response } from 'express';
 import { createHmac } from 'crypto';
 import { WebhookPayload } from '../types/unthread';
-import logger from '../utils/logger';
+import { LogEngine } from '../config/logger';
 // @ts-ignore - JavaScript module without type declarations
 import { handleWebhookEvent as unthreadWebhookHandler } from './unthread';
 
@@ -52,7 +52,7 @@ type WebhookEventPayload = WebhookPayload | UrlVerificationPayload;
  */
 function verifySignature(req: WebhookRequest): boolean {
 	if (!SIGNING_SECRET) {
-		logger.error('UNTHREAD_WEBHOOK_SECRET not configured');
+		LogEngine.error('UNTHREAD_WEBHOOK_SECRET not configured');
 		return false;
 	}
 
@@ -81,10 +81,10 @@ function webhookHandler(req: Request, res: Response): void {
 	// Cast to WebhookRequest for access to rawBody
 	const webhookReq = req as WebhookRequest;
 	
-	logger.debug('Webhook received:', webhookReq.rawBody);
+	LogEngine.debug('Webhook received:', webhookReq.rawBody);
 	
 	if (!verifySignature(webhookReq)) {
-		logger.error('Signature verification failed.');
+		LogEngine.error('Signature verification failed.');
 		res.sendStatus(403);
 		return;
 	}
@@ -94,7 +94,7 @@ function webhookHandler(req: Request, res: Response): void {
 
 	// Respond to URL verification events
 	if (event === 'url_verification') {
-		logger.info('URL verification webhook received');
+		LogEngine.info('URL verification webhook received');
 		res.sendStatus(200);
 		return;
 	}
@@ -102,10 +102,10 @@ function webhookHandler(req: Request, res: Response): void {
 	// Process other webhook events coming from Unthread
 	try {
 		unthreadWebhookHandler(body as WebhookPayload);
-		logger.debug(`Successfully processed webhook event: ${event}`);
+		LogEngine.debug(`Successfully processed webhook event: ${event}`);
 	}
 	catch (error) {
-		logger.error('Error processing webhook event:', error);
+		LogEngine.error('Error processing webhook event:', error);
 		// Still return 200 to prevent webhook retries for application errors
 	}
 

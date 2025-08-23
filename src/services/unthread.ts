@@ -19,7 +19,7 @@ import { decodeHtmlEntities } from '../utils/decodeHtmlEntities';
 import { setKey, getKey } from '../utils/memory';
 import { withRetry } from '../utils/retry';
 import { EmbedBuilder, User, ThreadChannel } from 'discord.js';
-import * as logger from '../utils/logger';
+import { LogEngine } from '../config/logger';
 import { isDuplicateMessage, containsDiscordAttachments, processQuotedContent } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId } from '../utils/customerUtils';
@@ -112,11 +112,11 @@ export async function getCustomerById(discordId: string): Promise<UnthreadCustom
  */
 export async function createTicket(user: User, title: string, issue: string, email: string): Promise<UnthreadTicket> {
     // Enhanced debugging: Initial request context
-    logger.info(`Creating ticket for user: ${user.tag} (${user.id})`);
-    logger.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? process.env.UNTHREAD_API_KEY.length + 'chars' : 'NOT_SET'}, TRIAGE_ID=${JSON.stringify(process.env.UNTHREAD_TRIAGE_CHANNEL_ID || 'NOT_SET')}, INBOX_ID=${JSON.stringify(process.env.UNTHREAD_EMAIL_INBOX_ID || 'NOT_SET')}`);
+    LogEngine.info(`Creating ticket for user: ${user.tag} (${user.id})`);
+    LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? process.env.UNTHREAD_API_KEY.length + 'chars' : 'NOT_SET'}, TRIAGE_ID=${JSON.stringify(process.env.UNTHREAD_TRIAGE_CHANNEL_ID || 'NOT_SET')}, INBOX_ID=${JSON.stringify(process.env.UNTHREAD_EMAIL_INBOX_ID || 'NOT_SET')}`);
     
     const customer = await getOrCreateCustomer(user, email);
-    logger.debug(`Customer: ${customer?.customerId || 'unknown'} (${customer?.email || email})`);
+    LogEngine.debug(`Customer: ${customer?.customerId || 'unknown'} (${customer?.email || email})`);
 
     const requestPayload = {
         type: 'email',
@@ -132,8 +132,8 @@ export async function createTicket(user: User, title: string, issue: string, ema
         },
     };
 
-    logger.info(`POST https://api.unthread.io/api/conversations`);
-    logger.debug(`Payload: ${JSON.stringify(requestPayload)}`);
+    LogEngine.info(`POST https://api.unthread.io/api/conversations`);
+    LogEngine.debug(`Payload: ${JSON.stringify(requestPayload)}`);
 
     const response = await fetch('https://api.unthread.io/api/conversations', {
         method: 'POST',
@@ -144,29 +144,29 @@ export async function createTicket(user: User, title: string, issue: string, ema
         body: JSON.stringify(requestPayload),
     });
 
-    logger.debug(`Response status: ${response.status}`);
+    LogEngine.debug(`Response status: ${response.status}`);
 
     if (!response.ok) {
         const errorText = await response.text();
-        logger.error(`Failed to create ticket: ${response.status} - ${errorText}`);
+        LogEngine.error(`Failed to create ticket: ${response.status} - ${errorText}`);
         throw new Error(`Failed to create ticket: ${response.status}`);
     }
 
     const data = await response.json();
-    logger.info(`Ticket created successfully:`, data);
+    LogEngine.info(`Ticket created successfully:`, data);
 
     // Validate required fields in response
     if (!data.id) {
-        logger.error(`Ticket response missing required 'id' field:`, data);
+        LogEngine.error(`Ticket response missing required 'id' field:`, data);
         throw new Error('Ticket was created but response is missing required fields');
     }
 
     if (!data.friendlyId) {
-        logger.error(`Ticket response missing required 'friendlyId' field:`, data);
+        LogEngine.error(`Ticket response missing required 'friendlyId' field:`, data);
         throw new Error('Ticket was created but friendlyId is missing');
     }
 
-    logger.info(`Created ticket ${data.friendlyId} (${data.id}) for user ${user.tag}`);
+    LogEngine.info(`Created ticket ${data.friendlyId} (${data.id}) for user ${user.tag}`);
     return data as UnthreadTicket;
 }
 
@@ -185,7 +185,7 @@ export async function bindTicketWithThread(unthreadTicketId: string, discordThre
     await setKey(`ticket:discord:${discordThreadId}`, { unthreadTicketId, discordThreadId });
     await setKey(`ticket:unthread:${unthreadTicketId}`, { unthreadTicketId, discordThreadId });
     
-    logger.info(`Bound Discord thread ${discordThreadId} with Unthread ticket ${unthreadTicketId}`);
+    LogEngine.info(`Bound Discord thread ${discordThreadId} with Unthread ticket ${unthreadTicketId}`);
 }
 
 /**
@@ -222,8 +222,8 @@ export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Pro
 export async function handleWebhookEvent(payload: WebhookPayload): Promise<void> {
     const { event, data } = payload;
     
-    logger.info(`Processing webhook event: ${event}`);
-    logger.debug(`Event data:`, data);
+    LogEngine.info(`Processing webhook event: ${event}`);
+    LogEngine.debug(`Event data:`, data);
 
     try {
         switch (event) {
@@ -234,13 +234,13 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
                 await handleStatusUpdated(data);
                 break;
             case 'conversation.created':
-                logger.debug('Conversation created event received - no action needed for Discord integration');
+                LogEngine.debug('Conversation created event received - no action needed for Discord integration');
                 break;
             default:
-                logger.debug(`Unhandled webhook event type: ${event}`);
+                LogEngine.debug(`Unhandled webhook event type: ${event}`);
         }
     } catch (error: any) {
-        logger.error(`Error processing webhook event ${event}:`, error);
+        LogEngine.error(`Error processing webhook event ${event}:`, error);
         throw error;
     }
 }
@@ -256,7 +256,7 @@ async function handleMessageCreated(data: any): Promise<void> {
     const message = data.message;
     
     if (!conversationId || !message) {
-        logger.warn('Message created event missing required data');
+        LogEngine.warn('Message created event missing required data');
         return;
     }
 
@@ -272,7 +272,7 @@ async function handleMessageCreated(data: any): Promise<void> {
         );
 
         if (!discordThread) {
-            logger.warn(`No Discord thread found for conversation ${conversationId}`);
+            LogEngine.warn(`No Discord thread found for conversation ${conversationId}`);
             return;
         }
 
@@ -283,13 +283,13 @@ async function handleMessageCreated(data: any): Promise<void> {
 
         // Skip duplicate messages
         if (await isDuplicateMessage(discordThread.id, messageContent)) {
-            logger.debug(`Skipping duplicate message in thread ${discordThread.id}`);
+            LogEngine.debug(`Skipping duplicate message in thread ${discordThread.id}`);
             return;
         }
 
         // Skip messages that contain Discord attachments
         if (containsDiscordAttachments(messageContent)) {
-            logger.debug(`Skipping message with Discord attachments in thread ${discordThread.id}`);
+            LogEngine.debug(`Skipping message with Discord attachments in thread ${discordThread.id}`);
             return;
         }
 
@@ -306,13 +306,13 @@ async function handleMessageCreated(data: any): Promise<void> {
                 .setTimestamp(new Date(message.createdAt));
 
             await discordThread.send({ embeds: [embed] });
-            logger.info(`Forwarded message from Unthread to Discord thread ${discordThread.id}`);
+            LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id}`);
         }
     } catch (error: any) {
         if (error.message.includes('No Discord thread found')) {
-            logger.warn(`Thread mapping not found for conversation ${conversationId} - this is normal for conversations not created via Discord`);
+            LogEngine.warn(`Thread mapping not found for conversation ${conversationId} - this is normal for conversations not created via Discord`);
         } else {
-            logger.error(`Error handling message created event for conversation ${conversationId}:`, error);
+            LogEngine.error(`Error handling message created event for conversation ${conversationId}:`, error);
         }
     }
 }
@@ -327,7 +327,7 @@ async function handleStatusUpdated(data: any): Promise<void> {
     const conversation = data.conversation;
     
     if (!conversation) {
-        logger.warn('Status updated event missing conversation data');
+        LogEngine.warn('Status updated event missing conversation data');
         return;
     }
 
@@ -338,7 +338,7 @@ async function handleStatusUpdated(data: any): Promise<void> {
         );
 
         if (!discordThread) {
-            logger.debug(`No Discord thread found for conversation ${conversation.id}`);
+            LogEngine.debug(`No Discord thread found for conversation ${conversation.id}`);
             return;
         }
 
@@ -358,22 +358,22 @@ async function handleStatusUpdated(data: any): Promise<void> {
             .setTimestamp();
 
         await discordThread.send({ embeds: [embed] });
-        logger.info(`Updated status for ticket ${conversation.friendlyId} in Discord thread ${discordThread.id}`);
+        LogEngine.info(`Updated status for ticket ${conversation.friendlyId} in Discord thread ${discordThread.id}`);
 
         // Close Discord thread if ticket is closed/resolved
         if (conversation.status === 'closed' || conversation.status === 'resolved') {
             try {
                 await discordThread.setArchived(true);
-                logger.info(`Archived Discord thread ${discordThread.id} for ${conversation.status} ticket`);
+                LogEngine.info(`Archived Discord thread ${discordThread.id} for ${conversation.status} ticket`);
             } catch (error: any) {
-                logger.warn(`Failed to archive Discord thread ${discordThread.id}:`, error.message);
+                LogEngine.warn(`Failed to archive Discord thread ${discordThread.id}:`, error.message);
             }
         }
     } catch (error: any) {
         if (error.message.includes('No Discord thread found')) {
-            logger.debug(`Thread mapping not found for conversation ${conversation.id} - this is normal for conversations not created via Discord`);
+            LogEngine.debug(`Thread mapping not found for conversation ${conversation.id} - this is normal for conversations not created via Discord`);
         } else {
-            logger.error(`Error handling status update for conversation ${conversation.id}:`, error);
+            LogEngine.error(`Error handling status update for conversation ${conversation.id}:`, error);
         }
     }
 }
@@ -406,7 +406,7 @@ export async function sendMessageToUnthread(
         },
     };
 
-    logger.debug(`Sending message to Unthread conversation ${conversationId}:`, requestData);
+    LogEngine.debug(`Sending message to Unthread conversation ${conversationId}:`, requestData);
 
     const response = await fetch(`https://api.unthread.io/api/conversations/${conversationId}/messages`, {
         method: 'POST',
@@ -419,11 +419,11 @@ export async function sendMessageToUnthread(
 
     if (!response.ok) {
         const errorText = await response.text();
-        logger.error(`Failed to send message to Unthread: ${response.status} - ${errorText}`);
+        LogEngine.error(`Failed to send message to Unthread: ${response.status} - ${errorText}`);
         throw new Error(`Failed to send message to Unthread: ${response.status}`);
     }
 
     const responseData = await response.json();
-    logger.debug(`Message sent to Unthread successfully:`, responseData);
+    LogEngine.debug(`Message sent to Unthread successfully:`, responseData);
     return responseData;
 }

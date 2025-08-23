@@ -21,7 +21,7 @@ import { REST, Routes } from 'discord.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as dotenv from 'dotenv';
-import logger from './utils/logger';
+import { LogEngine } from './config/logger';
 
 // Load environment variables
 dotenv.config();
@@ -33,17 +33,17 @@ const { DISCORD_BOT_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
  * Validate required environment variables
  */
 if (!DISCORD_BOT_TOKEN) {
-	logger.error('DISCORD_BOT_TOKEN is required but not set in environment variables');
+	LogEngine.error('DISCORD_BOT_TOKEN is required but not set in environment variables');
 	process.exit(1);
 }
 
 if (!CLIENT_ID) {
-	logger.error('CLIENT_ID is required but not set in environment variables');
+	LogEngine.error('CLIENT_ID is required but not set in environment variables');
 	process.exit(1);
 }
 
 if (!GUILD_ID) {
-	logger.error('GUILD_ID is required but not set in environment variables');
+	LogEngine.error('GUILD_ID is required but not set in environment variables');
 	process.exit(1);
 }
 
@@ -91,14 +91,14 @@ for (const folder of commandFolders) {
 			// Validate command structure and add to deployment array
 			if ('data' in command && 'execute' in command) {
 				commands.push(command.data.toJSON());
-				logger.debug(`Loaded command from ${filePath}`);
+				LogEngine.debug(`Loaded command from ${filePath}`);
 			}
 			else {
-				logger.warn(`The command at ${filePath} is missing a required "data" or "execute" property.`);
+				LogEngine.warn(`The command at ${filePath} is missing a required "data" or "execute" property.`);
 			}
 		}
 		catch (error) {
-			logger.error(`Failed to load command from ${filePath}:`, error);
+			LogEngine.error(`Failed to load command from ${filePath}:`, error);
 		}
 	}
 }
@@ -118,10 +118,10 @@ const rest = new REST().setToken(DISCORD_BOT_TOKEN);
  */
 (async (): Promise<void> => {
 	try {
-		logger.info(`Started refreshing ${commands.length} application (/) commands.`);
+		LogEngine.info(`Started refreshing ${commands.length} application (/) commands.`);
 
 		if (commands.length === 0) {
-			logger.warn('No commands found to deploy.');
+			LogEngine.warn('No commands found to deploy.');
 			return;
 		}
 
@@ -131,11 +131,11 @@ const rest = new REST().setToken(DISCORD_BOT_TOKEN);
 			{ body: commands }
 		) as any[];
 
-		logger.info(`Successfully reloaded ${data.length} application (/) commands.`);
+		LogEngine.info(`Successfully reloaded ${data.length} application (/) commands.`);
 	}
 	catch (error) {
 		// Log any deployment errors for debugging
-		logger.error('Command deployment failed:', error);
+		LogEngine.error('Command deployment failed:', error);
 		process.exit(1);
 	}
 })();

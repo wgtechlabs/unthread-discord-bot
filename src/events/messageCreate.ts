@@ -2,7 +2,7 @@ import { Events, Message } from "discord.js";
 import { version } from "../../package.json";
 import { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } from "../services/unthread";
 import { isValidatedForumChannel } from "../utils/channelUtils";
-import * as logger from "../utils/logger";
+import { LogEngine } from "../config/logger";
 
 /**
  * Message Creation Event Handler
@@ -57,7 +57,7 @@ export async function execute(message: Message): Promise<void> {
       const isForumPost = isValidForum && message.id === message.channel.id;
 
       if (isForumPost) {
-        logger.debug(`Skipping forum post ID ${message.id} that created thread ${message.channel.id}`);
+        LogEngine.debug(`Skipping forum post ID ${message.id} that created thread ${message.channel.id}`);
         return;
       }
 
@@ -73,9 +73,9 @@ export async function execute(message: Message): Promise<void> {
             const referenced = await message.channel.messages.fetch(message.reference.messageId);
             quotedMessage = `> ${referenced.content}`;
             messageToSend = `${quotedMessage}\n\n${message.content}`;
-            logger.debug(`Added quote context from message ${message.reference.messageId}`);
+            LogEngine.debug(`Added quote context from message ${message.reference.messageId}`);
           } catch (err) {
-            logger.error('Error fetching the referenced message:', err);
+            LogEngine.error('Error fetching the referenced message:', err);
             // Continue with original message if quote retrieval fails
           }
         }
@@ -97,7 +97,7 @@ export async function execute(message: Message): Promise<void> {
             // Add attachments list to the message with separator characters
             messageToSend = messageToSend || '';
             messageToSend += `\n\nAttachments: ${attachmentLinks.join(' | ')}`;
-            logger.debug(`Added ${attachments.length} attachments to message`);
+            LogEngine.debug(`Added ${attachments.length} attachments to message`);
           }
         }
 
@@ -105,7 +105,7 @@ export async function execute(message: Message): Promise<void> {
         const customer = await getCustomerById(message.author.id);
         const email = customer?.email || `${message.author.username}@discord.user`;
         
-        logger.debug(`Forwarding message to Unthread ticket ${ticketMapping.unthreadTicketId}`, {
+        LogEngine.debug(`Forwarding message to Unthread ticket ${ticketMapping.unthreadTicketId}`, {
           threadId: message.channel.id,
           authorId: message.author.id,
           hasAttachments: message.attachments.size > 0,
@@ -119,12 +119,12 @@ export async function execute(message: Message): Promise<void> {
           messageToSend,
           email
         );
-        logger.info(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
+        LogEngine.info(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
       } else {
-        logger.debug(`Message in thread ${message.channel.id} has no Unthread ticket mapping, skipping`);
+        LogEngine.debug(`Message in thread ${message.channel.id} has no Unthread ticket mapping, skipping`);
       }
     } catch (error) {
-      logger.error("Error sending message to Unthread:", error);
+      LogEngine.error("Error sending message to Unthread:", error);
       // Consider adding error notification to the thread in production environments
     }
   }
@@ -158,12 +158,12 @@ async function handleLegacyCommands(message: Message): Promise<void> {
   if (message.content === "!!ping") {
     const latency = Date.now() - message.createdTimestamp;
     await message.reply(`Latency is ${latency}ms.`);
-    logger.info(`Responded to ping command with latency ${latency}ms`);
+    LogEngine.info(`Responded to ping command with latency ${latency}ms`);
   }
 
   // Check version - helps track which bot version is running in production
   if (message.content === "!!version") {
     await message.reply(`Version: ${version}`);
-    logger.info(`Responded to version command with version ${version}`);
+    LogEngine.info(`Responded to version command with version ${version}`);
   }
 }
