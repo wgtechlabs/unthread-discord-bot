@@ -44,7 +44,8 @@ async function testRedisConnection(): Promise<void> {
 		const testKey = 'redis:connection:test';
 		const testValue = Date.now().toString();
 
-		await keyv.set(testKey, testValue, 1000); // 1 second TTL
+		// 1 second TTL
+		await keyv.set(testKey, testValue, 1000);
 		const retrievedValue = await keyv.get(testKey);
 
 		if (retrievedValue === testValue) {

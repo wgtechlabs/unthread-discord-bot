@@ -84,7 +84,8 @@ function customOutputHandler(level: string, message: string, data?: any): void {
 LogEngine.configure({
 	mode: logMode,
 	outputHandler: customOutputHandler,
-	suppressConsoleOutput: true, // Disable default console output to use our custom handler
+	// Disable default console output to use our custom handler
+	suppressConsoleOutput: true,
 });
 
 /**

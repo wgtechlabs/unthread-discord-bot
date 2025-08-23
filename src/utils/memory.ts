@@ -35,7 +35,8 @@ import cachedData from './cache';
  * 4. Memory constraints if storing large objects
  */
 async function setKey(key: string, value: any, customTtl?: number): Promise<boolean> {
-	const ttl = customTtl || 86400000; // Use custom TTL or default to 24 hours
+	// Use custom TTL or default to 24 hours
+	const ttl = customTtl || 86400000;
 	return await cachedData.set(key, value, ttl);
 }
 

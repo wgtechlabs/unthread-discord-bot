@@ -10,7 +10,7 @@
  * @module utils/messageUtils
  */
 
-import { MessageProcessingResult } from '../types/utils';
+// Remove unused import MessageProcessingResult
 import logger from './logger';
 
 /**
@@ -191,15 +191,34 @@ function processQuotedContent(
 	};
 
 	// Look for quoted content (lines starting with >)
-	const quotedMessageMatch = messageContent.match(/^(>\s?.+(?:\n|$))+/);
-	if (!quotedMessageMatch) return result;
+	// Use a safe string-based approach instead of regex to avoid ReDoS attacks
+	const lines = messageContent.split('\n');
+	const quotedLines: string[] = [];
+	let foundQuotedContent = false;
+
+	// Find consecutive lines starting with >
+	for (const line of lines) {
+		if (line.trim().startsWith('>')) {
+			quotedLines.push(line);
+			foundQuotedContent = true;
+		}
+		else if (foundQuotedContent) {
+			// Stop at first non-quoted line after finding quoted content
+			break;
+		}
+	}
+
+	if (!foundQuotedContent) return result;
 
 	// Extract the quoted portion and clean it up
-	let quotedMessage = quotedMessageMatch[0].trim();
-	quotedMessage = quotedMessage.replace(/^>\s?/gm, '').trim();
+	const quotedMessageRaw = quotedLines.join('\n');
+	const quotedMessage = quotedLines
+		.map(line => line.replace(/^>\s?/, '').trim())
+		.join('\n')
+		.trim();
 
 	// Get the remainder of the message after the quoted section
-	const remainingText = messageContent.replace(quotedMessageMatch[0], '').trim();
+	const remainingText = messageContent.replace(quotedMessageRaw, '').trim();
 
 	// Don't process if it's an attachment reference
 	// (These can sometimes look like quotes but shouldn't be processed as replies)
@@ -211,7 +230,8 @@ function processQuotedContent(
 	const matchingMsg = existingMessages.find(msg => msg.content.trim() === quotedMessage);
 	if (matchingMsg && matchingMsg.id) {
 		result.replyReference = matchingMsg.id;
-		result.contentToSend = remainingText || ' '; // Empty message fallback
+		// Empty message fallback
+		result.contentToSend = remainingText || ' ';
 
 		// Check if the remaining text is a duplicate in any message
 		// (Prevents duplicate replies)

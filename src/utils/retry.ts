@@ -7,7 +7,6 @@
  * @module utils/retry
  */
 
-import { RetryConfig } from '../types/utils';
 import logger from './logger';
 
 /**

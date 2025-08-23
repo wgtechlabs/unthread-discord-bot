@@ -11,14 +11,6 @@ import logger from './logger';
 import { ChannelType } from 'discord.js';
 import '../types/global';
 
-/**
- * Global Discord client interface (extended in main application)
- */
-interface GlobalDiscordClient {
-	channels: {
-		fetch: (channelId: string) => Promise<any>;
-	};
-}
 
 /**
  * Checks if a channel is actually a forum channel
@@ -82,7 +74,8 @@ async function validateForumChannelIds(forumChannelIds: string): Promise<string[
  */
 let cachedForumChannelIds: string[] | null = null;
 let lastValidationTime = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+// 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000;
 
 async function getValidatedForumChannelIds(): Promise<string[]> {
 	const now = Date.now();

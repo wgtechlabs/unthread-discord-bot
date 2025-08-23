@@ -19,10 +19,11 @@ export async function execute(message: Message): Promise<void> {
 		// Store individual deleted message details
 		// Key format: deleted:{messageId}
 		// TTL: 5 minutes (300000ms)
+		// 5 minute TTL
 		await setKey(`deleted:${message.id}`, {
 			channelId: message.channel.id,
 			timestamp: Date.now(),
-		}, 300000); // 5 minute TTL
+		}, 300000);
 
 		// Track multiple deleted messages by channel for bulk operations
 		// Key format: deleted:channel:{channelId}
@@ -37,12 +38,14 @@ export async function execute(message: Message): Promise<void> {
 
 		// Keep only messages deleted in the last minute
 		const oneMinuteAgo = Date.now() - 60000;
+		// Keep at most 10 recent deletions
 		const filteredList = recentlyDeletedInChannel
 			.filter((item: any) => item.timestamp > oneMinuteAgo)
-			.slice(-10); // Keep at most 10 recent deletions
+			.slice(-10);
 
 		// Update the cache
-		await setKey(channelKey, filteredList, 60000); // 1 minute TTL
+		// 1 minute TTL
+		await setKey(channelKey, filteredList, 60000);
 
 		logger.debug(`Cached deleted message ID: ${message.id} from channel: ${message.channel.id}`);
 	}

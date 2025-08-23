@@ -52,8 +52,10 @@ export async function findDiscordThreadByTicketIdWithRetry(
 ): Promise<ThreadResult> {
 	const {
 		maxAttempts = 3,
-		maxRetryWindow = 10000, // 10 seconds
-		baseDelayMs = 1000, // 1 second
+		// 10 seconds
+		maxRetryWindow = 10000,
+		// 1 second
+		baseDelayMs = 1000,
 	} = options;
 
 	const startTime = Date.now();
@@ -77,7 +79,8 @@ export async function findDiscordThreadByTicketIdWithRetry(
 			const isMappingError = error.message.includes('No Discord thread found for Unthread ticket');
 
 			if (!isLastAttempt && withinRetryWindow && isMappingError) {
-				const delay = baseDelayMs * attempt; // Progressive delay: 1s, 2s, 3s
+				// Progressive delay: 1s, 2s, 3s
+				const delay = baseDelayMs * attempt;
 				logger.debug(`Mapping not found for ticket ${unthreadTicketId}, attempt ${attempt}/${maxAttempts}. Retrying in ${delay}ms... (${timeSinceStart}ms since start)`);
 
 				await new Promise(resolve => setTimeout(resolve, delay));

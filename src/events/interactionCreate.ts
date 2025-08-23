@@ -1,4 +1,4 @@
-import { Events, ChannelType, MessageFlags, Interaction, CommandInteraction, ModalSubmitInteraction } from 'discord.js';
+import { Events, MessageFlags, Interaction, CommandInteraction, ModalSubmitInteraction } from 'discord.js';
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import * as logger from '../utils/logger';
 import { setKey } from '../utils/memory';
@@ -117,7 +117,8 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 		if (ticket && ticket.id && thread && thread.id) {
 			try {
 				// Remove the mapping to prevent orphaned entries
-				await setKey(`ticket:discord:${thread.id}`, null, 1); // Set with short TTL to delete
+				// Set with short TTL to delete
+				await setKey(`ticket:discord:${thread.id}`, null, 1);
 				await setKey(`ticket:unthread:${ticket.id}`, null, 1);
 				logger.info(`Cleaned up orphaned ticket mapping: Discord thread ${thread.id} <-> Unthread ticket ${ticket.id}`);
 			}
@@ -133,7 +134,8 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 
 async function handleSlashCommand(interaction: CommandInteraction): Promise<void> {
 	// Look up the command handler based on the command name
-	const client = interaction.client as any; // Type assertion for extended client
+	// Type assertion for extended client
+	const client = interaction.client as any;
 	const command = client.commands.get(interaction.commandName);
 
 	// Check if command exists in our registered commands

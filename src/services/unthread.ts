@@ -17,8 +17,7 @@
 
 import { decodeHtmlEntities } from '../utils/decodeHtmlEntities';
 import { setKey, getKey } from '../utils/memory';
-import { withRetry } from '../utils/retry';
-import { EmbedBuilder, User, ThreadChannel } from 'discord.js';
+import { EmbedBuilder, User } from 'discord.js';
 import * as logger from '../utils/logger';
 import { isDuplicateMessage, containsDiscordAttachments, processQuotedContent } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
