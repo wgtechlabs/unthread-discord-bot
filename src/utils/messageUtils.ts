@@ -11,7 +11,7 @@
  */
 
 import { MessageProcessingResult } from '../types/utils';
-import logger from './logger';
+import { LogEngine } from '../config/logger';
 
 /**
  * Represents a message for processing
@@ -59,7 +59,7 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 	// Check for exact content match
 	const exactDuplicate = messages.some(msg => msg.content === trimmedContent);
 	if (exactDuplicate) {
-		logger.debug('Exact duplicate message detected');
+		LogEngine.debug('Exact duplicate message detected');
 		return true;
 	}
 
@@ -87,7 +87,7 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 		});
 
 		if (contentDuplicate) {
-			logger.debug('Content duplicate message detected (fuzzy match)');
+			LogEngine.debug('Content duplicate message detected (fuzzy match)');
 			return true;
 		}
 	}

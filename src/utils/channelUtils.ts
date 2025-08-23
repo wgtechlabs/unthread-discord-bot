@@ -7,7 +7,7 @@
  * @module utils/channelUtils
  */
 
-import logger from './logger';
+import { LogEngine } from '../config/logger';
 import { ChannelType } from 'discord.js';
 import '../types/global';
 
@@ -29,20 +29,20 @@ interface GlobalDiscordClient {
 async function isForumChannel(channelId: string): Promise<boolean> {
 	try {
 		if (!global.discordClient) {
-			logger.warn('Discord client not available for channel type validation');
+			LogEngine.warn('Discord client not available for channel type validation');
 			return false;
 		}
 
 		const channel = await global.discordClient.channels.fetch(channelId);
 		if (!channel) {
-			logger.warn(`Channel ${channelId} not found`);
+			LogEngine.warn(`Channel ${channelId} not found`);
 			return false;
 		}
 
 		return channel.type === ChannelType.GuildForum;
 	}
 	catch (error) {
-		logger.error(`Error checking channel type for ${channelId}:`, error);
+		LogEngine.error(`Error checking channel type for ${channelId}:`, error);
 		return false;
 	}
 }
@@ -66,10 +66,10 @@ async function validateForumChannelIds(forumChannelIds: string): Promise<string[
 		const isValid = await isForumChannel(channelId);
 		if (isValid) {
 			validForumChannels.push(channelId);
-			logger.debug(`Validated forum channel: ${channelId}`);
+			LogEngine.debug(`Validated forum channel: ${channelId}`);
 		}
 		else {
-			logger.warn(`Channel ${channelId} in FORUM_CHANNEL_IDS is not a forum channel - skipping`);
+			LogEngine.warn(`Channel ${channelId} in FORUM_CHANNEL_IDS is not a forum channel - skipping`);
 		}
 	}
 
@@ -97,8 +97,8 @@ async function getValidatedForumChannelIds(): Promise<string[]> {
 	cachedForumChannelIds = await validateForumChannelIds(forumChannelIds);
 	lastValidationTime = now;
 
-	logger.info(`Validated ${cachedForumChannelIds.length} forum channels from FORUM_CHANNEL_IDS`);
-
+	LogEngine.info(`Validated ${cachedForumChannelIds.length} forum channels from FORUM_CHANNEL_IDS`);
+	
 	return cachedForumChannelIds;
 }
 
