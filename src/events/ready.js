@@ -47,11 +47,11 @@ module.exports = {
                 const invalidCount = allChannelIds.length - validForumChannels.length;
                 
                 if (invalidCount > 0) {
-                    logger.warn(`⚠️  ${invalidCount} channel(s) in FORUM_CHANNEL_IDS are not forum channels and will be ignored`);
+                    logger.warn(`${invalidCount} channel(s) in FORUM_CHANNEL_IDS are not forum channels and will be ignored`);
                 }
                 
                 if (validForumChannels.length > 0) {
-                    logger.info(`✅ Monitoring ${validForumChannels.length} forum channel(s) for ticket creation`);
+                    logger.info(`Monitoring ${validForumChannels.length} forum channel(s) for ticket creation`);
                 }
             }
         } catch (error) {

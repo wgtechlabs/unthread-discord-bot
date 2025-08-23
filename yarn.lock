@@ -686,6 +686,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@wgtechlabs/log-engine@npm:2.2.0":
+  version: 2.2.0
+  resolution: "@wgtechlabs/log-engine@npm:2.2.0"
+  checksum: 10c0/95b081e13e6f9aadfc0432ad401858ba6a466e1b7447fb108b1d217e15f11be2d98682702dc1f7359a10642f47c2056a5e2ab58225138b5ffa1d78cf7ae7ffb8
+  languageName: node
+  linkType: hard
+
 "abbrev@npm:^3.0.0":
   version: 3.0.1
   resolution: "abbrev@npm:3.0.1"
@@ -3029,6 +3036,7 @@ __metadata:
     "@types/node": "npm:^24.3.0"
     "@typescript-eslint/eslint-plugin": "npm:^8.40.0"
     "@typescript-eslint/parser": "npm:^8.40.0"
+    "@wgtechlabs/log-engine": "npm:2.2.0"
     cacheable: "npm:^1.10.0"
     crypto: "npm:^1.0.1"
     discord.js: "npm:^14.20.0"
