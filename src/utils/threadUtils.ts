@@ -9,7 +9,23 @@
  * when performing common thread-related operations across the application.
  */
 
-const logger = require('./logger');
+import * as logger from './logger';
+
+interface TicketMapping {
+    discordThreadId: string;
+    unthreadTicketId: string;
+}
+
+interface ThreadResult {
+    ticketMapping: TicketMapping;
+    discordThread: any;
+}
+
+interface RetryOptions {
+    maxAttempts?: number;
+    maxRetryWindow?: number;
+    baseDelayMs?: number;
+}
 
 /**
  * Fetches a Discord thread using an Unthread ticket ID with retry logic for race conditions
@@ -25,14 +41,15 @@ const logger = require('./logger');
  * 
  * @param {string} unthreadTicketId - Unthread ticket/conversation ID
  * @param {Function} lookupFunction - Function to lookup ticket mapping by Unthread ID
- * @param {Object} options - Retry configuration options
- * @param {number} options.maxAttempts - Maximum number of retry attempts (default: 3)
- * @param {number} options.maxRetryWindow - Maximum time window for retries in ms (default: 10000)
- * @param {number} options.baseDelayMs - Base delay between retries in ms (default: 1000)
- * @returns {Promise<{ticketMapping: Object, discordThread: Object}>} - Object containing mapping and thread
+ * @param {RetryOptions} options - Retry configuration options
+ * @returns {Promise<ThreadResult>} - Object containing mapping and thread
  * @throws {Error} - If thread not found after all retries or other error occurs
  */
-async function findDiscordThreadByTicketIdWithRetry(unthreadTicketId, lookupFunction, options = {}) {
+export async function findDiscordThreadByTicketIdWithRetry(
+    unthreadTicketId: string, 
+    lookupFunction: (id: string) => Promise<TicketMapping | null>, 
+    options: RetryOptions = {}
+): Promise<ThreadResult> {
     const {
         maxAttempts = 3,
         maxRetryWindow = 10000, // 10 seconds
@@ -40,13 +57,13 @@ async function findDiscordThreadByTicketIdWithRetry(unthreadTicketId, lookupFunc
     } = options;
     
     const startTime = Date.now();
-    let lastError;
+    let lastError: any;
     
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
             // Try the standard lookup
             return await findDiscordThreadByTicketId(unthreadTicketId, lookupFunction);
-        } catch (error) {
+        } catch (error: any) {
             lastError = error;
             const timeSinceStart = Date.now() - startTime;
             
@@ -74,7 +91,7 @@ async function findDiscordThreadByTicketIdWithRetry(unthreadTicketId, lookupFunc
     // Enhance the final error with context about the retry attempts
     if (lastError) {
         const totalTime = Date.now() - startTime;
-        const enhancedError = new Error(lastError.message);
+        const enhancedError = new Error(lastError.message) as any;
         enhancedError.context = {
             ticketId: unthreadTicketId,
             attemptsMade: maxAttempts,
@@ -110,13 +127,13 @@ async function findDiscordThreadByTicketIdWithRetry(unthreadTicketId, lookupFunc
  * 
  * @param {string} unthreadTicketId - Unthread ticket/conversation ID
  * @param {Function} lookupFunction - Function to lookup ticket mapping by Unthread ID
- *                                   Should have signature: (id) => Promise<{discordThreadId: string}>
- * @returns {Promise<{ticketMapping: Object, discordThread: Object}>} - Object containing:
- *   - ticketMapping: The ticket mapping object with IDs for both systems
- *   - discordThread: The Discord.js thread object
+ * @returns {Promise<ThreadResult>} - Object containing mapping and thread
  * @throws {Error} - If thread not found or other error occurs
  */
-async function findDiscordThreadByTicketId(unthreadTicketId, lookupFunction) {
+export async function findDiscordThreadByTicketId(
+    unthreadTicketId: string, 
+    lookupFunction: (id: string) => Promise<TicketMapping | null>
+): Promise<ThreadResult> {
     // Get the ticket mapping using the provided lookup function
     // This allows the function to work with different storage mechanisms
     const ticketMapping = await lookupFunction(unthreadTicketId);
@@ -128,7 +145,7 @@ async function findDiscordThreadByTicketId(unthreadTicketId, lookupFunction) {
     
     // Fetch the Discord thread
     try {
-        const discordThread = await global.discordClient.channels.fetch(ticketMapping.discordThreadId);
+        const discordThread = await (global as any).discordClient.channels.fetch(ticketMapping.discordThreadId);
         if (!discordThread) {
             const error = new Error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
             logger.error(error.message);
@@ -141,13 +158,8 @@ async function findDiscordThreadByTicketId(unthreadTicketId, lookupFunction) {
             ticketMapping,
             discordThread
         };
-    } catch (error) {
+    } catch (error: any) {
         logger.error(`Error fetching Discord thread for ticket ${unthreadTicketId}: ${error.message}`);
         throw error;
     }
 }
-
-module.exports = {
-    findDiscordThreadByTicketId,
-    findDiscordThreadByTicketIdWithRetry
-};

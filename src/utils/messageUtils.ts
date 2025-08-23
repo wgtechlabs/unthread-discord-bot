@@ -239,3 +239,6 @@ const messageUtils = {
 };
 
 export default messageUtils;
+
+// Export individual functions for named imports
+export { isDuplicateMessage, containsDiscordAttachments, removeAttachmentSection, processQuotedContent };
