@@ -9,7 +9,7 @@
  * when performing common thread-related operations across the application.
  */
 
-import * as logger from './logger';
+import { LogEngine } from '../config/logger';
 
 interface TicketMapping {
     discordThreadId: string;
@@ -77,7 +77,7 @@ export async function findDiscordThreadByTicketIdWithRetry(
             
             if (!isLastAttempt && withinRetryWindow && isMappingError) {
                 const delay = baseDelayMs * attempt; // Progressive delay: 1s, 2s, 3s
-                logger.debug(`Mapping not found for ticket ${unthreadTicketId}, attempt ${attempt}/${maxAttempts}. Retrying in ${delay}ms... (${timeSinceStart}ms since start)`);
+                LogEngine.debug(`Mapping not found for ticket ${unthreadTicketId}, attempt ${attempt}/${maxAttempts}. Retrying in ${delay}ms... (${timeSinceStart}ms since start)`);
                 
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
@@ -102,9 +102,9 @@ export async function findDiscordThreadByTicketIdWithRetry(
         
         // Log with enhanced context
         if (enhancedError.context.likelyRaceCondition) {
-            logger.warn(`Potential race condition detected for ticket ${unthreadTicketId}: mapping not found after ${maxAttempts} attempts over ${totalTime}ms`);
+            LogEngine.warn(`Potential race condition detected for ticket ${unthreadTicketId}: mapping not found after ${maxAttempts} attempts over ${totalTime}ms`);
         } else {
-            logger.error(`Ticket mapping genuinely missing for ${unthreadTicketId} (checked after ${totalTime}ms)`);
+            LogEngine.error(`Ticket mapping genuinely missing for ${unthreadTicketId} (checked after ${totalTime}ms)`);
         }
         
         throw enhancedError;
@@ -139,7 +139,7 @@ export async function findDiscordThreadByTicketId(
     const ticketMapping = await lookupFunction(unthreadTicketId);
     if (!ticketMapping) {
         const error = new Error(`No Discord thread found for Unthread ticket ${unthreadTicketId}`);
-        logger.error(error.message);
+        LogEngine.error(error.message);
         throw error;
     }
     
@@ -148,18 +148,18 @@ export async function findDiscordThreadByTicketId(
         const discordThread = await (global as any).discordClient.channels.fetch(ticketMapping.discordThreadId);
         if (!discordThread) {
             const error = new Error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
-            logger.error(error.message);
+            LogEngine.error(error.message);
             throw error;
         }
         
-        logger.debug(`Found Discord thread: ${discordThread.id}`);
+        LogEngine.debug(`Found Discord thread: ${discordThread.id}`);
         
         return {
             ticketMapping,
             discordThread
         };
     } catch (error: any) {
-        logger.error(`Error fetching Discord thread for ticket ${unthreadTicketId}: ${error.message}`);
+        LogEngine.error(`Error fetching Discord thread for ticket ${unthreadTicketId}: ${error.message}`);
         throw error;
     }
 }

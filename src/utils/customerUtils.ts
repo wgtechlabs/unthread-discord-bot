@@ -10,7 +10,7 @@
  */
 
 import { setKey, getKey } from './memory';
-import * as logger from './logger';
+import { LogEngine } from '../config/logger';
 import { User } from 'discord.js';
 
 interface Customer {
@@ -84,12 +84,12 @@ export async function getOrCreateCustomer(user: User, email: string = ''): Promi
     let customer = await getKey(key) as Customer | null;
     
     if (customer) {
-        logger.debug(`Found cached customer for Discord user ${user.id}`);
+        LogEngine.debug(`Found cached customer for Discord user ${user.id}`);
         return customer;
     }
 
     // Customer not found in cache, create a new one
-    logger.debug(`Creating new customer record for Discord user ${user.id}`);
+    LogEngine.debug(`Creating new customer record for Discord user ${user.id}`);
     const customerId = await createCustomerInUnthread(user);
     
     // Construct customer object with both Discord and Unthread identifiers
@@ -103,7 +103,7 @@ export async function getOrCreateCustomer(user: User, email: string = ''): Promi
     
     // Store customer in cache for future lookups
     await setKey(key, customer);
-    logger.info(`Created new customer record for ${user.username} (${user.id})`);
+    LogEngine.info(`Created new customer record for ${user.username} (${user.id})`);
     return customer;
 }
 
@@ -144,6 +144,6 @@ export async function updateCustomer(customer: Customer): Promise<Customer> {
     
     const key = `customer:${customer.discordId}`;
     await setKey(key, customer);
-    logger.debug(`Updated customer record for ${customer.discordUsername} (${customer.discordId})`);
+    LogEngine.debug(`Updated customer record for ${customer.discordUsername} (${customer.discordId})`);
     return customer;
 }

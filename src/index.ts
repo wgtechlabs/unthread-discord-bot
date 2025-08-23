@@ -49,7 +49,7 @@ import express from 'express';
 import * as dotenv from 'dotenv';
 import { BotConfig } from './types/discord';
 import { webhookHandler } from './services/webhook';
-import logger from './utils/logger';
+import { LogEngine } from './config/logger';
 import './types/global';
 
 // Load environment variables
@@ -60,7 +60,7 @@ const { DISCORD_BOT_TOKEN, PORT } = process.env as Partial<BotConfig>;
 
 // Validate required environment variables
 if (!DISCORD_BOT_TOKEN) {
-	logger.error('DISCORD_BOT_TOKEN is required but not set in environment variables');
+	LogEngine.error('DISCORD_BOT_TOKEN is required but not set in environment variables');
 	process.exit(1);
 }
 
@@ -162,7 +162,7 @@ app.post('/webhook/unthread', webhookHandler);
  * This server must be publicly accessible for Unthread to send webhooks.
  */
 app.listen(port, () => {
-	logger.info(`Server listening on port ${port}`);
+	LogEngine.info(`Server listening on port ${port}`);
 });
 
 /**
@@ -192,22 +192,22 @@ try {
 				
 				if ('data' in command && 'execute' in command) {
 					client.commands.set(command.data.name, command);
-					logger.debug(`Loaded command: ${command.data.name}`);
+					LogEngine.debug(`Loaded command: ${command.data.name}`);
 				}
 				else {
-					logger.warn(`The command at ${filePath} is missing a required "data" or "execute" property.`);
+					LogEngine.warn(`The command at ${filePath} is missing a required "data" or "execute" property.`);
 				}
 			}
 			catch (error) {
-				logger.error(`Failed to load command from ${filePath}:`, error);
+				LogEngine.error(`Failed to load command from ${filePath}:`, error);
 			}
 		}
 	}
 	
-	logger.info(`Loaded ${client.commands.size} commands successfully.`);
+	LogEngine.info(`Loaded ${client.commands.size} commands successfully.`);
 }
 catch (error) {
-	logger.error('Failed to load commands directory:', error);
+	LogEngine.error('Failed to load commands directory:', error);
 }
 
 /**
@@ -237,17 +237,17 @@ try {
 				client.on(event.name, (...args: any[]) => event.execute(...args));
 			}
 			
-			logger.debug(`Loaded event: ${event.name}`);
+			LogEngine.debug(`Loaded event: ${event.name}`);
 		}
 		catch (error) {
-			logger.error(`Failed to load event from ${filePath}:`, error);
+			LogEngine.error(`Failed to load event from ${filePath}:`, error);
 		}
 	}
 	
-	logger.info(`Loaded ${eventFiles.length} events successfully.`);
+	LogEngine.info(`Loaded ${eventFiles.length} events successfully.`);
 }
 catch (error) {
-	logger.error('Failed to load events directory:', error);
+	LogEngine.error('Failed to load events directory:', error);
 }
 
 /**
@@ -259,9 +259,9 @@ catch (error) {
 client.login(DISCORD_BOT_TOKEN)
 	.then(() => {
 		global.discordClient = client;
-		logger.info('Discord client is ready and set globally.');
+		LogEngine.info('Discord client is ready and set globally.');
 	})
 	.catch((error: Error) => {
-		logger.error('Failed to login Discord client:', error);
+		LogEngine.error('Failed to login Discord client:', error);
 		process.exit(1);
 	});

@@ -18,7 +18,7 @@
  * @module utils/database
  */
 import { createKeyv } from '@keyv/redis';
-import * as logger from './logger';
+import { LogEngine } from '../config/logger';
 
 /**
  * Redis Keyv Instance
@@ -48,12 +48,12 @@ async function testRedisConnection(): Promise<void> {
         const retrievedValue = await keyv.get(testKey);
         
         if (retrievedValue === testValue) {
-            logger.info('Successfully connected to Redis');
+            LogEngine.info('Successfully connected to Redis');
         } else {
-            logger.warn('Redis connection test failed: value mismatch');
+            LogEngine.warn('Redis connection test failed: value mismatch');
         }
     } catch (error: any) {
-        logger.error('Redis connection error:', error.message);
+        LogEngine.error('Redis connection error:', error.message);
     }
 }
 
@@ -67,7 +67,7 @@ testRedisConnection();
  * This helps with monitoring Redis health and debugging issues.
  */
 keyv.on('error', (error: Error) => {
-    logger.error('Redis error:', error.message);
+    LogEngine.error('Redis error:', error.message);
 });
 
 export default keyv;

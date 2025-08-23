@@ -1,5 +1,5 @@
 import { Events, Message } from 'discord.js';
-import * as logger from '../utils/logger';
+import { LogEngine } from '../config/logger';
 import { setKey, getKey } from '../utils/memory';
 
 /**
@@ -44,8 +44,8 @@ export async function execute(message: Message): Promise<void> {
         // Update the cache
         await setKey(channelKey, filteredList, 60000); // 1 minute TTL
         
-        logger.debug(`Cached deleted message ID: ${message.id} from channel: ${message.channel.id}`);
+        LogEngine.debug(`Cached deleted message ID: ${message.id} from channel: ${message.channel.id}`);
     } catch (error) {
-        logger.error('Error caching deleted message:', error);
+        LogEngine.error('Error caching deleted message:', error);
     }
 }
