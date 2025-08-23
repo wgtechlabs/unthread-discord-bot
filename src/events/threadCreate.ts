@@ -19,7 +19,7 @@ export const name = Events.ThreadCreate;
 export async function execute(thread: ThreadChannel): Promise<void> {
     try {
         // Ignore threads created in channels that are not validated forum channels.
-        const isValidForum = await isValidatedForumChannel(thread.parentId);
+        const isValidForum = await isValidatedForumChannel(thread.parentId || '');
         if (!isValidForum) return;
     } catch (error: any) {
         logger.error('Error validating forum channel:', error.message);
@@ -72,7 +72,7 @@ export async function execute(thread: ThreadChannel): Promise<void> {
     }
 
     // Also check permissions specifically in the thread
-    const threadPermissions = botMember.permissionsIn(thread);
+    const threadPermissions = botMember.permissionsIn(thread as any);
     const threadRequiredPermissions = [
         PermissionFlagsBits.SendMessagesInThreads,
         PermissionFlagsBits.ViewChannel,
@@ -171,7 +171,7 @@ export async function execute(thread: ThreadChannel): Promise<void> {
         
         try {
             // Only attempt to send error message if we have the necessary permissions
-            const canSendMessages = botMember.permissionsIn(thread).has([
+            const canSendMessages = botMember.permissionsIn(thread as any).has([
                 PermissionFlagsBits.SendMessagesInThreads,
                 PermissionFlagsBits.ViewChannel
             ]);

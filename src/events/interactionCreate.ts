@@ -70,9 +70,12 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
         
         // Step 2: Create a private Discord thread for this ticket
         // This creates a separate conversation space for this support ticket
-        thread = await interaction.channel?.threads.create({
+        if (!interaction.channel || !('threads' in interaction.channel)) {
+            throw new Error('This command must be used in a text channel that supports threads');
+        }
+        
+        thread = await interaction.channel.threads.create({
             name: `ticket-#${ticket.friendlyId}`,
-            type: ChannelType.PrivateThread,
             reason: 'Unthread Ticket',
         });
         
@@ -126,7 +129,8 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 
 async function handleSlashCommand(interaction: CommandInteraction): Promise<void> {
     // Look up the command handler based on the command name
-    const command = interaction.client.commands.get(interaction.commandName);
+    const client = interaction.client as any; // Type assertion for extended client
+    const command = client.commands.get(interaction.commandName);
 
     // Check if command exists in our registered commands
     if (!command) {

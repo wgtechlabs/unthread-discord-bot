@@ -39,7 +39,7 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
             { name: 'Total Members', value: `${interaction.guild.memberCount}`, inline: true },
             { name: 'Created At', value: `<t:${Math.floor(interaction.guild.createdTimestamp / 1000)}:F>`, inline: false }
         )
-        .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
+        .setThumbnail(interaction.guild.iconURL())
         .setFooter({ text: `Server ID: ${interaction.guild.id}` })
         .setTimestamp();
     

@@ -53,7 +53,7 @@ export async function execute(message: Message): Promise<void> {
     try {
       // Skip processing if this is the initial forum post that created the thread
       // (Forum post IDs match their containing thread ID)
-      const isValidForum = await isValidatedForumChannel(message.channel.parentId);
+      const isValidForum = await isValidatedForumChannel(message.channel.parentId || '');
       const isForumPost = isValidForum && message.id === message.channel.id;
 
       if (isForumPost) {

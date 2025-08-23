@@ -31,11 +31,13 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
         return;
     }
 
-    const joinedTimestamp = interaction.member.joinedTimestamp;
-    if (!joinedTimestamp) {
+    // Type guard to ensure we have a GuildMember
+    if (!('joinedTimestamp' in interaction.member) || !interaction.member.joinedTimestamp) {
         await interaction.reply({ content: 'Unable to retrieve member information.', ephemeral: true });
         return;
     }
+
+    const joinedTimestamp = interaction.member.joinedTimestamp;
 
     const embed = new EmbedBuilder()
         .setColor(0xEB1A1A)
@@ -45,7 +47,7 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
             { name: 'Joined Server', value: `<t:${Math.floor(joinedTimestamp / 1000)}:F>`, inline: true },
             { name: 'Account Created', value: `<t:${Math.floor(interaction.user.createdTimestamp / 1000)}:F>`, inline: false }
         )
-        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+        .setThumbnail(interaction.user.displayAvatarURL())
         .setFooter({ text: `User ID: ${interaction.user.id}` })
         .setTimestamp();
     

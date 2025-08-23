@@ -279,7 +279,7 @@ async function handleMessageCreated(data: any): Promise<void> {
         // Process and clean the message content
         let messageContent = message.markdown || '';
         messageContent = decodeHtmlEntities(messageContent);
-        messageContent = processQuotedContent(messageContent);
+        messageContent = processQuotedContent(messageContent, []);
 
         // Skip duplicate messages
         if (await isDuplicateMessage(discordThread.id, messageContent)) {

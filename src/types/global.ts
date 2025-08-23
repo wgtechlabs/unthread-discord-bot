@@ -10,6 +10,13 @@
 import { Client } from 'discord.js';
 
 /**
+ * Extended Discord Client with commands collection
+ */
+interface ExtendedClient extends Client {
+	commands: Map<string, any>;
+}
+
+/**
  * Extended global Discord client interface for utilities that need Discord functionality
  */
 interface GlobalDiscordClient {
@@ -22,7 +29,7 @@ declare global {
 	/**
 	 * Discord client instance accessible globally for webhook integration
 	 */
-	var discordClient: Client | GlobalDiscordClient | undefined;
+	var discordClient: ExtendedClient | GlobalDiscordClient | undefined;
 }
 
 export {};
