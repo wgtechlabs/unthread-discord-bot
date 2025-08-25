@@ -34,7 +34,7 @@ import cachedData from './cache';
  * 3. Whether the key follows the expected format pattern
  * 4. Memory constraints if storing large objects
  */
-async function setKey(key: string, value: any, customTtl?: number): Promise<boolean> {
+async function setKey(key: string, value: unknown, customTtl?: number): Promise<boolean> {
 	// Use custom TTL or default to 24 hours
 	const ttl = customTtl || 86400000;
 	return await cachedData.set(key, value, ttl);
@@ -66,7 +66,7 @@ async function setKey(key: string, value: any, customTtl?: number): Promise<bool
  * 3. Look for potential cache eviction in cache.js if memory limits are reached
  * 4. Confirm the value was successfully stored with setKey() in the first place
  */
-async function getKey(key: string): Promise<any> {
+async function getKey(key: string): Promise<unknown> {
 	return await cachedData.get(key);
 }
 

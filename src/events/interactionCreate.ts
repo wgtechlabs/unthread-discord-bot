@@ -4,6 +4,19 @@ import { LogEngine } from '../config/logger';
 import { setKey } from '../utils/memory';
 import { getOrCreateCustomer, getCustomerByDiscordId, updateCustomer } from '../utils/customerUtils';
 
+// Simple type for ticket objects from external API
+interface TicketResponse {
+	id: string;
+	friendlyId: string;
+}
+
+// Simple type for thread objects
+interface ThreadResponse {
+	id: string;
+	members: { add: (userId: string) => Promise<unknown> };
+	send: (options: unknown) => Promise<unknown>;
+}
+
 /**
  * InteractionCreate event handler
  * Handles all Discord interactions including:
@@ -57,16 +70,18 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 	// Using ephemeral reply so only the submitter can see it
 	await interaction.deferReply({ ephemeral: true });
 
-	let ticket: any;
-	let thread: any;
+	// Business objects that come from external APIs
+	let ticket: unknown = null;
+	let thread: unknown = null;
 	// ===== TICKET CREATION WORKFLOW =====
 	try {
 		// Step 1: Create ticket in unthread.io using external API
 		ticket = await createTicket(interaction.user, title, issue, email);
 		LogEngine.debug('Ticket created:', ticket);
 
-		// Validate ticket creation was successful
-		if (!ticket.friendlyId) {
+		// Type guard for ticket - we know ticket has id and friendlyId
+		const ticketObj = ticket as TicketResponse;
+		if (!ticketObj.friendlyId) {
 			throw new Error('Ticket was created but no friendlyId was provided');
 		}
 
@@ -77,7 +92,7 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 		}
 
 		thread = await interaction.channel.threads.create({
-			name: `ticket-#${ticket.friendlyId}`,
+			name: `ticket-#${ticketObj.friendlyId}`,
 			reason: 'Unthread Ticket',
 		});
 
@@ -85,23 +100,26 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 			throw new Error('Failed to create Discord thread');
 		}
 
+		// Type guard for thread - we know it has id, members, send methods
+		const threadObj = thread as ThreadResponse;
+
 		// Step 3: IMMEDIATELY associate the Discord thread with the ticket
 		// This prevents race conditions with incoming webhooks by ensuring the mapping exists
 		// before any messages are sent that could trigger webhook events
-		await bindTicketWithThread(ticket.id, thread.id);
+		await bindTicketWithThread(ticketObj.id, threadObj.id);
 
 		// Step 4: Add the user who submitted the ticket to the private thread
-		await thread.members.add(interaction.user.id);
+		await threadObj.members.add(interaction.user.id);
 
 		// Step 5: Send initial context information to the thread
-		await thread.send({
+		await threadObj.send({
 			content: `
-                > **Ticket #:** ${ticket.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}
+                > **Ticket #:** ${ticketObj.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}
             `,
 		});
 
 		// Step 6: Send confirmation message
-		await thread.send({
+		await threadObj.send({
 			content: `Hello <@${interaction.user.id}>, we have received your ticket and will respond shortly. Please check this thread for updates.`,
 		});
 
@@ -114,13 +132,15 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 		LogEngine.error('Ticket creation failed:', error);
 
 		// Cleanup: If we created a mapping but failed afterwards, clean it up
-		if (ticket && ticket.id && thread && thread.id) {
+		const ticketObj = ticket as TicketResponse | null;
+		const threadObj = thread as ThreadResponse | null;
+		if (ticketObj?.id && threadObj?.id) {
 			try {
 				// Remove the mapping to prevent orphaned entries
 				// Set with short TTL to delete
-				await setKey(`ticket:discord:${thread.id}`, null, 1);
-				await setKey(`ticket:unthread:${ticket.id}`, null, 1);
-				LogEngine.info(`Cleaned up orphaned ticket mapping: Discord thread ${thread.id} <-> Unthread ticket ${ticket.id}`);
+				await setKey(`ticket:discord:${threadObj.id}`, null, 1);
+				await setKey(`ticket:unthread:${ticketObj.id}`, null, 1);
+				LogEngine.info(`Cleaned up orphaned ticket mapping: Discord thread ${threadObj.id} <-> Unthread ticket ${ticketObj.id}`);
 			}
 			catch (cleanupError) {
 				LogEngine.error('Failed to cleanup orphaned ticket mapping:', cleanupError);
@@ -134,8 +154,10 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 
 async function handleSlashCommand(interaction: CommandInteraction): Promise<void> {
 	// Look up the command handler based on the command name
-	// Type assertion for extended client
-	const client = interaction.client as any;
+	// Type assertion for extended client with commands collection
+	const client = interaction.client as unknown as {
+		commands: Map<string, { execute: (interaction: CommandInteraction) => Promise<void> }>;
+	};
 	const command = client.commands.get(interaction.commandName);
 
 	// Check if command exists in our registered commands

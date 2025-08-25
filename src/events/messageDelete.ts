@@ -28,7 +28,7 @@ export async function execute(message: Message): Promise<void> {
 		// Track multiple deleted messages by channel for bulk operations
 		// Key format: deleted:channel:{channelId}
 		const channelKey = `deleted:channel:${message.channel.id}`;
-		const recentlyDeletedInChannel = await getKey(channelKey) || [];
+		const recentlyDeletedInChannel = (await getKey(channelKey) as Array<Record<string, unknown>>) || [];
 
 		// Add this message to the channel's deletion history
 		recentlyDeletedInChannel.push({
@@ -40,7 +40,7 @@ export async function execute(message: Message): Promise<void> {
 		const oneMinuteAgo = Date.now() - 60000;
 		// Keep at most 10 recent deletions
 		const filteredList = recentlyDeletedInChannel
-			.filter((item: any) => item.timestamp > oneMinuteAgo)
+			.filter((item: Record<string, unknown>) => (item.timestamp as number) > oneMinuteAgo)
 			.slice(-10);
 
 		// Update the cache

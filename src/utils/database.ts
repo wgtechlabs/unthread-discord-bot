@@ -55,8 +55,9 @@ async function testRedisConnection(): Promise<void> {
 			LogEngine.warn('Redis connection test failed: value mismatch');
 		}
 	}
-	catch (error: any) {
-		LogEngine.error('Redis connection error:', error.message);
+	catch (error: unknown) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		LogEngine.error('Redis connection error:', errorMessage);
 	}
 }
 

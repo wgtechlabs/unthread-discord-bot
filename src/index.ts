@@ -70,7 +70,7 @@ const port = PORT || '3000';
  * Extended Discord client with commands collection
  */
 interface ExtendedClient extends Client {
-	commands: Collection<string, any>;
+	commands: Collection<string, CommandModule>;
 }
 
 /**
@@ -79,9 +79,9 @@ interface ExtendedClient extends Client {
 interface CommandModule {
 	data: {
 		name: string;
-		toJSON: () => any;
+		toJSON: () => Record<string, unknown>;
 	};
-	execute: (...args: any[]) => Promise<void>;
+	execute: (...args: unknown[]) => Promise<void>;
 }
 
 /**
@@ -90,7 +90,7 @@ interface CommandModule {
 interface EventModule {
 	name: string;
 	once?: boolean;
-	execute: (...args: any[]) => Promise<void>;
+	execute: (...args: unknown[]) => Promise<void>;
 }
 
 /**
@@ -236,10 +236,10 @@ try {
 			const event = require(filePath) as EventModule;
 
 			if (event.once) {
-				client.once(event.name, (...args: any[]) => event.execute(...args));
+				client.once(event.name, (...args: unknown[]) => event.execute(...args));
 			}
 			else {
-				client.on(event.name, (...args: any[]) => event.execute(...args));
+				client.on(event.name, (...args: unknown[]) => event.execute(...args));
 			}
 
 			LogEngine.debug(`Loaded event: ${event.name}`);

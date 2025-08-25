@@ -52,9 +52,10 @@ if (!GUILD_ID) {
  */
 interface CommandModule {
 	data: {
-		toJSON: () => any;
+		name: string;
+		toJSON: () => Record<string, unknown>;
 	};
-	execute: (...args: any[]) => Promise<void>;
+	execute: (...args: unknown[]) => Promise<void>;
 }
 
 /**
@@ -63,7 +64,7 @@ interface CommandModule {
  * Stores all command definitions in JSON format for deployment to Discord.
  * Commands are automatically discovered from the commands directory structure.
  */
-const commands: any[] = [];
+const commands: Record<string, unknown>[] = [];
 
 /**
  * Command Discovery and Loading
@@ -149,7 +150,7 @@ const rest = new REST().setToken(DISCORD_BOT_TOKEN);
 		const data = await rest.put(
 			Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
 			{ body: commands },
-		) as any[];
+		) as Record<string, unknown>[];
 
 		LogEngine.info(`Successfully reloaded ${data.length} application (/) commands.`);
 	}

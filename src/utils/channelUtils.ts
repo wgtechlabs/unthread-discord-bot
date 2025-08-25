@@ -25,7 +25,7 @@ async function isForumChannel(channelId: string): Promise<boolean> {
 			return false;
 		}
 
-		const channel = await global.discordClient.channels.fetch(channelId);
+		const channel = await global.discordClient.channels.fetch(channelId) as { type: ChannelType } | null;
 		if (!channel) {
 			LogEngine.warn(`Channel ${channelId} not found`);
 			return false;
