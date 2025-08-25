@@ -1,14 +1,14 @@
 /**
  * Webhook Service Module
- * 
+ *
  * Handles incoming webhooks from Unthread for ticket synchronization.
  * Provides signature verification and event routing for secure webhook processing.
- * 
+ *
  * Features:
  * - HMAC signature verification for security
  * - URL verification for webhook setup
  * - Event routing to appropriate handlers
- * 
+ *
  * @module services/webhook
  */
 
@@ -43,10 +43,10 @@ type WebhookEventPayload = WebhookPayload | UrlVerificationPayload;
 
 /**
  * Verifies the HMAC signature of incoming webhook requests
- * 
+ *
  * Uses the webhook signing secret to verify that the request comes from Unthread.
  * This prevents unauthorized webhook calls from malicious sources.
- * 
+ *
  * @param req - The Express request object containing headers and body
  * @returns True if signature is valid, false otherwise
  */
@@ -60,29 +60,29 @@ function verifySignature(req: WebhookRequest): boolean {
 	const hmac = createHmac('sha256', SIGNING_SECRET)
 		.update(rawBody)
 		.digest('hex');
-    
+
 	const receivedSignature = req.get('x-unthread-signature');
 	return hmac === receivedSignature;
 }
 
 /**
  * Main webhook handler for Unthread events
- * 
+ *
  * Processes incoming webhook requests with the following workflow:
  * 1. Verifies the signature for security
  * 2. Handles URL verification events for initial setup
  * 3. Routes other events to the appropriate handler
  * 4. Returns appropriate HTTP status codes
- * 
+ *
  * @param req - The Express request object
  * @param res - The Express response object
  */
 function webhookHandler(req: Request, res: Response): void {
 	// Cast to WebhookRequest for access to rawBody
 	const webhookReq = req as WebhookRequest;
-	
+
 	LogEngine.debug('Webhook received:', webhookReq.rawBody);
-	
+
 	if (!verifySignature(webhookReq)) {
 		LogEngine.error('Signature verification failed.');
 		res.sendStatus(403);
@@ -98,7 +98,7 @@ function webhookHandler(req: Request, res: Response): void {
 		res.sendStatus(200);
 		return;
 	}
-  
+
 	// Process other webhook events coming from Unthread
 	try {
 		unthreadWebhookHandler(body as WebhookPayload);

@@ -1,8 +1,8 @@
 /**
  * Utility Type Definitions
- * 
+ *
  * Contains common utility types and interfaces used across the application.
- * 
+ *
  * @module types/utils
  */
 
@@ -22,7 +22,7 @@ export interface ApiRequestConfig {
 	method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 	url: string;
 	headers?: Record<string, string>;
-	body?: any;
+	body?: Record<string, unknown>;
 	timeout?: number;
 }
 
@@ -39,7 +39,7 @@ export interface MessageProcessingResult {
 /**
  * Generic API response structure
  */
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
 	success: boolean;
 	data?: T;
 	error?: string;
@@ -49,7 +49,7 @@ export interface ApiResponse<T = any> {
 /**
  * Database operation result
  */
-export interface DatabaseResult<T = any> {
+export interface DatabaseResult<T = unknown> {
 	success: boolean;
 	data?: T;
 	error?: string;
@@ -64,7 +64,8 @@ export interface FileAttachment {
 	url: string;
 	size: number;
 	contentType: string;
-	data?: any; // Buffer type will be available once Node.js types are properly loaded
+	// Buffer type will be available once Node.js types are properly loaded
+	data?: Buffer;
 }
 
 /**

@@ -1,43 +1,43 @@
 /**
  * Unthread Discord Bot - Main Entry Point
- * 
+ *
  * This is the primary server file that initializes the Discord bot and Express webhook server.
  * The bot connects to Discord and handles slash commands, while the Express server
  * receives webhooks from Unthread to sync ticket updates.
- * 
+ *
  * Key Components:
  * - Discord.js Client with required intents and partials
  * - Express server for webhook handling
  * - Command and event loader system
  * - Global client reference for webhook integration
- * 
+ *
  * Architecture:
  * - Built with TypeScript for type safety and maintainability
  * - Follows KISS (Keep It Simple, Stupid) principle
  * - Clean code approach with comprehensive documentation
  * - Modular design with clear separation of concerns
- * 
+ *
  * Environment Variables Required:
  * - DISCORD_BOT_TOKEN: Bot token from Discord Developer Portal
- * - CLIENT_ID: Application ID from Discord Developer Portal 
+ * - CLIENT_ID: Application ID from Discord Developer Portal
  * - GUILD_ID: Discord server ID where commands will be deployed
  * - UNTHREAD_API_KEY: API key for Unthread integration
  * - UNTHREAD_WEBHOOK_SECRET: Secret for webhook signature verification
  * - PORT: Port for webhook server (optional, defaults to 3000)
- * 
+ *
  * @module index
  * @author Waren Gonzaga
  * @version 0.2.0-beta.6.14
  * @since 0.1.0
- * 
+ *
  * @example
  * // Start the bot in development mode
  * yarn dev
- * 
- * @example  
+ *
+ * @example
  * // Build and start in production
  * yarn build && yarn start
- * 
+ *
  * @see {@link https://discord.js.org/} Discord.js Documentation
  * @see {@link https://unthread.com/} Unthread Platform
  */
@@ -70,7 +70,7 @@ const port = PORT || '3000';
  * Extended Discord client with commands collection
  */
 interface ExtendedClient extends Client {
-	commands: Collection<string, any>;
+	commands: Collection<string, CommandModule>;
 }
 
 /**
@@ -79,9 +79,9 @@ interface ExtendedClient extends Client {
 interface CommandModule {
 	data: {
 		name: string;
-		toJSON: () => any;
+		toJSON: () => Record<string, unknown>;
 	};
-	execute: (...args: any[]) => Promise<void>;
+	execute: (...args: unknown[]) => Promise<void>;
 }
 
 /**
@@ -90,7 +90,7 @@ interface CommandModule {
 interface EventModule {
 	name: string;
 	once?: boolean;
-	execute: (...args: any[]) => Promise<void>;
+	execute: (...args: unknown[]) => Promise<void>;
 }
 
 /**
@@ -102,20 +102,20 @@ interface WebhookRequest extends express.Request {
 
 /**
  * Discord Client Configuration
- * 
+ *
  * Configures the Discord client with necessary intents and partials:
  * - Guilds: Basic guild functionality
  * - MessageContent: Access to message content (required for content reading)
  * - GuildMessages: Message events in guilds
  * - GuildMessageReactions: Reaction events
- * 
+ *
  * Partials allow the bot to receive events for objects that may not be fully cached:
  * - Channel, Message, Reaction: For incomplete message data
  * - ThreadMember, Thread: For thread-related events
  */
-const client = new Client({ 
+const client = new Client({
 	intents: [
-		GatewayIntentBits.Guilds, 
+		GatewayIntentBits.Guilds,
 		GatewayIntentBits.MessageContent,
 		GatewayIntentBits.GuildMessages,
 		GatewayIntentBits.GuildMessageReactions,
@@ -135,7 +135,7 @@ const app = express();
 
 /**
  * Express Middleware Configuration
- * 
+ *
  * Configures JSON parsing with raw body capture for webhook signature verification.
  * The raw body is needed to verify HMAC signatures from Unthread webhooks.
  */
@@ -144,12 +144,12 @@ app.use(
 		verify: (req: WebhookRequest, res: express.Response, buf: Buffer) => {
 			req.rawBody = buf.toString();
 		},
-	})
+	}),
 );
 
 /**
  * Webhook Route Handler
- * 
+ *
  * Handles incoming webhooks from Unthread for ticket updates and synchronization.
  * All webhook processing is delegated to the webhookHandler service.
  */
@@ -157,7 +157,7 @@ app.post('/webhook/unthread', webhookHandler);
 
 /**
  * Start Express Server
- * 
+ *
  * Starts the webhook server on the configured port.
  * This server must be publicly accessible for Unthread to send webhooks.
  */
@@ -167,7 +167,7 @@ app.listen(port, () => {
 
 /**
  * Command Loading System
- * 
+ *
  * Dynamically loads all slash commands from the commands directory structure.
  * Commands are organized in folders and must export 'data' and 'execute' properties.
  * Successfully loaded commands are registered in the client.commands Collection.
@@ -180,16 +180,19 @@ try {
 
 	for (const folder of commandFolders) {
 		const commandsPath = path.join(foldersPath, folder);
-		const commandFiles = fs.readdirSync(commandsPath).filter(file => 
-			file.endsWith('.js') || file.endsWith('.ts')
+		// eslint-disable-next-line security/detect-non-literal-fs-filename
+		const commandFiles = fs.readdirSync(commandsPath).filter(file =>
+			file.endsWith('.js') || file.endsWith('.ts'),
 		);
-		
+
 		for (const file of commandFiles) {
 			const filePath = path.join(commandsPath, file);
-			
+
 			try {
+				// Dynamic require is necessary for loading command modules
+				// eslint-disable-next-line security/detect-non-literal-require
 				const command = require(filePath) as CommandModule;
-				
+
 				if ('data' in command && 'execute' in command) {
 					client.commands.set(command.data.name, command);
 					LogEngine.debug(`Loaded command: ${command.data.name}`);
@@ -203,7 +206,7 @@ try {
 			}
 		}
 	}
-	
+
 	LogEngine.info(`Loaded ${client.commands.size} commands successfully.`);
 }
 catch (error) {
@@ -212,7 +215,7 @@ catch (error) {
 
 /**
  * Event Loading System
- * 
+ *
  * Dynamically loads all event handlers from the events directory.
  * Events can be configured to run once or on every occurrence.
  * Each event file must export name, execute, and optionally 'once' properties.
@@ -226,24 +229,26 @@ try {
 
 	for (const file of eventFiles) {
 		const filePath = path.join(eventsPath, file);
-		
+
 		try {
+			// Dynamic require is necessary for loading event modules
+			// eslint-disable-next-line security/detect-non-literal-require
 			const event = require(filePath) as EventModule;
-			
+
 			if (event.once) {
-				client.once(event.name, (...args: any[]) => event.execute(...args));
+				client.once(event.name, (...args: unknown[]) => event.execute(...args));
 			}
 			else {
-				client.on(event.name, (...args: any[]) => event.execute(...args));
+				client.on(event.name, (...args: unknown[]) => event.execute(...args));
 			}
-			
+
 			LogEngine.debug(`Loaded event: ${event.name}`);
 		}
 		catch (error) {
 			LogEngine.error(`Failed to load event from ${filePath}:`, error);
 		}
 	}
-	
+
 	LogEngine.info(`Loaded ${eventFiles.length} events successfully.`);
 }
 catch (error) {
@@ -252,7 +257,7 @@ catch (error) {
 
 /**
  * Discord Client Login and Global Setup
- * 
+ *
  * Logs in the Discord client and sets up global reference for webhook access.
  * The global client reference allows the webhook handler to access Discord functionality.
  */

@@ -1,9 +1,9 @@
 /**
  * Global Type Declarations
- * 
+ *
  * Contains global type declarations and augmentations for the application.
  * This file extends the global namespace with custom properties.
- * 
+ *
  * @module types/global
  */
 
@@ -13,7 +13,7 @@ import { Client } from 'discord.js';
  * Extended Discord Client with commands collection
  */
 interface ExtendedClient extends Client {
-	commands: Map<string, any>;
+	commands: Map<string, unknown>;
 }
 
 /**
@@ -21,7 +21,7 @@ interface ExtendedClient extends Client {
  */
 interface GlobalDiscordClient {
 	channels: {
-		fetch: (channelId: string) => Promise<any>;
+		fetch: (channelId: string) => Promise<unknown>;
 	};
 }
 

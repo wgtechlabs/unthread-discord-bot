@@ -1,9 +1,9 @@
 /**
  * Discord Bot Type Definitions
- * 
+ *
  * Contains type definitions for Discord bot-specific objects and configurations.
  * These extend or supplement the discord.js types for bot-specific use cases.
- * 
+ *
  * @module types/discord
  */
 
@@ -47,8 +47,8 @@ export interface BotConfig {
  * Cache key-value operations interface
  */
 export interface CacheOperations {
-	getKey: (key: string) => Promise<any>;
-	setKey: (key: string, value: any, ttl?: number) => Promise<boolean>;
+	getKey: (key: string) => Promise<unknown>;
+	setKey: (key: string, value: unknown, ttl?: number) => Promise<boolean>;
 	deleteKey: (key: string) => Promise<boolean>;
 }
 
@@ -56,7 +56,7 @@ export interface CacheOperations {
  * Customer utility operations interface
  */
 export interface CustomerOperations {
-	getOrCreateCustomer: (user: any, email?: string) => Promise<any>;
-	getCustomerByDiscordId: (discordId: string) => Promise<any>;
-	updateCustomer: (customerId: string, updates: any) => Promise<any>;
+	getOrCreateCustomer: (user: unknown, email?: string) => Promise<unknown>;
+	getCustomerByDiscordId: (discordId: string) => Promise<unknown>;
+	updateCustomer: (customerId: string, updates: Record<string, unknown>) => Promise<unknown>;
 }

@@ -1,9 +1,9 @@
 /**
  * Channel Utilities
- * 
+ *
  * This module provides utility functions for validating Discord channel types
  * and ensuring proper channel handling throughout the application.
- * 
+ *
  * @module utils/channelUtils
  */
 
@@ -11,18 +11,10 @@ import { LogEngine } from '../config/logger';
 import { ChannelType } from 'discord.js';
 import '../types/global';
 
-/**
- * Global Discord client interface (extended in main application)
- */
-interface GlobalDiscordClient {
-	channels: {
-		fetch: (channelId: string) => Promise<any>;
-	};
-}
 
 /**
  * Checks if a channel is actually a forum channel
- * 
+ *
  * @param channelId - The Discord channel ID to check
  * @returns True if the channel is a forum channel, false otherwise
  */
@@ -33,7 +25,7 @@ async function isForumChannel(channelId: string): Promise<boolean> {
 			return false;
 		}
 
-		const channel = await global.discordClient.channels.fetch(channelId);
+		const channel = await global.discordClient.channels.fetch(channelId) as { type: ChannelType } | null;
 		if (!channel) {
 			LogEngine.warn(`Channel ${channelId} not found`);
 			return false;
@@ -50,7 +42,7 @@ async function isForumChannel(channelId: string): Promise<boolean> {
 /**
  * Validates and filters forum channel IDs from environment variable
  * Only returns IDs that are actually forum channels
- * 
+ *
  * @param forumChannelIds - Comma-separated list of channel IDs
  * @returns Array of validated forum channel IDs
  */
@@ -82,11 +74,12 @@ async function validateForumChannelIds(forumChannelIds: string): Promise<string[
  */
 let cachedForumChannelIds: string[] | null = null;
 let lastValidationTime = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+// 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000;
 
 async function getValidatedForumChannelIds(): Promise<string[]> {
 	const now = Date.now();
-	
+
 	// Return cached result if still valid
 	if (cachedForumChannelIds && (now - lastValidationTime) < CACHE_DURATION) {
 		return cachedForumChannelIds;
@@ -98,13 +91,13 @@ async function getValidatedForumChannelIds(): Promise<string[]> {
 	lastValidationTime = now;
 
 	LogEngine.info(`Validated ${cachedForumChannelIds.length} forum channels from FORUM_CHANNEL_IDS`);
-	
+
 	return cachedForumChannelIds;
 }
 
 /**
  * Checks if a given channel ID is in the validated forum channels list
- * 
+ *
  * @param channelId - The channel ID to check
  * @returns True if the channel is a validated forum channel
  */
