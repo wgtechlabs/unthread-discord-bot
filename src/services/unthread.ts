@@ -112,18 +112,17 @@ export async function getCustomerById(discordId: string): Promise<UnthreadCustom
 export async function createTicket(user: User, title: string, issue: string, email: string): Promise<UnthreadTicket> {
 	// Enhanced debugging: Initial request context
 	LogEngine.info(`Creating ticket for user: ${user.tag} (${user.id})`);
-	LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? process.env.UNTHREAD_API_KEY.length + 'chars' : 'NOT_SET'}, TRIAGE_ID=${JSON.stringify(process.env.UNTHREAD_TRIAGE_CHANNEL_ID || 'NOT_SET')}, INBOX_ID=${JSON.stringify(process.env.UNTHREAD_EMAIL_INBOX_ID || 'NOT_SET')}`);
+	LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? process.env.UNTHREAD_API_KEY.length + 'chars' : 'NOT_SET'}, SLACK_CHANNEL_ID=${JSON.stringify(process.env.UNTHREAD_SLACK_CHANNEL_ID || 'NOT_SET')}`);
 
 	const customer = await getOrCreateCustomer(user, email);
 	LogEngine.debug(`Customer: ${customer?.customerId || 'unknown'} (${customer?.email || email})`);
 
 	const requestPayload = {
-		type: 'email',
+		type: 'slack',
 		title: title,
 		markdown: `${issue}`,
 		status: 'open',
-		triageChannelId: process.env.UNTHREAD_TRIAGE_CHANNEL_ID?.trim(),
-		emailInboxId: process.env.UNTHREAD_EMAIL_INBOX_ID?.trim(),
+		channelId: process.env.UNTHREAD_SLACK_CHANNEL_ID?.trim(),
 		customerId: customer?.customerId,
 		onBehalfOf: {
 			name: user.tag,

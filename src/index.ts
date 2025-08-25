@@ -22,6 +22,7 @@
  * - CLIENT_ID: Application ID from Discord Developer Portal
  * - GUILD_ID: Discord server ID where commands will be deployed
  * - UNTHREAD_API_KEY: API key for Unthread integration
+ * - UNTHREAD_SLACK_CHANNEL_ID: Slack channel ID for ticket routing
  * - UNTHREAD_WEBHOOK_SECRET: Secret for webhook signature verification
  * - REDIS_URL: Redis connection URL for caching and data persistence (required)
  * - PORT: Port for webhook server (optional, defaults to 3000)

@@ -175,8 +175,7 @@ yarn start
    - `CLIENT_ID`: Your application's client ID, found in the "General Information" tab.
    - `GUILD_ID`: The ID of the Discord server where you want to deploy the bot. [How to Get Your Discord Server ID](#how-to-get-your-discord-server-id)
    - `UNTHREAD_API_KEY`: Your Unthread API key.
-   - `UNTHREAD_TRIAGE_CHANNEL_ID`: Your Unthread triage channel ID.
-   - `UNTHREAD_EMAIL_INBOX_ID`: Your Unthread email inbox ID.
+   - `UNTHREAD_SLACK_CHANNEL_ID`: Your Unthread Slack channel ID for ticket routing.
    - `UNTHREAD_WEBHOOK_SECRET`: Your Unthread webhook secret.
    - `REDIS_URL`: Redis connection URL for caching and data persistence (required).
    - `FORUM_CHANNEL_IDS`: Comma-separated list of forum channel IDs for automatic ticket creation.
