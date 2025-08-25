@@ -14,7 +14,6 @@
  */
 
 import { CacheOperations } from '../types/discord';
-// @ts-ignore - JavaScript module without type declarations
 import cachedData from './cache';
 
 /**

@@ -6,10 +6,10 @@
   "main": "dist/index.js",
   "scripts": {
     "build": ".yarn/sdks/typescript/bin/tsc",
-    "start": "npm run build && yarn node dist/deploy_commands.js && yarn node dist/index.js",
+    "start": "yarn build && yarn node dist/index.js",
     "dev": "ts-node src/index.ts",
     "dev:watch": "nodemon --exec ts-node src/index.ts",
-    "deploycommand": "npm run build && yarn node dist/deploy_commands.js",
+    "deploycommand": "yarn build && yarn node dist/deploy_commands.js",
     "deploycommand:dev": "ts-node src/deploy_commands.ts",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"

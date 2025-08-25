@@ -98,7 +98,17 @@ if (!REDIS_URL) {
 	process.exit(1);
 }
 
-const port = PORT || '3000';
+// Parse port with proper fallback and validation
+let port = 3000;
+if (PORT) {
+	const parsedPort = parseInt(PORT, 10);
+	if (!Number.isNaN(parsedPort) && parsedPort > 0 && parsedPort <= 65535) {
+		port = parsedPort;
+	}
+	else {
+		LogEngine.warn(`Invalid PORT value "${PORT}", defaulting to 3000`);
+	}
+}
 
 /**
  * Extended Discord client with commands collection
@@ -205,6 +215,7 @@ app.listen(port, () => {
  * Dynamically loads all slash commands from the commands directory structure.
  * Commands are organized in folders and must export 'data' and 'execute' properties.
  * Successfully loaded commands are registered in the client.commands Collection.
+ * Handles both development (.ts) and production (.js) environments.
  */
 client.commands = new Collection();
 const foldersPath = path.join(__dirname, 'commands');
@@ -214,9 +225,13 @@ try {
 
 	for (const folder of commandFolders) {
 		const commandsPath = path.join(foldersPath, folder);
+
+		// Determine file extension based on environment
+		const usingTsNode = __filename.endsWith('.ts');
+
 		// eslint-disable-next-line security/detect-non-literal-fs-filename
 		const commandFiles = fs.readdirSync(commandsPath).filter(file =>
-			file.endsWith('.js') || file.endsWith('.ts'),
+			usingTsNode ? file.endsWith('.ts') : file.endsWith('.js'),
 		);
 
 		for (const file of commandFiles) {
@@ -225,7 +240,10 @@ try {
 			try {
 				// Dynamic require is necessary for loading command modules
 				// eslint-disable-next-line security/detect-non-literal-require
-				const command = require(filePath) as CommandModule;
+				const mod = require(filePath) as CommandModule | { default: CommandModule };
+
+				// Handle both CommonJS and ESM exports
+				const command = ('default' in mod ? mod.default : mod) as CommandModule;
 
 				if ('data' in command && 'execute' in command) {
 					client.commands.set(command.data.name, command);
@@ -253,13 +271,17 @@ catch (error) {
  * Dynamically loads all event handlers from the events directory.
  * Events can be configured to run once or on every occurrence.
  * Each event file must export name, execute, and optionally 'once' properties.
+ * Validates event module structure before registration.
  */
 const eventsPath = path.join(__dirname, 'events');
 
 try {
+	// Determine file extension based on environment
+	const usingTsNode = __filename.endsWith('.ts');
+
 	const eventFiles = fs
 		.readdirSync(eventsPath)
-		.filter((file) => file.endsWith('.js') || file.endsWith('.ts'));
+		.filter((file) => usingTsNode ? file.endsWith('.ts') : file.endsWith('.js'));
 
 	for (const file of eventFiles) {
 		const filePath = path.join(eventsPath, file);
@@ -267,13 +289,22 @@ try {
 		try {
 			// Dynamic require is necessary for loading event modules
 			// eslint-disable-next-line security/detect-non-literal-require
-			const event = require(filePath) as EventModule;
+			const mod = require(filePath) as EventModule | { default: EventModule };
+
+			// Handle both CommonJS and ESM exports
+			const event = ('default' in mod ? mod.default : mod) as Partial<EventModule>;
+
+			// Validate required properties before registering events
+			if (!event?.name || typeof event.execute !== 'function') {
+				LogEngine.warn(`The event at ${filePath} is missing required "name" or "execute" properties.`);
+				continue;
+			}
 
 			if (event.once) {
-				client.once(event.name, (...args: unknown[]) => event.execute(...args));
+				client.once(event.name, (...args: unknown[]) => event.execute!(...args));
 			}
 			else {
-				client.on(event.name, (...args: unknown[]) => event.execute(...args));
+				client.on(event.name, (...args: unknown[]) => event.execute!(...args));
 			}
 
 			LogEngine.debug(`Loaded event: ${event.name}`);

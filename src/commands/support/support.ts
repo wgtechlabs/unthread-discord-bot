@@ -46,16 +46,26 @@ const supportCommand = {
 	 *
 	 * Validates the execution context and presents a ticket creation modal.
 	 * Performs the following checks:
-	 * 1. Ensures command is not used in threads
-	 * 2. Verifies channel is not configured for forum-based tickets
-	 * 3. Checks bot permissions for thread creation
-	 * 4. Presents modal interface for ticket submission
+	 * 1. Ensures command is used in a guild with a valid channel
+	 * 2. Ensures command is not used in threads
+	 * 3. Verifies channel is not configured for forum-based tickets
+	 * 4. Checks bot permissions for thread creation
+	 * 5. Presents modal interface for ticket submission
 	 *
 	 * @param interaction - The slash command interaction
 	 */
 	async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+		// Add guild and channel validation before proceeding
+		if (!interaction.inGuild() || !interaction.channel) {
+			await interaction.reply({
+				content: '❌ **Cannot use `/support` here**\n\nPlease run this command inside a server text channel.',
+				ephemeral: true,
+			});
+			return;
+		}
+
 		// Check if the command is used in any thread (forum posts, private threads, etc.)
-		if (interaction.channel?.isThread()) {
+		if (interaction.channel.isThread()) {
 			await interaction.reply({
 				content: '❌ **Cannot use `/support` command in threads**\n\nThe `/support` command can only be used in text channels. Please use `/support` in the main channel instead of inside threads or forum posts.',
 				ephemeral: true,
@@ -64,7 +74,7 @@ const supportCommand = {
 		}
 
 		// Check if the current channel is configured as a forum channel
-		const isConfiguredForumChannel = await isValidatedForumChannel(interaction.channel?.id || '');
+		const isConfiguredForumChannel = await isValidatedForumChannel(interaction.channel.id);
 		if (isConfiguredForumChannel) {
 			await interaction.reply({
 				content: '❌ **Cannot use `/support` command here**\n\nThis channel is configured for forum-based tickets. Please create a new forum post instead of using the `/support` command.',
