@@ -111,18 +111,29 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 function containsDiscordAttachments(messageContent: string): boolean {
 	if (!messageContent) return false;
 
-	// Discord CDN attachment pattern - handles various Discord attachment formats
-	const discordCdnPattern = /Attachments: (?:<https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^>]+\|(?:image|video|file)_\d+>|\[(?:image|video|file)_\d+\]https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^\]]+\))/i;
+	// Enhanced Discord CDN attachment patterns - handles multiple formats globally
+	const patterns = [
+		// Pattern 1: <https://cdn.discordapp.com/attachments/...|file_name>
+		/<https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^>|]+\|(?:image|video|file)_\d+>/gi,
+		// Pattern 2: [file_name](https://cdn.discordapp.com/attachments/...)
+		/\[(?:image|video|file)_\d+\]\(https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^)]+\)/gi,
+		// Pattern 3: Direct CDN URLs
+		/https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^\s]+/gi,
+		// Pattern 4: Media CDN URLs
+		/https:\/\/media\.discordapp\.net\/attachments\/\d+\/\d+\/[^\s]+/gi,
+	];
 
-	// Basic pattern check
-	if (discordCdnPattern.test(messageContent)) {
-		return true;
+	// Check against all patterns
+	for (const pattern of patterns) {
+		if (pattern.test(messageContent)) {
+			return true;
+		}
 	}
 
 	// More comprehensive check for various formats
 	// These are the common markers for Discord attachments in synchronized messages
 	if (messageContent.includes('Attachments:') &&
-		messageContent.includes('cdn.discordapp.com/attachments/') &&
+		(messageContent.includes('cdn.discordapp.com/attachments/') || messageContent.includes('media.discordapp.net/attachments/')) &&
 		(messageContent.includes('|image_') || messageContent.includes('|file_') || messageContent.includes('|video_'))) {
 		return true;
 	}
@@ -148,16 +159,24 @@ function containsDiscordAttachments(messageContent: string): boolean {
 function removeAttachmentSection(messageContent: string): string {
 	if (!messageContent) return '';
 
-	// Look for patterns like:
-	//
-	//  Attachments: [image_1]https://cdn.discordapp.com/...
-	// or
-	//  Attachments: <https://cdn.discordapp.com/...|image_1>
-	const attachmentSection = messageContent.match(/\n\nAttachments: (?:\[.+\]|\<.+\>)/);
-	if (attachmentSection) {
-		return messageContent.replace(attachmentSection[0], '').trim();
+	// Enhanced patterns for attachment sections - handles multiple formats
+	const attachmentPatterns = [
+		// Pattern 1: Attachments: <url|file_name>
+		/\n\nAttachments: <[^>]+>/g,
+		// Pattern 2: Attachments: [file_name](url)
+		/\n\nAttachments: \[[^\]]+\]\([^)]+\)/g,
+		// Pattern 3: General attachment section with any content after "Attachments:"
+		/\n\nAttachments: .+$/g,
+	];
+
+	let processedContent = messageContent;
+
+	// Apply all patterns to remove various attachment formats
+	for (const pattern of attachmentPatterns) {
+		processedContent = processedContent.replace(pattern, '');
 	}
-	return messageContent.trim();
+
+	return processedContent.trim();
 }
 
 /**

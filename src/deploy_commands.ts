@@ -90,9 +90,12 @@ for (const folder of commandFolders) {
 	let commandFiles: string[];
 
 	try {
+		// Determine file extension based on environment
+		const usingTsNode = __filename.endsWith('.ts');
+
 		// eslint-disable-next-line security/detect-non-literal-fs-filename
 		commandFiles = fs.readdirSync(commandsPath).filter(file =>
-			file.endsWith('.js') || file.endsWith('.ts'),
+			usingTsNode ? file.endsWith('.ts') : file.endsWith('.js'),
 		);
 	}
 	catch (error) {
@@ -107,7 +110,10 @@ for (const folder of commandFolders) {
 		try {
 			// Dynamic require is necessary for loading command modules
 			// eslint-disable-next-line security/detect-non-literal-require
-			const command = require(filePath) as CommandModule;
+			const mod = require(filePath) as CommandModule | { default: CommandModule };
+
+			// Handle both CommonJS and ESM exports
+			const command = ('default' in mod ? mod.default : mod) as CommandModule;
 
 			// Validate command structure and add to deployment array
 			if ('data' in command && 'execute' in command) {

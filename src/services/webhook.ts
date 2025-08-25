@@ -13,10 +13,9 @@
  */
 
 import { Request, Response } from 'express';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { WebhookPayload } from '../types/unthread';
 import { LogEngine } from '../config/logger';
-// @ts-ignore - JavaScript module without type declarations
 import { handleWebhookEvent as unthreadWebhookHandler } from './unthread';
 
 const SIGNING_SECRET = process.env.UNTHREAD_WEBHOOK_SECRET;
@@ -46,6 +45,7 @@ type WebhookEventPayload = WebhookPayload | UrlVerificationPayload;
  *
  * Uses the webhook signing secret to verify that the request comes from Unthread.
  * This prevents unauthorized webhook calls from malicious sources.
+ * Uses constant-time comparison to prevent timing attacks.
  *
  * @param req - The Express request object containing headers and body
  * @returns True if signature is valid, false otherwise
@@ -57,12 +57,23 @@ function verifySignature(req: WebhookRequest): boolean {
 	}
 
 	const rawBody = req.rawBody;
-	const hmac = createHmac('sha256', SIGNING_SECRET)
+	const computed = createHmac('sha256', SIGNING_SECRET)
 		.update(rawBody)
 		.digest('hex');
 
-	const receivedSignature = req.get('x-unthread-signature');
-	return hmac === receivedSignature;
+	const receivedSignature = req.get('x-unthread-signature') || '';
+
+	// Use constant-time comparison to prevent timing attacks
+	const a = Buffer.from(computed, 'hex');
+	const b = Buffer.from(receivedSignature, 'hex');
+
+	// If lengths don't match, signatures are definitely different
+	if (a.length !== b.length) {
+		return false;
+	}
+
+	// Use timing-safe comparison for the actual signature check
+	return timingSafeEqual(a, b);
 }
 
 /**
@@ -77,7 +88,7 @@ function verifySignature(req: WebhookRequest): boolean {
  * @param req - The Express request object
  * @param res - The Express response object
  */
-function webhookHandler(req: Request, res: Response): void {
+async function webhookHandler(req: Request, res: Response): Promise<void> {
 	// Cast to WebhookRequest for access to rawBody
 	const webhookReq = req as WebhookRequest;
 
@@ -101,7 +112,7 @@ function webhookHandler(req: Request, res: Response): void {
 
 	// Process other webhook events coming from Unthread
 	try {
-		unthreadWebhookHandler(body as WebhookPayload);
+		await unthreadWebhookHandler(body as WebhookPayload);
 		LogEngine.debug(`Successfully processed webhook event: ${event}`);
 	}
 	catch (error) {
