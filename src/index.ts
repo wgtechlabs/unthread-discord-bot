@@ -28,7 +28,7 @@
  *
  * @module index
  * @author Waren Gonzaga
- * @version 0.2.0-beta.6.14
+ * @version v1.0.0-rc1
  * @since 0.1.0
  *
  * @example
