@@ -39,22 +39,24 @@ const keyv = createKeyv(process.env.REDIS_URL);
  * @returns {Promise<void>}
  */
 async function testRedisConnection(): Promise<void> {
-    try {
-        // Test connection by setting and getting a test value
-        const testKey = 'redis:connection:test';
-        const testValue = Date.now().toString();
-        
-        await keyv.set(testKey, testValue, 1000); // 1 second TTL
-        const retrievedValue = await keyv.get(testKey);
-        
-        if (retrievedValue === testValue) {
-            LogEngine.info('Successfully connected to Redis');
-        } else {
-            LogEngine.warn('Redis connection test failed: value mismatch');
-        }
-    } catch (error: any) {
-        LogEngine.error('Redis connection error:', error.message);
-    }
+	try {
+		// Test connection by setting and getting a test value
+		const testKey = 'redis:connection:test';
+		const testValue = Date.now().toString();
+
+		await keyv.set(testKey, testValue, 1000); // 1 second TTL
+		const retrievedValue = await keyv.get(testKey);
+
+		if (retrievedValue === testValue) {
+			LogEngine.info('Successfully connected to Redis');
+		}
+		else {
+			LogEngine.warn('Redis connection test failed: value mismatch');
+		}
+	}
+	catch (error: any) {
+		LogEngine.error('Redis connection error:', error.message);
+	}
 }
 
 // Test connection when module loads
@@ -67,7 +69,7 @@ testRedisConnection();
  * This helps with monitoring Redis health and debugging issues.
  */
 keyv.on('error', (error: Error) => {
-    LogEngine.error('Redis error:', error.message);
+	LogEngine.error('Redis error:', error.message);
 });
 
 export default keyv;

@@ -203,7 +203,7 @@ try {
 			}
 		}
 	}
-	
+
 	LogEngine.info(`Loaded ${client.commands.size} commands successfully.`);
 }
 catch (error) {
@@ -236,14 +236,14 @@ try {
 			else {
 				client.on(event.name, (...args: any[]) => event.execute(...args));
 			}
-			
+
 			LogEngine.debug(`Loaded event: ${event.name}`);
 		}
 		catch (error) {
 			LogEngine.error(`Failed to load event from ${filePath}:`, error);
 		}
 	}
-	
+
 	LogEngine.info(`Loaded ${eventFiles.length} events successfully.`);
 }
 catch (error) {

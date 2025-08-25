@@ -91,7 +91,7 @@ async function getValidatedForumChannelIds(): Promise<string[]> {
 	lastValidationTime = now;
 
 	LogEngine.info(`Validated ${cachedForumChannelIds.length} forum channels from FORUM_CHANNEL_IDS`);
-	
+
 	return cachedForumChannelIds;
 }
 

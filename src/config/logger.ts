@@ -1,15 +1,15 @@
 /**
  * Log Engine Configuration
- * 
+ *
  * Configures @wgtechlabs/log-engine for the Discord bot.
  * This replaces the custom logger wrapper with direct log-engine usage.
- * 
+ *
  * Configuration:
  * - Uses LogMode.DEBUG when DEBUG_MODE=true, otherwise LogMode.INFO
  * - Excludes ISO timestamps (includeIsoTimestamp: false)
  * - Includes local time formatting (includeLocalTime: true)
  * - No custom output handlers - uses log-engine defaults
- * 
+ *
  * @module config/logger
  */
 
@@ -24,11 +24,11 @@ const logMode = debugMode ? LogMode.DEBUG : LogMode.INFO;
 
 // Configure LogEngine with the required format settings
 LogEngine.configure({
-    mode: logMode,
-    format: {
-        includeIsoTimestamp: false,
-        includeLocalTime: true,
-    },
+	mode: logMode,
+	format: {
+		includeIsoTimestamp: false,
+		includeLocalTime: true,
+	},
 });
 
 // Export LogEngine for use throughout the application

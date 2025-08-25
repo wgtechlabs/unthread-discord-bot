@@ -17,6 +17,6 @@ import { LogEngine } from '../config/logger';
 export const name = Events.Error;
 export const once = false;
 export function execute(error: Error): void {
-    // Log the error with full stack trace for troubleshooting
-    LogEngine.error(`Discord.js Client Error: ${error.stack || error}`);
+	// Log the error with full stack trace for troubleshooting
+	LogEngine.error(`Discord.js Client Error: ${error.stack || error}`);
 }

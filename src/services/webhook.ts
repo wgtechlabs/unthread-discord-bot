@@ -80,9 +80,9 @@ function verifySignature(req: WebhookRequest): boolean {
 function webhookHandler(req: Request, res: Response): void {
 	// Cast to WebhookRequest for access to rawBody
 	const webhookReq = req as WebhookRequest;
-	
+
 	LogEngine.debug('Webhook received:', webhookReq.rawBody);
-	
+
 	if (!verifySignature(webhookReq)) {
 		LogEngine.error('Signature verification failed.');
 		res.sendStatus(403);

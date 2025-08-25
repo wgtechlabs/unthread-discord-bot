@@ -80,31 +80,31 @@ export async function getOrCreateCustomer(user: User, email: string = ''): Promi
 		throw new Error('Invalid user object provided to getOrCreateCustomer');
 	}
 
-    const key = `customer:${user.id}`;
-    let customer = await getKey(key) as Customer | null;
-    
-    if (customer) {
-        LogEngine.debug(`Found cached customer for Discord user ${user.id}`);
-        return customer;
-    }
+	const key = `customer:${user.id}`;
+	let customer = await getKey(key) as Customer | null;
 
-    // Customer not found in cache, create a new one
-    LogEngine.debug(`Creating new customer record for Discord user ${user.id}`);
-    const customerId = await createCustomerInUnthread(user);
-    
-    // Construct customer object with both Discord and Unthread identifiers
-    customer = {
-        discordId: user.id,
-        discordUsername: user.username,
-        discordName: user.tag || user.username,
-        customerId,
-        email: email || ''
-    };
-    
-    // Store customer in cache for future lookups
-    await setKey(key, customer);
-    LogEngine.info(`Created new customer record for ${user.username} (${user.id})`);
-    return customer;
+	if (customer) {
+		LogEngine.debug(`Found cached customer for Discord user ${user.id}`);
+		return customer;
+	}
+
+	// Customer not found in cache, create a new one
+	LogEngine.debug(`Creating new customer record for Discord user ${user.id}`);
+	const customerId = await createCustomerInUnthread(user);
+
+	// Construct customer object with both Discord and Unthread identifiers
+	customer = {
+		discordId: user.id,
+		discordUsername: user.username,
+		discordName: user.tag || user.username,
+		customerId,
+		email: email || '',
+	};
+
+	// Store customer in cache for future lookups
+	await setKey(key, customer);
+	LogEngine.info(`Created new customer record for ${user.username} (${user.id})`);
+	return customer;
 }
 
 /**
@@ -138,12 +138,12 @@ export async function getCustomerByDiscordId(discordId: string): Promise<Custome
  * @throws {Error} - If invalid customer object is provided
  */
 export async function updateCustomer(customer: Customer): Promise<Customer> {
-    if (!customer || !customer.discordId) {
-        throw new Error('Invalid customer object provided to updateCustomer');
-    }
-    
-    const key = `customer:${customer.discordId}`;
-    await setKey(key, customer);
-    LogEngine.debug(`Updated customer record for ${customer.discordUsername} (${customer.discordId})`);
-    return customer;
+	if (!customer || !customer.discordId) {
+		throw new Error('Invalid customer object provided to updateCustomer');
+	}
+
+	const key = `customer:${customer.discordId}`;
+	await setKey(key, customer);
+	LogEngine.debug(`Updated customer record for ${customer.discordUsername} (${customer.discordId})`);
+	return customer;
 }

@@ -1,8 +1,8 @@
-import { Events, Message } from "discord.js";
-import { version } from "../../package.json";
-import { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } from "../services/unthread";
-import { isValidatedForumChannel } from "../utils/channelUtils";
-import { LogEngine } from "../config/logger";
+import { Events, Message } from 'discord.js';
+import { version } from '../../package.json';
+import { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } from '../services/unthread';
+import { isValidatedForumChannel } from '../utils/channelUtils';
+import { LogEngine } from '../config/logger';
 
 /**
  * Message Creation Event Handler
@@ -56,29 +56,30 @@ export async function execute(message: Message): Promise<void> {
 			const isValidForum = await isValidatedForumChannel(message.channel.parentId || '');
 			const isForumPost = isValidForum && message.id === message.channel.id;
 
-      if (isForumPost) {
-        LogEngine.debug(`Skipping forum post ID ${message.id} that created thread ${message.channel.id}`);
-        return;
-      }
+			if (isForumPost) {
+				LogEngine.debug(`Skipping forum post ID ${message.id} that created thread ${message.channel.id}`);
+				return;
+			}
 
 			// Retrieve the ticket mapping by Discord thread ID
 			const ticketMapping = await getTicketByDiscordThreadId(message.channel.id);
 			if (ticketMapping) {
 				let messageToSend = message.content;
 
-        // Handle quoted/referenced message for better context preservation
-        if (message.reference && message.reference.messageId) {
-          let quotedMessage: string;
-          try {
-            const referenced = await message.channel.messages.fetch(message.reference.messageId);
-            quotedMessage = `> ${referenced.content}`;
-            messageToSend = `${quotedMessage}\n\n${message.content}`;
-            LogEngine.debug(`Added quote context from message ${message.reference.messageId}`);
-          } catch (err) {
-            LogEngine.error('Error fetching the referenced message:', err);
-            // Continue with original message if quote retrieval fails
-          }
-        }
+				// Handle quoted/referenced message for better context preservation
+				if (message.reference && message.reference.messageId) {
+					let quotedMessage: string;
+					try {
+						const referenced = await message.channel.messages.fetch(message.reference.messageId);
+						quotedMessage = `> ${referenced.content}`;
+						messageToSend = `${quotedMessage}\n\n${message.content}`;
+						LogEngine.debug(`Added quote context from message ${message.reference.messageId}`);
+					}
+					catch (err) {
+						LogEngine.error('Error fetching the referenced message:', err);
+						// Continue with original message if quote retrieval fails
+					}
+				}
 
 				// Process and format attachments into markdown links
 				if (message.attachments.size > 0) {
@@ -94,40 +95,42 @@ export async function execute(message: Message): Promise<void> {
 							return `[${type}_${index + 1}](${attachment.url})`;
 						});
 
-            // Add attachments list to the message with separator characters
-            messageToSend = messageToSend || '';
-            messageToSend += `\n\nAttachments: ${attachmentLinks.join(' | ')}`;
-            LogEngine.debug(`Added ${attachments.length} attachments to message`);
-          }
-        }
+						// Add attachments list to the message with separator characters
+						messageToSend = messageToSend || '';
+						messageToSend += `\n\nAttachments: ${attachmentLinks.join(' | ')}`;
+						LogEngine.debug(`Added ${attachments.length} attachments to message`);
+					}
+				}
 
-        // Retrieve or create customer email for Unthread ticket association
-        const customer = await getCustomerById(message.author.id);
-        const email = customer?.email || `${message.author.username}@discord.user`;
-        
-        LogEngine.debug(`Forwarding message to Unthread ticket ${ticketMapping.unthreadTicketId}`, {
-          threadId: message.channel.id,
-          authorId: message.author.id,
-          hasAttachments: message.attachments.size > 0,
-          messageLength: messageToSend.length
-        });
+				// Retrieve or create customer email for Unthread ticket association
+				const customer = await getCustomerById(message.author.id);
+				const email = customer?.email || `${message.author.username}@discord.user`;
 
-        // Forward the message to Unthread's API
-        const response = await sendMessageToUnthread(
-          ticketMapping.unthreadTicketId,
-          message.author,
-          messageToSend,
-          email
-        );
-        LogEngine.info(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
-      } else {
-        LogEngine.debug(`Message in thread ${message.channel.id} has no Unthread ticket mapping, skipping`);
-      }
-    } catch (error) {
-      LogEngine.error("Error sending message to Unthread:", error);
-      // Consider adding error notification to the thread in production environments
-    }
-  }
+				LogEngine.debug(`Forwarding message to Unthread ticket ${ticketMapping.unthreadTicketId}`, {
+					threadId: message.channel.id,
+					authorId: message.author.id,
+					hasAttachments: message.attachments.size > 0,
+					messageLength: messageToSend.length,
+				});
+
+				// Forward the message to Unthread's API
+				const response = await sendMessageToUnthread(
+					ticketMapping.unthreadTicketId,
+					message.author,
+					messageToSend,
+					email,
+				);
+				LogEngine.info(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
+			}
+			else {
+				LogEngine.debug(`Message in thread ${message.channel.id} has no Unthread ticket mapping, skipping`);
+			}
+		}
+		catch (error) {
+			LogEngine.error('Error sending message to Unthread:', error);
+			// Consider adding error notification to the thread in production environments
+		}
+	}
 
 	// Process legacy commands (prefix-based)
 	await handleLegacyCommands(message);
@@ -154,16 +157,16 @@ export async function execute(message: Message): Promise<void> {
  * 3. Ensure the package.json version is correctly defined
  */
 async function handleLegacyCommands(message: Message): Promise<void> {
-  // Check ping - useful for verifying bot responsiveness and connection quality
-  if (message.content === "!!ping") {
-    const latency = Date.now() - message.createdTimestamp;
-    await message.reply(`Latency is ${latency}ms.`);
-    LogEngine.info(`Responded to ping command with latency ${latency}ms`);
-  }
+	// Check ping - useful for verifying bot responsiveness and connection quality
+	if (message.content === '!!ping') {
+		const latency = Date.now() - message.createdTimestamp;
+		await message.reply(`Latency is ${latency}ms.`);
+		LogEngine.info(`Responded to ping command with latency ${latency}ms`);
+	}
 
-  // Check version - helps track which bot version is running in production
-  if (message.content === "!!version") {
-    await message.reply(`Version: ${version}`);
-    LogEngine.info(`Responded to version command with version ${version}`);
-  }
+	// Check version - helps track which bot version is running in production
+	if (message.content === '!!version') {
+		await message.reply(`Version: ${version}`);
+		LogEngine.info(`Responded to version command with version ${version}`);
+	}
 }

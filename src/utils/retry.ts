@@ -54,7 +54,7 @@ async function withRetry<T>(
 	while (attempt < maxAttempts) {
 		try {
 			LogEngine.info(`Attempt ${attempt + 1}/${maxAttempts} for ${operationName}...`);
-			
+
 			// Execute the operation
 			const result = await operation();
 
@@ -68,7 +68,7 @@ async function withRetry<T>(
 		catch (error) {
 			lastError = error as Error;
 			LogEngine.debug(`Attempt ${attempt + 1} failed: ${lastError.message}`);
-			
+
 			if (attempt < maxAttempts - 1) {
 				// Calculate delay with linear backoff
 				const delayMs = baseDelayMs * (attempt + 1);
