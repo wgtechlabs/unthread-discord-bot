@@ -117,7 +117,8 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 		if (ticket && ticket.id && thread && thread.id) {
 			try {
 				// Remove the mapping to prevent orphaned entries
-				await setKey(`ticket:discord:${thread.id}`, null, 1); // Set with short TTL to delete
+				// Set with short TTL to delete
+				await setKey(`ticket:discord:${thread.id}`, null, 1);
 				await setKey(`ticket:unthread:${ticket.id}`, null, 1);
 				LogEngine.info(`Cleaned up orphaned ticket mapping: Discord thread ${thread.id} <-> Unthread ticket ${ticket.id}`);
 			}

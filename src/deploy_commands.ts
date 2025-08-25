@@ -72,20 +72,40 @@ const commands: any[] = [];
  * Each command must export 'data' and 'execute' properties to be valid.
  */
 const foldersPath = path.join(__dirname, 'commands');
-const commandFolders = fs.readdirSync(foldersPath);
+
+// Safely read the commands directory
+let commandFolders: string[];
+try {
+	commandFolders = fs.readdirSync(foldersPath);
+}
+catch (error) {
+	LogEngine.error('Failed to read commands directory:', error);
+	process.exit(1);
+}
 
 for (const folder of commandFolders) {
 	// Scan each command category folder
 	const commandsPath = path.join(foldersPath, folder);
-	const commandFiles = fs.readdirSync(commandsPath).filter(file =>
-		file.endsWith('.js') || file.endsWith('.ts'),
-	);
+	let commandFiles: string[];
+
+	try {
+		// eslint-disable-next-line security/detect-non-literal-fs-filename
+		commandFiles = fs.readdirSync(commandsPath).filter(file =>
+			file.endsWith('.js') || file.endsWith('.ts'),
+		);
+	}
+	catch (error) {
+		LogEngine.warn(`Failed to read folder ${folder}:`, error);
+		continue;
+	}
 
 	// Process each command file in the folder
 	for (const file of commandFiles) {
 		const filePath = path.join(commandsPath, file);
 
 		try {
+			// Dynamic require is necessary for loading command modules
+			// eslint-disable-next-line security/detect-non-literal-require
 			const command = require(filePath) as CommandModule;
 
 			// Validate command structure and add to deployment array

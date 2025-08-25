@@ -10,7 +10,7 @@ import { Events, EmbedBuilder, PermissionFlagsBits, ThreadChannel, Message } fro
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { withRetry } from '../utils/retry';
 import { LogEngine } from '../config/logger';
-import { getOrCreateCustomer, getCustomerByDiscordId } from '../utils/customerUtils';
+import { getOrCreateCustomer } from '../utils/customerUtils';
 import { isValidatedForumChannel } from '../utils/channelUtils';
 import { version } from '../../package.json';
 

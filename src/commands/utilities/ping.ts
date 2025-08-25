@@ -37,8 +37,9 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
 	const wsHeartbeat = interaction.client.ws.ping;
 
 	// Create an embed to display the latency metrics.
+	// Red color for emphasis. #EB1A1A
 	const embed = new EmbedBuilder()
-		.setColor(0xEB1A1A) // Red color for emphasis. #EB1A1A
+		.setColor(0xEB1A1A)
 		.setTitle('🏓 Pong!')
 		.addFields(
 			{ name: 'API Latency', value: `${apiLatency}ms`, inline: true },

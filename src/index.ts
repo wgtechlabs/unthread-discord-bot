@@ -180,6 +180,7 @@ try {
 
 	for (const folder of commandFolders) {
 		const commandsPath = path.join(foldersPath, folder);
+		// eslint-disable-next-line security/detect-non-literal-fs-filename
 		const commandFiles = fs.readdirSync(commandsPath).filter(file =>
 			file.endsWith('.js') || file.endsWith('.ts'),
 		);
@@ -188,6 +189,8 @@ try {
 			const filePath = path.join(commandsPath, file);
 
 			try {
+				// Dynamic require is necessary for loading command modules
+				// eslint-disable-next-line security/detect-non-literal-require
 				const command = require(filePath) as CommandModule;
 
 				if ('data' in command && 'execute' in command) {
@@ -228,6 +231,8 @@ try {
 		const filePath = path.join(eventsPath, file);
 
 		try {
+			// Dynamic require is necessary for loading event modules
+			// eslint-disable-next-line security/detect-non-literal-require
 			const event = require(filePath) as EventModule;
 
 			if (event.once) {
