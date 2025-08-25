@@ -97,7 +97,7 @@ This bot is built with **TypeScript** for enhanced maintainability, type safety,
 - **Node.js 18+**: Runtime environment
 - **Yarn with PnP**: Package management and dependency resolution
 - **ESLint**: Code quality and consistent formatting
-- **Redis** (optional): Caching for improved performance
+- **Redis**: Required for caching and data persistence
 
 ### Build System
 
@@ -178,7 +178,7 @@ yarn start
    - `UNTHREAD_TRIAGE_CHANNEL_ID`: Your Unthread triage channel ID.
    - `UNTHREAD_EMAIL_INBOX_ID`: Your Unthread email inbox ID.
    - `UNTHREAD_WEBHOOK_SECRET`: Your Unthread webhook secret.
-   - `REDIS_URL`: Redis connection URL for caching (optional but recommended for production).
+   - `REDIS_URL`: Redis connection URL for caching and data persistence (required).
    - `FORUM_CHANNEL_IDS`: Comma-separated list of forum channel IDs for automatic ticket creation.
    - `DEBUG_MODE`: Set to `true` for verbose logging during development (default: `false`).
    - `PORT`: Port for the webhook server (default: `3000`).
@@ -367,7 +367,7 @@ Need assistance with the bot? Here's how to get help:
 
 - Verify your `REDIS_URL` is correctly formatted
 - Test Redis connectivity independently
-- Redis is optional for basic functionality but recommended for production
+- Redis is now required for application functionality and data persistence
 
 ### Reporting Issues
 

@@ -23,6 +23,7 @@
  * - GUILD_ID: Discord server ID where commands will be deployed
  * - UNTHREAD_API_KEY: API key for Unthread integration
  * - UNTHREAD_WEBHOOK_SECRET: Secret for webhook signature verification
+ * - REDIS_URL: Redis connection URL for caching and data persistence (required)
  * - PORT: Port for webhook server (optional, defaults to 3000)
  *
  * @module index
@@ -52,15 +53,48 @@ import { webhookHandler } from './services/webhook';
 import { LogEngine } from './config/logger';
 import './types/global';
 
+// Import database to ensure Redis connection is tested on startup
+import { testRedisConnection } from './utils/database';
+
+/**
+ * Startup Validation Function
+ *
+ * Validates all required dependencies before starting the bot.
+ * This includes Redis connection testing and other critical validations.
+ */
+async function validateStartupRequirements(): Promise<void> {
+	LogEngine.info('Validating startup requirements...');
+
+	try {
+		// Test Redis connection explicitly
+		await testRedisConnection();
+		LogEngine.info('All startup requirements validated successfully');
+	}
+	catch (error) {
+		LogEngine.error('Startup validation failed:', error);
+		process.exit(1);
+	}
+}
+
+// Run startup validation
+validateStartupRequirements();
+
 // Load environment variables
 dotenv.config();
 
 // Load Discord bot token from environment variables
-const { DISCORD_BOT_TOKEN, PORT } = process.env as Partial<BotConfig>;
+const { DISCORD_BOT_TOKEN, REDIS_URL, PORT } = process.env as Partial<BotConfig>;
 
 // Validate required environment variables
 if (!DISCORD_BOT_TOKEN) {
 	LogEngine.error('DISCORD_BOT_TOKEN is required but not set in environment variables');
+	process.exit(1);
+}
+
+if (!REDIS_URL) {
+	LogEngine.error('REDIS_URL is required but not set in environment variables');
+	LogEngine.error('Redis is now required for proper caching and data persistence');
+	LogEngine.error('Please provide a valid Redis connection URL (e.g., redis://localhost:6379)');
 	process.exit(1);
 }
 

@@ -1,9 +1,14 @@
 /**
  * Memory Cache Utility Module
  *
- * This module provides functions to interact with the in-memory cache system.
- * It serves as a simple key-value store for temporarily persisting data throughout
- * the bot's lifecycle, with configurable expiration times.
+ * This module provides functions to interact with the in-memory cache system
+ * backed by Redis for persistence. It serves as a simple key-value store for
+ * temporarily persisting data throughout the bot's lifecycle, with configurable
+ * expiration times.
+ *
+ * Requirements:
+ * - Redis connection is required for proper functionality
+ * - REDIS_URL environment variable must be set
  *
  * @module utils/memory
  */

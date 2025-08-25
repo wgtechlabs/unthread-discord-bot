@@ -37,7 +37,8 @@ export interface BotConfig {
 	UNTHREAD_TRIAGE_CHANNEL_ID: string;
 	UNTHREAD_EMAIL_INBOX_ID: string;
 	UNTHREAD_WEBHOOK_SECRET: string;
-	REDIS_URL?: string;
+	// Redis URL is now required for data persistence and caching
+	REDIS_URL: string;
 	FORUM_CHANNEL_IDS?: string;
 	DEBUG_MODE?: string;
 	PORT?: string;
