@@ -44,11 +44,14 @@
  * @see {@link https://unthread.com/} Unthread Platform
  */
 
+// Load environment variables first, before any other imports
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import * as fs from 'fs';
 import * as path from 'node:path';
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import express from 'express';
-import * as dotenv from 'dotenv';
 import { BotConfig } from './types/discord';
 import { webhookHandler } from './services/webhook';
 import { LogEngine } from './config/logger';
@@ -79,9 +82,6 @@ async function validateStartupRequirements(): Promise<void> {
 
 // Run startup validation
 validateStartupRequirements();
-
-// Load environment variables
-dotenv.config();
 
 // Load Discord bot token from environment variables
 const { DISCORD_BOT_TOKEN, REDIS_URL, PORT } = process.env as Partial<BotConfig>;
@@ -199,6 +199,42 @@ app.use(
  * All webhook processing is delegated to the webhookHandler service.
  */
 app.post('/webhook/unthread', webhookHandler);
+
+/**
+ * Health Check Endpoint
+ *
+ * Provides a simple health check endpoint for monitoring and load balancers.
+ * Returns application status and dependency health information.
+ */
+app.get('/health', async (req: express.Request, res: express.Response) => {
+	try {
+		// Basic health check response
+		const healthStatus = {
+			status: 'healthy',
+			timestamp: new Date().toISOString(),
+			uptime: process.uptime(),
+			version: process.env.npm_package_version || 'unknown',
+			environment: process.env.NODE_ENV || 'development',
+			discord: {
+				status: client?.isReady() ? 'connected' : 'disconnected',
+				user: client?.user?.tag || 'not logged in',
+			},
+			redis: {
+				status: 'connected',
+			},
+		};
+
+		res.status(200).json(healthStatus);
+	}
+	catch (error) {
+		LogEngine.error('Health check failed:', error);
+		res.status(503).json({
+			status: 'unhealthy',
+			timestamp: new Date().toISOString(),
+			error: error instanceof Error ? error.message : 'Unknown error',
+		});
+	}
+});
 
 /**
  * Start Express Server

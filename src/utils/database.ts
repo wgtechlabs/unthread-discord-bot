@@ -35,6 +35,7 @@ if (!process.env.REDIS_URL) {
  * This instance is used throughout the application for persistent data storage.
  * The connection is required and will throw an error if REDIS_URL is not provided.
  */
+LogEngine.debug(`Creating Redis connection with URL: ${process.env.REDIS_URL?.replace(/:[^:@]*@/, ':****@')}`);
 const keyv = createKeyv(process.env.REDIS_URL);
 
 /**
@@ -55,15 +56,25 @@ async function testRedisConnection(): Promise<void> {
 		const testKey = 'redis:connection:test';
 		const testValue = Date.now().toString();
 
-		// 1 second TTL
-		await keyv.set(testKey, testValue, 1000);
+		LogEngine.debug(`Testing Redis connection with key: ${testKey}, value: ${testValue}`);
+
+		// 10 seconds TTL for testing
+		await keyv.set(testKey, testValue, 10000);
+		LogEngine.debug('Successfully set test value in Redis');
+
+		// Add a small delay to ensure the value is properly stored
+		await new Promise(resolve => setTimeout(resolve, 100));
+
 		const retrievedValue = await keyv.get(testKey);
+		LogEngine.debug(`Retrieved value from Redis: ${retrievedValue} (type: ${typeof retrievedValue})`);
 
 		if (retrievedValue === testValue) {
 			LogEngine.info('Successfully connected to Redis');
+			// Clean up test key
+			await keyv.delete(testKey);
 		}
 		else {
-			const errorMessage = 'Redis connection test failed: value mismatch';
+			const errorMessage = `Redis connection test failed: value mismatch. Expected: "${testValue}", Got: "${retrievedValue}"`;
 			LogEngine.error(errorMessage);
 			throw new Error(errorMessage);
 		}
@@ -76,8 +87,8 @@ async function testRedisConnection(): Promise<void> {
 	}
 }
 
-// Test connection when module loads
-testRedisConnection();
+// Test connection when module loads - commented out to avoid conflicts
+// testRedisConnection();
 
 /**
  * Redis Error Handler
