@@ -8,6 +8,7 @@
  */
 
 import { Client } from 'discord.js';
+import { DiscordWebhookConsumer } from '../services/consumer';
 
 /**
  * Extended Discord Client with commands collection
@@ -30,6 +31,16 @@ declare global {
 	 * Discord client instance accessible globally for webhook integration
 	 */
 	var discordClient: ExtendedClient | GlobalDiscordClient | undefined;
+
+	/**
+	 * Webhook consumer instance for graceful shutdown
+	 */
+	var webhookConsumer: DiscordWebhookConsumer | undefined;
+
+	/**
+	 * Global garbage collection function (available in Node.js with --expose-gc flag)
+	 */
+	var gc: NodeJS.GCFunction | undefined;
 }
 
 export {};

@@ -39,10 +39,16 @@
     "discord.js": "^14.20.0",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
-    "keyv": "^5.3.4"
+    "form-data": "^4.0.1",
+    "keyv": "^5.3.4",
+    "mime-types": "^2.1.35",
+    "node-fetch": "^3.3.2",
+    "redis": "^4.7.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
+    "@types/form-data": "^2.5.0",
+    "@types/mime-types": "^2.1.4",
     "@types/node": "^24.3.0",
     "@typescript-eslint/eslint-plugin": "^8.40.0",
     "@typescript-eslint/parser": "^8.40.0",

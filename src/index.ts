@@ -53,7 +53,8 @@ import * as path from 'node:path';
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import express from 'express';
 import { BotConfig } from './types/discord';
-import { webhookHandler } from './services/webhook';
+import { webhookHandler, initializeWebhookQueue, getQueueManager } from './services/webhook';
+import { DiscordWebhookConsumer } from './services/consumer';
 import { LogEngine } from './config/logger';
 import './types/global';
 
@@ -64,7 +65,7 @@ import { testRedisConnection } from './utils/database';
  * Startup Validation Function
  *
  * Validates all required dependencies before starting the bot.
- * This includes Redis connection testing and other critical validations.
+ * This includes Redis connection testing and webhook queue initialization.
  */
 async function validateStartupRequirements(): Promise<void> {
 	LogEngine.info('Validating startup requirements...');
@@ -72,6 +73,10 @@ async function validateStartupRequirements(): Promise<void> {
 	try {
 		// Test Redis connection explicitly
 		await testRedisConnection();
+
+		// Initialize webhook queue system
+		await initializeWebhookQueue();
+
 		LogEngine.info('All startup requirements validated successfully');
 	}
 	catch (error) {
@@ -362,13 +367,84 @@ catch (error) {
  *
  * Logs in the Discord client and sets up global reference for webhook access.
  * The global client reference allows the webhook handler to access Discord functionality.
+ * Also starts the webhook event consumer for queue processing.
  */
 client.login(DISCORD_BOT_TOKEN)
-	.then(() => {
+	.then(async () => {
 		global.discordClient = client;
 		LogEngine.info('Discord client is ready and set globally.');
+
+		// Start the webhook event consumer
+		try {
+			const queueManager = getQueueManager();
+			if (queueManager) {
+				const consumer = new DiscordWebhookConsumer(client, queueManager);
+				await consumer.start();
+				LogEngine.info('Discord webhook consumer started successfully');
+
+				// Store consumer globally for graceful shutdown
+				global.webhookConsumer = consumer;
+			}
+			else {
+				LogEngine.error('Queue manager not available for webhook consumer');
+			}
+		}
+		catch (error) {
+			LogEngine.error('Failed to start webhook consumer:', error);
+			// Don't exit here - the bot can still function for direct Discord interactions
+		}
 	})
 	.catch((error: Error) => {
 		LogEngine.error('Failed to login Discord client:', error);
 		process.exit(1);
 	});
+
+/**
+ * Graceful Shutdown Handler
+ *
+ * Handles SIGINT and SIGTERM signals to ensure clean shutdown of the application.
+ * This includes stopping the webhook consumer and closing Redis connections.
+ */
+process.on('SIGINT', async () => {
+	LogEngine.info('Received SIGINT, starting graceful shutdown...');
+	await gracefulShutdown();
+});
+
+process.on('SIGTERM', async () => {
+	LogEngine.info('Received SIGTERM, starting graceful shutdown...');
+	await gracefulShutdown();
+});
+
+/**
+ * Perform graceful shutdown of all services
+ */
+async function gracefulShutdown(): Promise<void> {
+	try {
+		// Stop webhook consumer
+		if (global.webhookConsumer) {
+			LogEngine.info('Stopping webhook consumer...');
+			await global.webhookConsumer.stop();
+		}
+
+		// Close queue manager
+		const queueManager = getQueueManager();
+		if (queueManager) {
+			LogEngine.info('Closing queue manager...');
+			await queueManager.close();
+		}
+
+		// Destroy Discord client
+		if (client && client.isReady()) {
+			LogEngine.info('Destroying Discord client...');
+			client.destroy();
+		}
+
+		LogEngine.info('Graceful shutdown completed');
+		process.exit(0);
+
+	}
+	catch (error) {
+		LogEngine.error('Error during graceful shutdown:', error);
+		process.exit(1);
+	}
+}

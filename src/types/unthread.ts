@@ -98,40 +98,73 @@ export type TicketStatus = 'open' | 'pending' | 'solved' | 'closed';
 export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent';
 
 /**
- * Webhook event types from Unthread
+ * Webhook event types from Unthread (updated for current implementation)
  */
 export type WebhookEventType =
-	| 'ticket.created'
-	| 'ticket.updated'
-	| 'ticket.solved'
-	| 'ticket.closed'
-	| 'message.created'
-	| 'message.updated';
+	| 'conversation.created'
+	| 'conversation.status.updated'
+	| 'conversation.message.created'
+	| 'message_created'
+	| 'url_verification';
 
 /**
- * Base webhook payload structure
+ * Base webhook payload structure (updated for current implementation)
  */
 export interface WebhookPayload {
 	event: WebhookEventType;
-	timestamp: string;
-	data: UnthreadTicket | UnthreadMessage;
+	timestamp?: string;
+	data: {
+		id?: string;
+		conversationId?: string;
+		text?: string;
+		conversation?: {
+			id: string;
+			friendlyId?: string;
+			title?: string;
+			status: string;
+		};
+		message?: {
+			id: string;
+			markdown: string;
+			authorName: string;
+			authorEmail: string;
+			createdAt: string;
+		};
+		files?: Array<{
+			id: string;
+			name?: string;
+			filename?: string;
+			size: number;
+			mimeType?: string;
+			type?: string;
+			url?: string;
+			download_url?: string;
+		}>;
+		attachments?: Array<{
+			id: string;
+			name?: string;
+			filename?: string;
+			size: number;
+			mimeType?: string;
+			type?: string;
+			url?: string;
+			download_url?: string;
+		}>;
+	};
 }
 
 /**
- * Ticket webhook payload
+ * Remove the old webhook payload interfaces since we updated the base interface
  */
-export interface TicketWebhookPayload extends WebhookPayload {
-	event: 'ticket.created' | 'ticket.updated' | 'ticket.solved' | 'ticket.closed';
-	data: UnthreadTicket;
-}
+// export interface TicketWebhookPayload extends WebhookPayload {
+// 	event: 'ticket.created' | 'ticket.updated' | 'ticket.solved' | 'ticket.closed';
+// 	data: UnthreadTicket;
+// }
 
-/**
- * Message webhook payload
- */
-export interface MessageWebhookPayload extends WebhookPayload {
-	event: 'message.created' | 'message.updated';
-	data: UnthreadMessage;
-}
+// export interface MessageWebhookPayload extends WebhookPayload {
+// 	event: 'message.created' | 'message.updated';
+// 	data: UnthreadMessage;
+// }
 
 /**
  * API response wrapper for Unthread endpoints
