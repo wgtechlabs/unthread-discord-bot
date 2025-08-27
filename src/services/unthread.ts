@@ -257,6 +257,12 @@ async function handleMessageCreated(data: any): Promise<void> {
 		return;
 	}
 
+	// Skip messages that don't have a real user ID (system generated)
+	if (!data.userId) {
+		LogEngine.debug('Skipping system-generated message');
+		return;
+	}
+
 	const conversationId = data.conversationId || data.id;
 	const messageText = data.text;
 

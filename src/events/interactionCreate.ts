@@ -1,8 +1,9 @@
-import { Events, MessageFlags, Interaction, CommandInteraction, ModalSubmitInteraction } from 'discord.js';
+import { Events, MessageFlags, Interaction, CommandInteraction, ModalSubmitInteraction, EmbedBuilder } from 'discord.js';
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { LogEngine } from '../config/logger';
 import { setKey } from '../utils/memory';
 import { getOrCreateCustomer, getCustomerByDiscordId, updateCustomer } from '../utils/customerUtils';
+import { version } from '../../package.json';
 
 // Simple type for ticket objects from external API
 interface TicketResponse {
@@ -112,18 +113,19 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 		await threadObj.members.add(interaction.user.id);
 
 		// Step 5: Send initial context information to the thread
-		await threadObj.send({
-			content: `
-                > **Ticket #:** ${ticketObj.friendlyId}\n> **Title:** ${title}\n> **Issue:** ${issue}
-            `,
-		});
+		const ticketEmbed = new EmbedBuilder()
+			.setColor(0xFF5241)
+			.setTitle(`🎫 Support Ticket #${ticketObj.friendlyId}`)
+			.setDescription(`**${title}**\n\n${issue}`)
+			.addFields(
+				{ name: '🔄 Next Steps', value: 'Our support team will respond here shortly. Please monitor this thread for updates.', inline: false },
+			)
+			.setFooter({ text: `Unthread Discord Bot v${version}` })
+			.setTimestamp();
 
-		// Step 6: Send confirmation message
-		await threadObj.send({
-			content: `Hello <@${interaction.user.id}>, we have received your ticket and will respond shortly. Please check this thread for updates.`,
-		});
+		await threadObj.send({ embeds: [ticketEmbed] });
 
-		// Step 7: Complete the interaction with confirmation message
+		// Step 6: Complete the interaction with confirmation message
 		await interaction.editReply('Your support ticket has been submitted! A private thread has been created for further assistance.');
 	}
 	catch (error) {
