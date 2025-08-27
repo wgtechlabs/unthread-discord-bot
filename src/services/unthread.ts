@@ -19,7 +19,7 @@ import { decodeHtmlEntities } from '../utils/decodeHtmlEntities';
 import { setKey, getKey } from '../utils/memory';
 import { EmbedBuilder, User } from 'discord.js';
 import { LogEngine } from '../config/logger';
-import { isDuplicateMessage, containsDiscordAttachments, processQuotedContent } from '../utils/messageUtils';
+import { isDuplicateMessage, containsDiscordAttachments } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId } from '../utils/customerUtils';
 import { version } from '../../package.json';
@@ -225,10 +225,10 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
 
 	try {
 		switch (event) {
-		case 'conversation.message.created':
+		case 'message_created':
 			await handleMessageCreated(data);
 			break;
-		case 'conversation.status.updated':
+		case 'conversation_updated':
 			await handleStatusUpdated(data);
 			break;
 		case 'conversation.created':
@@ -251,22 +251,65 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
  * @returns {Promise<void>}
  */
 async function handleMessageCreated(data: any): Promise<void> {
-	const conversationId = data.conversationId || data.id;
-	const message = data.message;
+	// Check if message originated from Discord to avoid duplication
+	if (data.metadata && data.metadata.source === 'discord') {
+		LogEngine.debug('Message originated from Discord, skipping to avoid duplication');
+		return;
+	}
 
-	if (!conversationId || !message) {
+	const conversationId = data.conversationId || data.id;
+	const messageText = data.text;
+
+	if (!conversationId || !messageText) {
 		LogEngine.warn('Message created event missing required data');
 		return;
 	}
 
+	// Extract timestamp from Slack-formatted message ID for duplicate detection
+	const messageId = data.id;
+	const slackTimestamp = messageId ? messageId.split('-').pop()?.split('.')[0] : null;
+
+	if (slackTimestamp) {
+		// Check if we have any records of a message deleted within a short window
+		const currentTime = Date.now();
+		// Convert to milliseconds
+		const messageTimestamp = parseInt(slackTimestamp) * 1000;
+
+		// Only process if the message isn't too old (prevents processing old messages)
+		// Within 10 seconds
+		if (currentTime - messageTimestamp < 10000) {
+			// Check recent deleted messages in this channel
+			const ticketMapping = await getTicketByUnthreadTicketId(conversationId);
+
+			// If we can't find the thread mapping, proceed with sending the message
+			if (!ticketMapping) {
+				LogEngine.debug(`No Discord thread found for Unthread ticket ${conversationId}, proceeding with message`);
+			}
+			else {
+				const deletedMessagesKey = `deleted:channel:${ticketMapping.discordThreadId}`;
+				const recentlyDeletedMessages = (await getKey(deletedMessagesKey)) as any[] || [];
+
+				// If there are any recently deleted messages in the last 5 seconds,
+				// skip processing to avoid duplicates
+				if (recentlyDeletedMessages.length > 0) {
+					LogEngine.debug(`Recently deleted messages found for thread ${ticketMapping.discordThreadId}, skipping to avoid duplicates`);
+					return;
+				}
+			}
+		}
+	}
+
 	try {
+		// Use retry-enabled lookup for message_created events to handle race conditions
 		const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
 			conversationId,
 			getTicketByUnthreadTicketId,
 			{
-				maxAttempts: 5,
-				maxRetryWindow: 30000,
-				baseDelayMs: 2000,
+				maxAttempts: 3,
+				// 10 seconds - reasonable for new ticket creation
+				maxRetryWindow: 10000,
+				// 1 second base delay
+				baseDelayMs: 1000,
 			},
 		);
 
@@ -276,14 +319,30 @@ async function handleMessageCreated(data: any): Promise<void> {
 		}
 
 		// Process and clean the message content
-		let messageContent = message.markdown || '';
-		messageContent = decodeHtmlEntities(messageContent);
-		messageContent = processQuotedContent(messageContent, []);
+		const messageContent = decodeHtmlEntities(messageText);
 
-		// Skip duplicate messages
-		if (await isDuplicateMessage(discordThread.id, messageContent)) {
-			LogEngine.debug(`Skipping duplicate message in thread ${discordThread.id}`);
-			return;
+		// Fetch recent messages to check for duplicates
+		const messages = await discordThread.messages.fetch({ limit: 10 });
+		const messagesArray = Array.from(messages.values());
+
+		// Check if thread has at least 2 messages (initial message + ticket summary)
+		if (messages.size >= 2) {
+			// Check for duplicate messages using our utility function
+			if (isDuplicateMessage(messagesArray as any, messageContent)) {
+				LogEngine.debug('Duplicate message detected. Skipping send.');
+				return;
+			}
+
+			// Check ticket summary for duplicate content
+			const sortedMessages = messagesArray.sort((a: any, b: any) => a.createdTimestamp - b.createdTimestamp);
+
+			// New check: Is this a forum post with its original content being echoed back?
+			// This specifically handles the case of forum posts having their content duplicated
+			const firstMessage = sortedMessages[0];
+			if (firstMessage && (firstMessage as any).content.trim() === messageContent.trim()) {
+				LogEngine.debug('Message appears to be echoing the initial forum post. Skipping to prevent duplication.');
+				return;
+			}
 		}
 
 		// Skip messages that contain Discord attachments
@@ -293,18 +352,8 @@ async function handleMessageCreated(data: any): Promise<void> {
 		}
 
 		if (messageContent.trim()) {
-			// Create embed for the message
-			const embed = new EmbedBuilder()
-				.setColor(0x00FF00)
-				.setAuthor({
-					name: message.authorName || 'Support Team',
-					iconURL: 'https://cdn.unthread.io/assets/logo-32.png',
-				})
-				.setDescription(messageContent)
-				.setFooter({ text: `Unthread Discord Bot v${version}` })
-				.setTimestamp(new Date(message.createdAt));
-
-			await discordThread.send({ embeds: [embed] });
+			// Send as a regular Discord bot message instead of embed
+			await discordThread.send(messageContent);
 			LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id}`);
 		}
 	}
