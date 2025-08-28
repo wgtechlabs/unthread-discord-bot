@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { version } from '../../../package.json';
 
 /**
@@ -25,7 +25,7 @@ export const data = new SlashCommandBuilder()
  * - Creates an embedded message with the bot version
  * - Replies to the interaction with the formatted embed
  */
-export async function execute(interaction: CommandInteraction): Promise<void> {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	const embed = new EmbedBuilder()
 		.setColor(0xEB1A1A)
 		.setTitle('Bot Version')
@@ -33,5 +33,5 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
 		.setFooter({ text: `Unthread Discord Bot v${version}` })
 		.setTimestamp();
 
-	await interaction.reply({ embeds: [embed] });
+	await interaction.reply({ embeds: [embed], ephemeral: true });
 }

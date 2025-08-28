@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
 
 /**
  * Server Command
@@ -25,7 +25,7 @@ export const data = new SlashCommandBuilder()
  * - Creates an embedded message with relevant server information
  * - Replies to the interaction with the formatted embed
  */
-export async function execute(interaction: CommandInteraction): Promise<void> {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	if (!interaction.guild) {
 		await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
 		return;
@@ -39,9 +39,11 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
 			{ name: 'Total Members', value: `${interaction.guild.memberCount}`, inline: true },
 			{ name: 'Created At', value: `<t:${Math.floor(interaction.guild.createdTimestamp / 1000)}:F>`, inline: false },
 		)
-		.setThumbnail(interaction.guild.iconURL())
 		.setFooter({ text: `Server ID: ${interaction.guild.id}` })
 		.setTimestamp();
+
+	const icon = interaction.guild.iconURL();
+	if (icon) embed.setThumbnail(icon);
 
 	await interaction.reply({ embeds: [embed] });
 }

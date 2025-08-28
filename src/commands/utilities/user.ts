@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
 
 /**
  * User Command
@@ -25,29 +25,28 @@ export const data = new SlashCommandBuilder()
  * - Creates an embedded message with relevant user information
  * - Replies to the interaction with the formatted embed
  */
-export async function execute(interaction: CommandInteraction): Promise<void> {
-	if (!interaction.guild || !interaction.member) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+	if (!interaction.inGuild()) {
 		await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
 		return;
 	}
 
-	// Type guard to ensure we have a GuildMember
-	if (!('joinedTimestamp' in interaction.member) || !interaction.member.joinedTimestamp) {
-		await interaction.reply({ content: 'Unable to retrieve member information.', ephemeral: true });
-		return;
-	}
-
-	const joinedTimestamp = interaction.member.joinedTimestamp;
+	// Handle both GuildMember and APIInteractionGuildMember
+	const member = interaction.member;
+	const joinedTimestamp = 'joinedTimestamp' in member ? member.joinedTimestamp : null;
+	const joinedField = joinedTimestamp
+		? `<t:${Math.floor(joinedTimestamp / 1000)}:F>`
+		: 'Unavailable';
 
 	const embed = new EmbedBuilder()
 		.setColor(0xEB1A1A)
 		.setTitle('User Information')
 		.addFields(
 			{ name: 'Username', value: interaction.user.username, inline: true },
-			{ name: 'Joined Server', value: `<t:${Math.floor(joinedTimestamp / 1000)}:F>`, inline: true },
+			{ name: 'Joined Server', value: joinedField, inline: true },
 			{ name: 'Account Created', value: `<t:${Math.floor(interaction.user.createdTimestamp / 1000)}:F>`, inline: false },
 		)
-		.setThumbnail(interaction.user.displayAvatarURL())
+		.setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
 		.setFooter({ text: `User ID: ${interaction.user.id}` })
 		.setTimestamp();
 

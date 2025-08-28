@@ -81,7 +81,7 @@ async function withRetry<T>(
 
 	// If we get here, all attempts failed
 	LogEngine.error(`${operationName} failed after ${maxAttempts} attempts. Last error: ${lastError?.message}`);
-	throw new Error(`${operationName} failed after ${maxAttempts} attempts: ${lastError?.message || 'Unknown error'}`);
+	throw new Error(`${operationName} failed after ${maxAttempts} attempts: ${lastError?.message || 'Unknown error'}`, { cause: lastError ?? undefined });
 }
 
 /**

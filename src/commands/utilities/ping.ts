@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
 
 /**
  * Ping Command
@@ -26,7 +26,7 @@ export const data = new SlashCommandBuilder()
  * - Calculates round-trip latency and retrieves WebSocket heartbeat.
  * - Sends results in an embedded message for better readability.
  */
-export async function execute(interaction: CommandInteraction): Promise<void> {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	// Defer the reply to calculate API latency accurately.
 	const sent = await interaction.deferReply({ fetchReply: true });
 
@@ -34,7 +34,8 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
 	const apiLatency = sent.createdTimestamp - interaction.createdTimestamp;
 
 	// Retrieve the WebSocket heartbeat from the client.
-	const wsHeartbeat = interaction.client.ws.ping;
+	const rawWsPing = interaction.client.ws.ping;
+	const wsHeartbeat = rawWsPing > 0 ? `${rawWsPing}ms` : 'N/A';
 
 	// Create an embed to display the latency metrics.
 	// Red color for emphasis. #EB1A1A
@@ -43,7 +44,7 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
 		.setTitle('🏓 Pong!')
 		.addFields(
 			{ name: 'API Latency', value: `${apiLatency}ms`, inline: true },
-			{ name: 'WebSocket Heartbeat', value: `${wsHeartbeat}ms`, inline: true },
+			{ name: 'WebSocket Heartbeat', value: wsHeartbeat, inline: true },
 		)
 		.setFooter({ text: 'Discord Bot Latency Metrics' })
 		.setTimestamp();

@@ -259,6 +259,13 @@ async function handleMessageCreated(data: any): Promise<void> {
 		return;
 	}
 
+	// Critical: Check if message has a userId - messages without userId are typically from bots
+	// and should be skipped to prevent duplicate ticket creation
+	if (!data.userId) {
+		LogEngine.debug(`Message has no userId (likely from bot), skipping to prevent duplication. ConversationId: ${data.conversationId || data.id}`);
+		return;
+	}
+
 	const conversationId = data.conversationId || data.id;
 	const messageText = data.text;
 
@@ -377,12 +384,15 @@ async function handleMessageCreated(data: any): Promise<void> {
  * @returns {Promise<void>}
  */
 async function handleStatusUpdated(data: any): Promise<void> {
-	const conversation = data.conversation;
+	// The conversation data is directly in the data object, not nested under 'conversation'
+	const conversation = data.conversation || data;
 
-	if (!conversation) {
+	if (!conversation || !conversation.id) {
 		LogEngine.warn('Status updated event missing conversation data');
 		return;
 	}
+
+	LogEngine.debug(`Processing status update for conversation ${conversation.id} (ticket #${conversation.friendlyId}): ${conversation.status}`);
 
 	try {
 		const { discordThread } = await findDiscordThreadByTicketId(
@@ -395,19 +405,40 @@ async function handleStatusUpdated(data: any): Promise<void> {
 			return;
 		}
 
-		// Create status update embed
-		const statusColor = conversation.status === 'closed' ? 0xFF0000 :
-			conversation.status === 'resolved' ? 0x00FF00 : 0xFFFF00;
+		// Create status update embed with Material Design colors and better formatting
+		const getStatusInfo = (status: string) => {
+			switch (status.toLowerCase()) {
+			case 'open':
+				// Material Red
+				return { color: 0xF44336, displayName: 'Open' };
+			case 'in_progress':
+				// Material Yellow
+				return { color: 0xFFEB3B, displayName: 'In Progress' };
+			case 'on_hold':
+				// Material Orange
+				return { color: 0xFF9800, displayName: 'Waiting' };
+			case 'closed':
+			case 'resolved':
+				// Material Green
+				return { color: 0x4CAF50, displayName: 'Resolved' };
+			default:
+				// Material Grey for unknown statuses
+				return { color: 0x9E9E9E, displayName: status.charAt(0).toUpperCase() + status.slice(1) };
+			}
+		};
+
+		const statusInfo = getStatusInfo(conversation.status);
 
 		const embed = new EmbedBuilder()
-			.setColor(statusColor)
+			.setColor(statusInfo.color)
 			.setTitle('Ticket Status Updated')
 			.addFields(
 				{ name: 'Ticket ID', value: `#${conversation.friendlyId}`, inline: true },
-				{ name: 'Status', value: conversation.status.toUpperCase(), inline: true },
-				{ name: 'Title', value: conversation.title || 'N/A', inline: false },
+				{ name: 'Status', value: statusInfo.displayName, inline: true },
 			)
-			.setFooter({ text: `Unthread Discord Bot v${version}` })
+			.setFooter({
+				text: `${(global as typeof globalThis).discordClient?.user?.displayName || 'Unthread Discord Bot'} v${version}`,
+			})
 			.setTimestamp();
 
 		await discordThread.send({ embeds: [embed] });
