@@ -1,16 +1,35 @@
+/**
+ * Interaction Create Event Handler
+ *
+ * This module handles all Discord interactions for the bot, including:
+ * - Modal submissions for support ticket creation
+ * - Slash command executions
+ * - Thread creation and binding with Unthread tickets
+ *
+ * The handler processes different interaction types and routes them to
+ * the appropriate functions, maintaining a clean separation of concerns
+ * for different interaction workflows.
+ *
+ * @module events/interactionCreate
+ */
+
 import { Events, MessageFlags, Interaction, CommandInteraction, ModalSubmitInteraction } from 'discord.js';
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { LogEngine } from '../config/logger';
 import { setKey } from '../utils/memory';
 import { getOrCreateCustomer, getCustomerByDiscordId, updateCustomer } from '../utils/customerUtils';
 
-// Simple type for ticket objects from external API
+/**
+ * Simple type for ticket objects from external API
+ */
 interface TicketResponse {
 	id: string;
 	friendlyId: string;
 }
 
-// Simple type for thread objects
+/**
+ * Simple type for thread objects
+ */
 interface ThreadResponse {
 	id: string;
 	members: { add: (userId: string) => Promise<unknown> };
@@ -19,9 +38,13 @@ interface ThreadResponse {
 
 /**
  * InteractionCreate event handler
- * Handles all Discord interactions including:
+ *
+ * Main entry point for all Discord interactions.
+ * Routes different interaction types to their appropriate handlers:
  * - Modal submissions for support tickets
- * - Chat input commands
+ * - Chat input commands (slash commands)
+ *
+ * @param interaction - The Discord interaction object
  */
 export const name = Events.InteractionCreate;
 
@@ -39,6 +62,18 @@ export async function execute(interaction: Interaction): Promise<void> {
 	await handleSlashCommand(interaction);
 }
 
+/**
+ * Handles support ticket modal submissions
+ *
+ * Processes the support ticket creation workflow:
+ * 1. Extracts form data from modal (title, issue, email)
+ * 2. Manages customer records and email handling
+ * 3. Creates ticket in Unthread
+ * 4. Creates Discord thread for ticket management
+ * 5. Binds the thread to the ticket for synchronization
+ *
+ * @param interaction - The modal submit interaction from Discord
+ */
 async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<void> {
 	// Extract form data from modal submission
 	const title = interaction.fields.getTextInputValue('titleInput');
@@ -152,6 +187,21 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 	}
 }
 
+/**
+ * Handles slash command interactions
+ *
+ * Looks up the appropriate command handler based on the command name
+ * and executes it with proper error handling. If a command fails,
+ * it provides user-friendly error messages while logging detailed
+ * error information for debugging.
+ *
+ * Error handling includes:
+ * - Command not found errors
+ * - Execution errors with appropriate response methods
+ * - Proper handling of already replied/deferred interactions
+ *
+ * @param interaction - The slash command interaction from Discord
+ */
 async function handleSlashCommand(interaction: CommandInteraction): Promise<void> {
 	// Look up the command handler based on the command name
 	// Type assertion for extended client with commands collection
