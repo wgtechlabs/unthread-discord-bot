@@ -101,6 +101,13 @@ export async function createTicket(user: User, title: string, issue: string, ema
 	LogEngine.info(`Creating ticket for user: ${user.displayName || user.username} (${user.id})`);
 	LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? 'SET' : 'NOT_SET'}, SLACK_CHANNEL_ID=${process.env.UNTHREAD_SLACK_CHANNEL_ID ? 'SET' : 'NOT_SET'}`);
 
+	// Validate API key before making request
+	const apiKey = process.env.UNTHREAD_API_KEY;
+	if (!apiKey) {
+		LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
+		throw new Error('UNTHREAD_API_KEY environment variable is required');
+	}
+
 	const customer = await getOrCreateCustomer(user, email);
 	LogEngine.debug(`Customer: ${customer?.customerId || 'unknown'} (${customer?.email || email})`);
 
@@ -124,7 +131,7 @@ export async function createTicket(user: User, title: string, issue: string, ema
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			'X-API-KEY': process.env.UNTHREAD_API_KEY as string,
+			'X-API-KEY': apiKey,
 		},
 		body: JSON.stringify(requestPayload),
 	});
@@ -519,12 +526,19 @@ export async function sendMessageToUnthread(
 	const timeoutId = setTimeout(() => abortController.abort(), 8000);
 
 	try {
+		// Validate API key before making requests
+		const apiKey = process.env.UNTHREAD_API_KEY;
+		if (!apiKey) {
+			LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
+			throw new Error('UNTHREAD_API_KEY environment variable is required');
+		}
+
 		// Perform preflight check to verify conversation exists
 		LogEngine.debug(`Performing preflight check for conversation ${conversationId}`);
 		const preflightResponse = await fetch(conversationUrl, {
 			method: 'HEAD',
 			headers: {
-				'X-API-KEY': process.env.UNTHREAD_API_KEY as string,
+				'X-API-KEY': apiKey,
 			},
 			signal: abortController.signal,
 		});
@@ -540,7 +554,7 @@ export async function sendMessageToUnthread(
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				'X-API-KEY': process.env.UNTHREAD_API_KEY as string,
+				'X-API-KEY': apiKey,
 			},
 			body: JSON.stringify(requestData),
 			signal: abortController.signal,
@@ -554,7 +568,10 @@ export async function sendMessageToUnthread(
 
 		const responseData = await response.json();
 		LogEngine.debug('Message sent to Unthread successfully:', responseData);
-		return responseData;
+		return {
+			success: true,
+			data: responseData,
+		};
 	}
 	catch (error: any) {
 		if (error.name === 'AbortError') {
