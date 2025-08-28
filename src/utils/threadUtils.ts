@@ -12,6 +12,20 @@
 import { LogEngine } from '../config/logger';
 import { ThreadChannel, Message } from 'discord.js';
 
+/**
+ * Custom error class for mapping not found scenarios
+ *
+ * This provides more precise error handling for cases where ticket mappings
+ * are not found, allowing consumers to distinguish between mapping issues
+ * and other types of errors.
+ */
+export class MappingNotFoundError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'MappingNotFoundError';
+	}
+}
+
 interface TicketMapping {
     discordThreadId: string;
     unthreadTicketId: string;
@@ -70,9 +84,12 @@ export async function findDiscordThreadByTicketIdWithRetry(
 	} = options;
 
 	const startTime = Date.now();
+	let attemptsUsed = 0;
+	let lastWasMappingError = false;
 	let lastError: Error | undefined;
 
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		attemptsUsed = attempt;
 		try {
 			// Try the standard lookup
 			return await findDiscordThreadByTicketId(unthreadTicketId, lookupFunction);
@@ -81,18 +98,25 @@ export async function findDiscordThreadByTicketIdWithRetry(
 			lastError = error instanceof Error ? error : new Error('Unknown error');
 			const timeSinceStart = Date.now() - startTime;
 
+			// Check if this is a mapping error (our custom error type)
+			lastWasMappingError = lastError instanceof MappingNotFoundError;
+
 			// Only retry if:
 			// 1. This is not the last attempt
 			// 2. We're still within the retry window (for recent webhooks)
 			// 3. The error is about missing mapping (not Discord API errors)
 			const isLastAttempt = attempt === maxAttempts;
 			const withinRetryWindow = timeSinceStart < maxRetryWindow;
-			const isMappingError = lastError.message.includes('No Discord thread found for Unthread ticket');
 
-			if (!isLastAttempt && withinRetryWindow && isMappingError) {
-				// Progressive delay: 1s, 2s, 3s
-				const delay = baseDelayMs * attempt;
-				LogEngine.debug(`Mapping not found for ticket ${unthreadTicketId}, attempt ${attempt}/${maxAttempts}. Retrying in ${delay}ms... (${timeSinceStart}ms since start)`);
+			if (!isLastAttempt && withinRetryWindow && lastWasMappingError) {
+				// Exponential backoff with jitter: base * 2^(attempt-1) + random jitter
+				const exponentialDelay = baseDelayMs * Math.pow(2, attempt - 1);
+				// 10% jitter
+				const jitter = Math.random() * baseDelayMs * 0.1;
+				// Cap at 5 seconds
+				const delay = Math.min(exponentialDelay + jitter, 5000);
+
+				LogEngine.debug(`Mapping not found for ticket ${unthreadTicketId}, attempt ${attempt}/${maxAttempts}. Retrying in ${Math.round(delay)}ms... (${timeSinceStart}ms since start)`);
 
 				await new Promise(resolve => setTimeout(resolve, delay));
 				continue;
@@ -109,15 +133,15 @@ export async function findDiscordThreadByTicketIdWithRetry(
 		const enhancedError = new Error(lastError.message, { cause: lastError }) as EnhancedError;
 		enhancedError.context = {
 			ticketId: unthreadTicketId,
-			attemptsMade: maxAttempts,
+			attemptsMade: attemptsUsed,
 			totalRetryTime: totalTime,
-			likelyRaceCondition: totalTime < maxRetryWindow,
+			likelyRaceCondition: totalTime < maxRetryWindow && lastWasMappingError,
 			originalError: lastError.message,
 		};
 
 		// Log with enhanced context
 		if (enhancedError.context.likelyRaceCondition) {
-			LogEngine.warn(`Potential race condition detected for ticket ${unthreadTicketId}: mapping not found after ${maxAttempts} attempts over ${totalTime}ms`);
+			LogEngine.warn(`Potential race condition detected for ticket ${unthreadTicketId}: mapping not found after ${attemptsUsed} attempts over ${totalTime}ms`);
 		}
 		else {
 			LogEngine.error(`Ticket mapping genuinely missing for ${unthreadTicketId} (checked after ${totalTime}ms)`);
@@ -154,7 +178,7 @@ export async function findDiscordThreadByTicketId(
 	// This allows the function to work with different storage mechanisms
 	const ticketMapping = await lookupFunction(unthreadTicketId);
 	if (!ticketMapping) {
-		const error = new Error(`No Discord thread found for Unthread ticket ${unthreadTicketId}`);
+		const error = new MappingNotFoundError(`No Discord thread found for Unthread ticket ${unthreadTicketId}`);
 		LogEngine.error(error.message);
 		throw error;
 	}
