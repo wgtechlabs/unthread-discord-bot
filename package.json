@@ -5,13 +5,10 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
-    "build": "yarn tsc",
-    "start": "node dist/index.js",
-    "start:fresh": "yarn build && node dist/index.js",
-    "dev": "ts-node src/index.ts",
-    "dev:watch": "nodemon --exec ts-node src/index.ts",
-    "deploycommand": "yarn build && node dist/deploy_commands.js",
-    "deploycommand:dev": "ts-node src/deploy_commands.ts",
+    "build": ".yarn/sdks/typescript/bin/tsc",
+    "start": "yarn build && yarn node dist/index.js",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "deploycommand": "yarn build && yarn node dist/deploy_commands.js",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"
   },

@@ -2,7 +2,16 @@
  * Thread Creation Event Handler
  * Converts new forum posts in validated forum channels to Unthread support tickets.
  *
- * Now includes channel type validation to ensure only actual forum channels
+ * Now includes		// Notify users in the thread that a ticket has been created.
+		const ticketEmbed = new EmbedBuilder()
+			.setColor(0xFF5241)
+			.setTitle(`🎫 Support Ticket #${ticket.friendlyId}`)
+			.setDescription(`**${title}**\n\n${content}`)
+			.addFields(
+				{ name: '🔄 Next Steps', value: 'Our support team will respond here shortly. Please monitor this thread for updates.', inline: false },
+			)
+			.setFooter({ text: `Unthread Discord Bot v${version}` })
+			.setTimestamp();e validation to ensure only actual forum channels
  * are processed, preventing conflicts with text channels accidentally added
  * to FORUM_CHANNEL_IDS.
  */
@@ -144,24 +153,17 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 
 		// Notify users in the thread that a ticket has been created.
 		const ticketEmbed = new EmbedBuilder()
-			.setColor(0xEB1A1A)
-			.setTitle(`Ticket #${ticket.friendlyId}`)
-			.setDescription('This forum post has been converted to a support ticket. The support team will respond here.')
+			.setColor(0xFF5241)
+			.setTitle(`🎫 Support Ticket #${ticket.friendlyId}`)
+			.setDescription(`**${title}**\n\n${content}`)
 			.addFields(
-				{ name: 'Ticket ID', value: `#${ticket.friendlyId}`, inline: true },
 				{ name: 'Status', value: 'Open', inline: true },
-				{ name: 'Title', value: title, inline: false },
-				{ name: 'Created By', value: author.displayName || author.username, inline: true },
+				{ name: '🔁 Next Steps', value: 'Our support team will respond here shortly. Please monitor this thread for updates.', inline: false },
 			)
 			.setFooter({ text: `Unthread Discord Bot v${version}` })
 			.setTimestamp();
 
 		await thread.send({ embeds: [ticketEmbed] });
-
-		// Add the confirmation message similar to private threads
-		await thread.send({
-			content: `Hello <@${author.id}>, we have received your ticket and will respond shortly. Please check this thread for updates.`,
-		});
 
 		LogEngine.info(`Forum post converted to ticket: #${ticket.friendlyId}`);
 	}
