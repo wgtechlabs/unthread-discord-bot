@@ -94,7 +94,7 @@ async function testRedisConnection(): Promise<void> {
 	}
 	catch (error) {
 		LogEngine.error('Redis health check failed during module initialization:', error);
-		process.exit(1);
+		throw error;
 	}
 })();
 
