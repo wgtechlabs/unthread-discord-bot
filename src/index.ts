@@ -80,26 +80,50 @@ async function validateStartupRequirements(): Promise<void> {
 	}
 }
 
-// Run startup validation
-validateStartupRequirements();
+/**
+ * Main startup function
+ */
+async function main(): Promise<void> {
+	try {
+		// Step 1: Load and validate environment variables
+		const { DISCORD_BOT_TOKEN, REDIS_URL } = process.env as Partial<BotConfig>;
 
-// Load Discord bot token from environment variables
-const { DISCORD_BOT_TOKEN, REDIS_URL, PORT } = process.env as Partial<BotConfig>;
+		if (!DISCORD_BOT_TOKEN) {
+			LogEngine.error('DISCORD_BOT_TOKEN is required but not set in environment variables');
+			process.exit(1);
+		}
 
-// Validate required environment variables
-if (!DISCORD_BOT_TOKEN) {
-	LogEngine.error('DISCORD_BOT_TOKEN is required but not set in environment variables');
-	process.exit(1);
+		if (!REDIS_URL) {
+			LogEngine.error('REDIS_URL is required but not set in environment variables');
+			LogEngine.error('Redis is now required for proper caching and data persistence');
+			LogEngine.error('Please provide a valid Redis connection URL (e.g., redis://localhost:6379)');
+			process.exit(1);
+		}
+
+		// Step 2: Validate all dependencies before proceeding
+		await validateStartupRequirements();
+
+		// Step 3: Start Discord login after validation succeeds
+		await client.login(DISCORD_BOT_TOKEN);
+		global.discordClient = client;
+		LogEngine.info('Discord client is ready and set globally.');
+
+		// Step 4: Start Express server after all validation and setup completes
+		app.listen(port, () => {
+			LogEngine.info(`Server listening on port ${port}`);
+		});
+	}
+	catch (error) {
+		LogEngine.error('Failed to start bot:', error);
+		process.exit(1);
+	}
 }
 
-if (!REDIS_URL) {
-	LogEngine.error('REDIS_URL is required but not set in environment variables');
-	LogEngine.error('Redis is now required for proper caching and data persistence');
-	LogEngine.error('Please provide a valid Redis connection URL (e.g., redis://localhost:6379)');
-	process.exit(1);
-}
+// Run main startup sequence
+main();
 
 // Parse port with proper fallback and validation
+const { PORT } = process.env as Partial<BotConfig>;
 let port = 3000;
 if (PORT) {
 	const parsedPort = parseInt(PORT, 10);
@@ -237,16 +261,6 @@ app.get('/health', async (_req: express.Request, res: express.Response) => {
 });
 
 /**
- * Start Express Server
- *
- * Starts the webhook server on the configured port.
- * This server must be publicly accessible for Unthread to send webhooks.
- */
-app.listen(port, () => {
-	LogEngine.info(`Server listening on port ${port}`);
-});
-
-/**
  * Command Loading System
  *
  * Dynamically loads all slash commands from the commands directory structure.
@@ -356,19 +370,3 @@ try {
 catch (error) {
 	LogEngine.error('Failed to load events directory:', error);
 }
-
-/**
- * Discord Client Login and Global Setup
- *
- * Logs in the Discord client and sets up global reference for webhook access.
- * The global client reference allows the webhook handler to access Discord functionality.
- */
-client.login(DISCORD_BOT_TOKEN)
-	.then(() => {
-		global.discordClient = client;
-		LogEngine.info('Discord client is ready and set globally.');
-	})
-	.catch((error: Error) => {
-		LogEngine.error('Failed to login Discord client:', error);
-		process.exit(1);
-	});
