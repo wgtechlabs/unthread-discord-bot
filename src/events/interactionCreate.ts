@@ -13,7 +13,7 @@
  * @module events/interactionCreate
  */
 
-import { Events, MessageFlags, Interaction, CommandInteraction, ModalSubmitInteraction, EmbedBuilder } from 'discord.js';
+import { Events, MessageFlags, ChannelType, Interaction, CommandInteraction, ModalSubmitInteraction, EmbedBuilder } from 'discord.js';
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { LogEngine } from '../config/logger';
 import { setKey } from '../utils/memory';
@@ -127,10 +127,21 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 			throw new Error('This command must be used in a text channel that supports threads');
 		}
 
-		thread = await interaction.channel.threads.create({
-			name: `ticket-#${ticketObj.friendlyId}`,
-			reason: 'Unthread Ticket',
-		});
+		// Create thread based on channel type to satisfy TypeScript's type constraints
+		if (interaction.channel.type === ChannelType.GuildAnnouncement) {
+			thread = await interaction.channel.threads.create({
+				name: `ticket-#${ticketObj.friendlyId}`,
+				type: ChannelType.AnnouncementThread,
+				reason: 'Unthread Ticket',
+			});
+		}
+		else {
+			thread = await interaction.channel.threads.create({
+				name: `ticket-#${ticketObj.friendlyId}`,
+				type: ChannelType.PrivateThread,
+				reason: 'Unthread Ticket',
+			});
+		}
 
 		if (!thread) {
 			throw new Error('Failed to create Discord thread');
