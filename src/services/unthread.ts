@@ -23,6 +23,7 @@ import { isDuplicateMessage, containsDiscordAttachments } from '../utils/message
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId } from '../utils/customerUtils';
 import { version } from '../../package.json';
+import { UnthreadApiResponse } from '../types/unthread';
 
 interface TicketMapping {
     unthreadTicketId: string;
@@ -450,7 +451,7 @@ export async function sendMessageToUnthread(
 	user: User,
 	message: string,
 	email: string,
-): Promise<any> {
+): Promise<UnthreadApiResponse<any>> {
 	const requestData = {
 		markdown: message,
 		onBehalfOf: {
