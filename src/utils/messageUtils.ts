@@ -251,14 +251,9 @@ function processQuotedContent(
 		// Empty message fallback
 		result.contentToSend = remainingText || ' ';
 
-		// Check if the remaining text is a duplicate in any message
+		// Check if the remaining text is a duplicate
 		// (Prevents duplicate replies)
-		const isDuplicate = existingMessages.some(msg => {
-			const cleanContent = removeAttachmentSection(msg.content);
-			return cleanContent === remainingText;
-		});
-
-		if (isDuplicate) {
+		if (isDuplicateMessage(existingMessages, remainingText)) {
 			result.isDuplicate = true;
 		}
 	}

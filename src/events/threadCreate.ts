@@ -157,7 +157,8 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 			.setTitle(`🎫 Support Ticket #${ticket.friendlyId}`)
 			.setDescription(`**${title}**\n\n${content}`)
 			.addFields(
-				{ name: '� Next Steps', value: 'Our support team will respond here shortly. Please monitor this thread for updates.', inline: false },
+				{ name: 'Status', value: 'Open', inline: true },
+				{ name: '🔁 Next Steps', value: 'Our support team will respond here shortly. Please monitor this thread for updates.', inline: false },
 			)
 			.setFooter({ text: `Unthread Discord Bot v${version}` })
 			.setTimestamp();
@@ -175,7 +176,7 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 		else {
 			LogEngine.error('An error occurred while creating the ticket:', errorMessage);
 			LogEngine.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
-			LogEngine.error(`Author: ${firstMessage?.author?.tag || 'Unknown'} (${firstMessage?.author?.id || 'Unknown'})`);
+			LogEngine.error(`Author: ${firstMessage?.author?.displayName || firstMessage?.author?.username || 'Unknown'} (${firstMessage?.author?.id || 'Unknown'})`);
 		}
 
 		try {

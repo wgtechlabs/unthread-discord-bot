@@ -186,7 +186,7 @@ const app = express();
  */
 app.use(
 	express.json({
-		verify: (req: WebhookRequest, res: express.Response, buf: Buffer) => {
+		verify: (req: WebhookRequest, _res: express.Response, buf: Buffer) => {
 			req.rawBody = buf.toString();
 		},
 	}),
@@ -206,7 +206,7 @@ app.post('/webhook/unthread', webhookHandler);
  * Provides a simple health check endpoint for monitoring and load balancers.
  * Returns application status and dependency health information.
  */
-app.get('/health', async (req: express.Request, res: express.Response) => {
+app.get('/health', async (_req: express.Request, res: express.Response) => {
 	try {
 		// Basic health check response
 		const healthStatus = {
@@ -217,7 +217,7 @@ app.get('/health', async (req: express.Request, res: express.Response) => {
 			environment: process.env.NODE_ENV || 'development',
 			discord: {
 				status: client?.isReady() ? 'connected' : 'disconnected',
-				user: client?.user?.tag || 'not logged in',
+				user: client?.user?.displayName || client?.user?.username || 'not logged in',
 			},
 			redis: {
 				status: 'connected',

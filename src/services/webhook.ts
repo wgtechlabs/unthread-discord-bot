@@ -13,7 +13,7 @@
  */
 
 import { Request, Response } from 'express';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { WebhookPayload } from '../types/unthread';
 import { LogEngine } from '../config/logger';
 import { handleWebhookEvent as unthreadWebhookHandler } from './unthread';

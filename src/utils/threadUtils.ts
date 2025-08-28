@@ -10,6 +10,7 @@
  */
 
 import { LogEngine } from '../config/logger';
+import { ThreadChannel } from 'discord.js';
 
 interface TicketMapping {
     discordThreadId: string;
@@ -18,7 +19,17 @@ interface TicketMapping {
 
 interface ThreadResult {
     ticketMapping: TicketMapping;
-    discordThread: any;
+    discordThread: ThreadChannel;
+}
+
+interface EnhancedError extends Error {
+    context?: {
+        ticketId: string;
+        attemptsMade: number;
+        totalRetryTime: number;
+        likelyRaceCondition: boolean;
+        originalError: string;
+    };
 }
 
 interface RetryOptions {
@@ -59,15 +70,15 @@ export async function findDiscordThreadByTicketIdWithRetry(
 	} = options;
 
 	const startTime = Date.now();
-	let lastError: any;
+	let lastError: Error | undefined;
 
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 		try {
 			// Try the standard lookup
 			return await findDiscordThreadByTicketId(unthreadTicketId, lookupFunction);
 		}
-		catch (error: any) {
-			lastError = error;
+		catch (error: unknown) {
+			lastError = error instanceof Error ? error : new Error('Unknown error');
 			const timeSinceStart = Date.now() - startTime;
 
 			// Only retry if:
@@ -76,7 +87,7 @@ export async function findDiscordThreadByTicketIdWithRetry(
 			// 3. The error is about missing mapping (not Discord API errors)
 			const isLastAttempt = attempt === maxAttempts;
 			const withinRetryWindow = timeSinceStart < maxRetryWindow;
-			const isMappingError = error.message.includes('No Discord thread found for Unthread ticket');
+			const isMappingError = lastError.message.includes('No Discord thread found for Unthread ticket');
 
 			if (!isLastAttempt && withinRetryWindow && isMappingError) {
 				// Progressive delay: 1s, 2s, 3s
@@ -95,7 +106,7 @@ export async function findDiscordThreadByTicketIdWithRetry(
 	// Enhance the final error with context about the retry attempts
 	if (lastError) {
 		const totalTime = Date.now() - startTime;
-		const enhancedError = new Error(lastError.message) as any;
+		const enhancedError = new Error(lastError.message, { cause: lastError }) as EnhancedError;
 		enhancedError.context = {
 			ticketId: unthreadTicketId,
 			attemptsMade: maxAttempts,
@@ -150,22 +161,36 @@ export async function findDiscordThreadByTicketId(
 
 	// Fetch the Discord thread
 	try {
-		const discordThread = await (global as any).discordClient.channels.fetch(ticketMapping.discordThreadId);
-		if (!discordThread) {
+		const discordClient = (global as typeof globalThis).discordClient;
+		if (!discordClient) {
+			const error = new Error('Discord client is not initialized or unavailable.');
+			LogEngine.error(error.message);
+			throw error;
+		}
+		const channel = await discordClient.channels.fetch(ticketMapping.discordThreadId);
+		if (!channel) {
 			const error = new Error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
 			LogEngine.error(error.message);
 			throw error;
 		}
 
-		LogEngine.debug(`Found Discord thread: ${discordThread.id}`);
+		// Ensure the channel is actually a thread
+		if (!channel.isThread()) {
+			const error = new Error(`Discord channel with ID ${ticketMapping.discordThreadId} is not a thread.`);
+			LogEngine.error(error.message);
+			throw error;
+		}
+
+		LogEngine.debug(`Found Discord thread: ${channel.id}`);
 
 		return {
 			ticketMapping,
-			discordThread,
+			discordThread: channel,
 		};
 	}
-	catch (error: any) {
-		LogEngine.error(`Error fetching Discord thread for ticket ${unthreadTicketId}: ${error.message}`);
+	catch (error: unknown) {
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		LogEngine.error(`Error fetching Discord thread for ticket ${unthreadTicketId}: ${errorMessage}`);
 		throw error;
 	}
 }

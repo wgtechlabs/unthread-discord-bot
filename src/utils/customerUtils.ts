@@ -96,7 +96,7 @@ export async function getOrCreateCustomer(user: User, email: string = ''): Promi
 	customer = {
 		discordId: user.id,
 		discordUsername: user.username,
-		discordName: user.tag || user.username,
+		discordName: user.displayName || user.username,
 		customerId,
 		email: email || '',
 	};

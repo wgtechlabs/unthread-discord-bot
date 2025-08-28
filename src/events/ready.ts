@@ -51,7 +51,7 @@ const readyEvent = {
 		});
 
 		// Log successful initialization with version information for monitoring
-		LogEngine.info(`Logged in as ${bot.user?.tag} @ v${packageJSON.version}`);
+		LogEngine.info(`Logged in as ${bot.user?.displayName || bot.user?.username} @ v${packageJSON.version}`);
 
 		// Validate forum channel configuration on startup
 		try {

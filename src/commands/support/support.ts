@@ -116,21 +116,25 @@ Ask an admin to grant these permissions or use \`/support\` in an authorized cha
 			.setLabel('Ticket Title')
 			.setPlaceholder('Title of your issue...')
 			.setStyle(TextInputStyle.Short)
-			.setRequired(true);
+			.setRequired(true)
+			.setMinLength(5)
+			.setMaxLength(100);
 
 		const issueInput = new TextInputBuilder()
 			.setCustomId('issueInput')
 			.setLabel('Summary')
 			.setPlaceholder('Please describe your issue...')
 			.setStyle(TextInputStyle.Paragraph)
-			.setRequired(true);
+			.setRequired(true)
+			.setMaxLength(2000);
 
 		const emailInput = new TextInputBuilder()
 			.setCustomId('emailInput')
 			.setLabel('Contact Email (Optional)')
 			.setPlaceholder('Your email address or leave blank...')
 			.setStyle(TextInputStyle.Short)
-			.setRequired(false);
+			.setRequired(false)
+			.setMaxLength(254);
 
 		// Add inputs to the modal
 		const firstActionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(titleInput);
