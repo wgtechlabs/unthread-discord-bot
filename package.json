@@ -28,7 +28,7 @@
   "engines": {
     "node": ">=18.17.0"
   },
-  "packageManager": "yarn@4.9.2",
+  "packageManager": "yarn@4.9.4",
   "dependencies": {
     "@keyv/redis": "^4.4.0",
     "@wgtechlabs/log-engine": "2.2.0",
