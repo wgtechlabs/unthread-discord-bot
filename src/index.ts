@@ -59,6 +59,7 @@ import './types/global';
 
 // Import database to ensure Redis connection is tested on startup
 import { testRedisConnection } from './utils/database';
+import keyv from './utils/database';
 
 /**
  * Startup Validation Function
@@ -77,6 +78,35 @@ async function validateStartupRequirements(): Promise<void> {
 	catch (error) {
 		LogEngine.error('Startup validation failed:', error);
 		process.exit(1);
+	}
+}
+
+/**
+ * Redis Health Check
+ *
+ * Safely probes Redis connection without throwing errors.
+ * Returns status and error information for health monitoring.
+ */
+async function checkRedisHealth(): Promise<{ status: 'connected' | 'disconnected'; error?: string }> {
+	try {
+		// Use the keyv instance to perform a quick health check
+		const testKey = `health:check:${Date.now()}`;
+		const testValue = 'ping';
+
+		// Set and immediately get a test value with short TTL
+		await keyv.set(testKey, testValue, 1000);
+		const result = await keyv.get(testKey);
+
+		if (result === testValue) {
+			return { status: 'connected' };
+		}
+		else {
+			return { status: 'disconnected', error: 'Redis ping test failed - value mismatch' };
+		}
+	}
+	catch (error) {
+		const errorMessage = error instanceof Error ? error.message : 'Unknown Redis error';
+		return { status: 'disconnected', error: errorMessage };
 	}
 }
 
@@ -232,6 +262,9 @@ app.post('/webhook/unthread', webhookHandler);
  */
 app.get('/health', async (_req: express.Request, res: express.Response) => {
 	try {
+		// Perform real Redis health check
+		const redisHealth = await checkRedisHealth();
+
 		// Basic health check response
 		const healthStatus = {
 			status: 'healthy',
@@ -243,12 +276,19 @@ app.get('/health', async (_req: express.Request, res: express.Response) => {
 				status: client?.isReady() ? 'connected' : 'disconnected',
 				user: client?.user?.displayName || client?.user?.username || 'not logged in',
 			},
-			redis: {
-				status: 'connected',
-			},
+			redis: redisHealth,
 		};
 
-		res.status(200).json(healthStatus);
+		// Set overall status based on dependencies
+		const isHealthy = redisHealth.status === 'connected' && (client?.isReady() ?? false);
+		if (isHealthy) {
+			healthStatus.status = 'healthy';
+			res.status(200).json(healthStatus);
+		}
+		else {
+			healthStatus.status = 'unhealthy';
+			res.status(503).json(healthStatus);
+		}
 	}
 	catch (error) {
 		LogEngine.error('Health check failed:', error);

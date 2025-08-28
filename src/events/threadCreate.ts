@@ -18,6 +18,7 @@
 import { Events, EmbedBuilder, PermissionFlagsBits, ThreadChannel, Message } from 'discord.js';
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { withRetry } from '../utils/retry';
+import { fetchStarterMessage } from '../utils/threadUtils';
 import { LogEngine } from '../config/logger';
 import { getOrCreateCustomer } from '../utils/customerUtils';
 import { isValidatedForumChannel } from '../utils/channelUtils';
@@ -117,11 +118,10 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 		// Fetch the first message with our retry mechanism
 		firstMessage = await withRetry(
 			async () => {
-				const messages = await thread.messages.fetch({ limit: 1 });
-				const message = messages.first();
+				const message = await fetchStarterMessage(thread);
 
 				if (!message) {
-					throw new Error('No message found in thread');
+					throw new Error('No starter message found in thread');
 				}
 
 				return message;

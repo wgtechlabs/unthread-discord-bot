@@ -10,7 +10,7 @@
  */
 
 import { LogEngine } from '../config/logger';
-import { ThreadChannel } from 'discord.js';
+import { ThreadChannel, Message } from 'discord.js';
 
 interface TicketMapping {
     discordThreadId: string;
@@ -192,5 +192,27 @@ export async function findDiscordThreadByTicketId(
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 		LogEngine.error(`Error fetching Discord thread for ticket ${unthreadTicketId}: ${errorMessage}`);
 		throw error;
+	}
+}
+
+/**
+ * Fetches the starter message of a thread reliably
+ *
+ * This function provides a clean way to get the original first message
+ * that created a thread, which is more reliable than fetching recent messages.
+ * For forum threads, this ensures we get the actual forum post content.
+ *
+ * @param thread - The Discord thread channel
+ * @returns Promise<Message | null> - The starter message or null if not found
+ */
+export async function fetchStarterMessage(thread: ThreadChannel): Promise<Message | null> {
+	try {
+		// Use Discord.js built-in method for the starter message
+		const starterMessage = await thread.fetchStarterMessage();
+		return starterMessage;
+	}
+	catch (error) {
+		LogEngine.error('Failed to fetch starter message:', error);
+		return null;
 	}
 }
