@@ -13,7 +13,7 @@
  * @module events/interactionCreate
  */
 
-import { Events, MessageFlags, ChannelType, Interaction, CommandInteraction, ModalSubmitInteraction, EmbedBuilder } from 'discord.js';
+import { Events, ChannelType, Interaction, CommandInteraction, ModalSubmitInteraction, EmbedBuilder } from 'discord.js';
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { LogEngine } from '../config/logger';
 import { setKey } from '../utils/memory';
@@ -243,14 +243,14 @@ async function handleSlashCommand(interaction: CommandInteraction): Promise<void
 		if (interaction.replied || interaction.deferred) {
 			await interaction.followUp({
 				content: 'There was an error while executing this command!',
-				flags: MessageFlags.Ephemeral,
+				ephemeral: true,
 			});
 		}
 		else {
 			// For fresh interactions, use reply
 			await interaction.reply({
 				content: 'There was an error while executing this command!',
-				flags: MessageFlags.Ephemeral,
+				ephemeral: true,
 			});
 		}
 	}

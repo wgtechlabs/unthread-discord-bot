@@ -13,7 +13,7 @@ import { setKey, getKey } from './memory';
 import { LogEngine } from '../config/logger';
 import { User } from 'discord.js';
 
-interface Customer {
+export interface Customer {
     discordId: string;
     discordUsername: string;
     discordName: string;

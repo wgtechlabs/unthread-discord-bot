@@ -107,7 +107,10 @@ export type WebhookEventType =
 	| 'ticket.solved'
 	| 'ticket.closed'
 	| 'message.created'
-	| 'message.updated';
+	| 'message.updated'
+	| 'message_created'
+	| 'conversation_updated'
+	| 'conversation.created';
 
 /**
  * Base webhook payload structure

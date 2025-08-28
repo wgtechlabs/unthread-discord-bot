@@ -21,43 +21,10 @@ import { EmbedBuilder, User } from 'discord.js';
 import { LogEngine } from '../config/logger';
 import { isDuplicateMessage, containsDiscordAttachments } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
-import { getOrCreateCustomer, getCustomerByDiscordId } from '../utils/customerUtils';
+import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
 import { version } from '../../package.json';
-import { UnthreadApiResponse, UnthreadTicket } from '../types/unthread';
-
-interface TicketMapping {
-    unthreadTicketId: string;
-    discordThreadId: string;
-}
-
-interface UnthreadCustomer {
-    customerId: string;
-    email: string;
-    discordId: string;
-    discordUsername: string;
-    discordName: string;
-}
-
-interface WebhookPayload {
-    event: string;
-    data: {
-        id: string;
-        conversationId?: string;
-        conversation?: {
-            id: string;
-            friendlyId: string;
-            title: string;
-            status: string;
-        };
-        message?: {
-            id: string;
-            markdown: string;
-            authorName: string;
-            authorEmail: string;
-            createdAt: string;
-        };
-    };
-}
+import { UnthreadApiResponse, UnthreadTicket, WebhookPayload } from '../types/unthread';
+import { ThreadTicketMapping } from '../types/discord';
 
 /**
  * ==================== CUSTOMER MANAGEMENT FUNCTIONS ====================
@@ -70,9 +37,9 @@ interface WebhookPayload {
  * @deprecated Use getOrCreateCustomer from customerUtils directly
  * @param {User} user - Discord user object
  * @param {string} email - User's email address
- * @returns {UnthreadCustomer} Customer data object
+ * @returns {Customer} Customer data object
  */
-export async function saveCustomer(user: User, email: string): Promise<UnthreadCustomer> {
+export async function saveCustomer(user: User, email: string): Promise<Customer> {
 	return await getOrCreateCustomer(user, email);
 }
 
@@ -81,9 +48,9 @@ export async function saveCustomer(user: User, email: string): Promise<UnthreadC
  *
  * @deprecated Use getCustomerByDiscordId from customerUtils directly
  * @param {string} discordId - Discord user ID
- * @returns {UnthreadCustomer|null} Customer data object or null if not found
+ * @returns {Customer|null} Customer data object or null if not found
  */
-export async function getCustomerById(discordId: string): Promise<UnthreadCustomer | null> {
+export async function getCustomerById(discordId: string): Promise<Customer | null> {
 	return await getCustomerByDiscordId(discordId);
 }
 
@@ -172,9 +139,15 @@ export async function createTicket(user: User, title: string, issue: string, ema
  * @returns {Promise<void>}
  */
 export async function bindTicketWithThread(unthreadTicketId: string, discordThreadId: string): Promise<void> {
+	const mapping: ThreadTicketMapping = {
+		unthreadTicketId,
+		discordThreadId,
+		createdAt: new Date().toISOString(),
+	};
+
 	// Create bidirectional mapping for efficient lookups
-	await setKey(`ticket:discord:${discordThreadId}`, { unthreadTicketId, discordThreadId });
-	await setKey(`ticket:unthread:${unthreadTicketId}`, { unthreadTicketId, discordThreadId });
+	await setKey(`ticket:discord:${discordThreadId}`, mapping);
+	await setKey(`ticket:unthread:${unthreadTicketId}`, mapping);
 
 	LogEngine.info(`Bound Discord thread ${discordThreadId} with Unthread ticket ${unthreadTicketId}`);
 }
@@ -183,20 +156,20 @@ export async function bindTicketWithThread(unthreadTicketId: string, discordThre
  * Retrieves Unthread ticket mapping by Discord thread ID
  *
  * @param {string} discordThreadId - Discord thread ID
- * @returns {TicketMapping|null} - Ticket mapping or null if not found
+ * @returns {ThreadTicketMapping|null} - Ticket mapping or null if not found
  */
-export async function getTicketByDiscordThreadId(discordThreadId: string): Promise<TicketMapping | null> {
-	return (await getKey(`ticket:discord:${discordThreadId}`)) as TicketMapping | null;
+export async function getTicketByDiscordThreadId(discordThreadId: string): Promise<ThreadTicketMapping | null> {
+	return (await getKey(`ticket:discord:${discordThreadId}`)) as ThreadTicketMapping | null;
 }
 
 /**
  * Retrieves Discord thread mapping by Unthread ticket ID
  *
  * @param {string} unthreadTicketId - Unthread ticket ID
- * @returns {TicketMapping|null} - Ticket mapping or null if not found
+ * @returns {ThreadTicketMapping|null} - Ticket mapping or null if not found
  */
-export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Promise<TicketMapping | null> {
-	return (await getKey(`ticket:unthread:${unthreadTicketId}`)) as TicketMapping | null;
+export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Promise<ThreadTicketMapping | null> {
+	return (await getKey(`ticket:unthread:${unthreadTicketId}`)) as ThreadTicketMapping | null;
 }
 
 /**
