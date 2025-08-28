@@ -33,12 +33,18 @@ interface Customer {
  * @private - This is an internal helper function
  */
 async function createCustomerInUnthread(user: User): Promise<string> {
+	// Validate API key exists
+	const apiKey = process.env.UNTHREAD_API_KEY;
+	if (!apiKey) {
+		throw new Error('UNTHREAD_API_KEY environment variable is required but not set');
+	}
+
 	// Construct the API request to create a customer in Unthread
 	const response = await fetch('https://api.unthread.io/api/customers', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			'X-API-KEY': process.env.UNTHREAD_API_KEY as string,
+			'X-API-KEY': apiKey,
 		},
 		body: JSON.stringify({ name: user.username }),
 	});

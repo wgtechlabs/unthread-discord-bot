@@ -20,6 +20,7 @@ declare global {
 	/**
 	 * Discord client instance accessible globally for webhook integration
 	 */
+	// eslint-disable-next-line no-var
 	var discordClient: ExtendedClient | undefined;
 }
 

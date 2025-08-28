@@ -25,7 +25,7 @@ import cachedData from './cache';
  * @param key - The unique identifier for storing the value
  * @param value - The value to store (will be serialized internally by the cache)
  * @param customTtl - Optional custom TTL in milliseconds (defaults to 24 hours)
- * @returns A promise that resolves to true if the key was set, false if operation failed
+ * @returns A promise that resolves when the key is set
  *
  * @example
  * // Store a user's data for 1 hour (3600000 ms)
@@ -38,10 +38,10 @@ import cachedData from './cache';
  * 3. Whether the key follows the expected format pattern
  * 4. Memory constraints if storing large objects
  */
-async function setKey(key: string, value: unknown, customTtl?: number): Promise<boolean> {
+async function setKey(key: string, value: unknown, customTtl?: number): Promise<void> {
 	// Use custom TTL or default to 24 hours
 	const ttl = customTtl || 86400000;
-	return await cachedData.set(key, value, ttl);
+	await cachedData.set(key, value, ttl);
 }
 
 /**
@@ -80,8 +80,8 @@ async function getKey(key: string): Promise<unknown> {
  * @param key - The key to delete
  * @returns A promise that resolves when the key is deleted
  */
-async function deleteKey(key: string): Promise<boolean> {
-	return await cachedData.delete(key);
+async function deleteKey(key: string): Promise<void> {
+	await cachedData.delete(key);
 }
 
 /**
