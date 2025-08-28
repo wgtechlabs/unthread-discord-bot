@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "yarn tsc",
-    "start": "yarn build && node dist/index.js",
+    "start": "node dist/index.js",
+    "start:fresh": "yarn build && node dist/index.js",
     "dev": "ts-node src/index.ts",
     "dev:watch": "nodemon --exec ts-node src/index.ts",
     "deploycommand": "yarn build && node dist/deploy_commands.js",

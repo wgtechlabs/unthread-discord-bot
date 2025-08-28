@@ -239,8 +239,9 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
 			LogEngine.debug(`Unhandled webhook event type: ${event}`);
 		}
 	}
-	catch (error: any) {
-		LogEngine.error(`Error processing webhook event ${event}:`, error);
+	catch (error: unknown) {
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		LogEngine.error(`Error processing webhook event ${event}:`, errorMessage);
 		throw error;
 	}
 }
@@ -358,12 +359,13 @@ async function handleMessageCreated(data: any): Promise<void> {
 			LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id}`);
 		}
 	}
-	catch (error: any) {
-		if (error.message.includes('No Discord thread found')) {
+	catch (error: unknown) {
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		if (errorMessage.includes('No Discord thread found')) {
 			LogEngine.warn(`Thread mapping not found for conversation ${conversationId} - this is normal for conversations not created via Discord`);
 		}
 		else {
-			LogEngine.error(`Error handling message created event for conversation ${conversationId}:`, error);
+			LogEngine.error(`Error handling message created event for conversation ${conversationId}:`, errorMessage);
 		}
 	}
 }
