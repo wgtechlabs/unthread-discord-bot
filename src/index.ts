@@ -116,8 +116,26 @@ async function checkRedisHealth(): Promise<{ status: 'connected' | 'disconnected
 async function main(): Promise<void> {
 	try {
 		// Step 1: Load and validate environment variables
+		const requiredEnvVars = ['DISCORD_BOT_TOKEN', 'REDIS_URL', 'CLIENT_ID', 'GUILD_ID', 'UNTHREAD_API_KEY', 'UNTHREAD_SLACK_CHANNEL_ID', 'UNTHREAD_WEBHOOK_SECRET'];
 		const { DISCORD_BOT_TOKEN, REDIS_URL } = process.env as Partial<BotConfig>;
 
+		const missingVars: string[] = [];
+
+		for (const envVar of requiredEnvVars) {
+			// eslint-disable-next-line security/detect-object-injection
+			const envValue = process.env[envVar];
+			if (!envValue) {
+				missingVars.push(envVar);
+			}
+		}
+
+		if (missingVars.length > 0) {
+			LogEngine.error(`Missing required environment variables: ${missingVars.join(', ')}`);
+			LogEngine.error('Please ensure all required environment variables are set before starting the bot');
+			process.exit(1);
+		}
+
+		// Additional specific validation for critical variables
 		if (!DISCORD_BOT_TOKEN) {
 			LogEngine.error('DISCORD_BOT_TOKEN is required but not set in environment variables');
 			process.exit(1);
@@ -149,8 +167,6 @@ async function main(): Promise<void> {
 	}
 }
 
-// Run main startup sequence
-main();
 
 // Parse port with proper fallback and validation
 const { PORT } = process.env as Partial<BotConfig>;
@@ -233,26 +249,26 @@ const client = new Client({
 const app = express();
 
 /**
- * Express Middleware Configuration
+ * Raw Body JSON Middleware for Webhook Signature Verification
  *
- * Configures JSON parsing with raw body capture for webhook signature verification.
- * The raw body is needed to verify HMAC signatures from Unthread webhooks.
+ * This middleware is specifically designed for webhook routes that require
+ * raw body access for HMAC signature verification. It captures the raw body
+ * while still parsing JSON for convenient access.
  */
-app.use(
-	express.json({
-		verify: (req: WebhookRequest, _res: express.Response, buf: Buffer) => {
-			req.rawBody = buf.toString();
-		},
-	}),
-);
+const rawBodyJsonMiddleware = express.json({
+	verify: (req: WebhookRequest, _res: express.Response, buf: Buffer) => {
+		req.rawBody = buf.toString();
+	},
+});
 
 /**
  * Webhook Route Handler
  *
  * Handles incoming webhooks from Unthread for ticket updates and synchronization.
+ * Uses dedicated JSON middleware with raw body capture for signature verification.
  * All webhook processing is delegated to the webhookHandler service.
  */
-app.post('/webhook/unthread', webhookHandler);
+app.post('/webhook/unthread', rawBodyJsonMiddleware, webhookHandler);
 
 /**
  * Health Check Endpoint
@@ -410,3 +426,6 @@ try {
 catch (error) {
 	LogEngine.error('Failed to load events directory:', error);
 }
+
+// Kick off startup after all modules are wired
+main();
