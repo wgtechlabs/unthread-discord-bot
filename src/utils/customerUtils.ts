@@ -13,11 +13,19 @@ import { setKey, getKey } from './memory';
 import { LogEngine } from '../config/logger';
 import { User } from 'discord.js';
 
+/**
+ * Customer record combining Discord user data with Unthread customer information
+ */
 export interface Customer {
+    /** Discord user ID (unique identifier in Discord) */
     discordId: string;
+    /** Discord username (not display name) */
     discordUsername: string;
+    /** Discord display name or username as fallback */
     discordName: string;
+    /** Unthread customer ID (unique identifier in Unthread system) */
     customerId: string;
+    /** Customer email address */
     email: string;
 }
 
@@ -27,10 +35,12 @@ export interface Customer {
  * This function handles the API communication with Unthread to create a customer record.
  * It's designed to be an internal function used by other utilities in this module.
  *
- * @param {User} user - Discord user object containing user details
- * @returns {string} - The Unthread customer ID
- * @throws {Error} - If API request fails or response is missing required fields
- * @private - This is an internal helper function
+ * @param user - Discord user object containing user details
+ * @returns The Unthread customer ID
+ * @throws {Error} When UNTHREAD_API_KEY environment variable is not set
+ * @throws {Error} When API request fails (4xx/5xx responses)
+ * @throws {Error} When API response is missing required customerId field
+ * @private
  */
 async function createCustomerInUnthread(user: User): Promise<string> {
 	// Validate API key exists
@@ -76,10 +86,18 @@ async function createCustomerInUnthread(user: User): Promise<string> {
  * Use this function whenever you need to ensure a Discord user has
  * a corresponding customer record in Unthread.
  *
- * @param {User} user - Discord user object
- * @param {string} email - User's email address (optional)
- * @returns {Customer} - Customer data object with Discord and Unthread IDs
- * @throws {Error} - If customer creation fails or invalid user is provided
+ * @param user - Discord user object
+ * @param email - User's email address (optional)
+ * @returns Customer data object with Discord and Unthread IDs
+ * @throws {Error} When invalid user object is provided (missing id)
+ * @throws {Error} When customer creation in Unthread fails
+ * @throws {Error} When cache operations fail
+ *
+ * @example
+ * ```typescript
+ * const customer = await getOrCreateCustomer(discordUser, 'user@example.com');
+ * console.log(`Customer ID: ${customer.customerId}`);
+ * ```
  */
 export async function getOrCreateCustomer(user: User, email: string = ''): Promise<Customer> {
 	if (!user || !user.id) {
@@ -120,8 +138,16 @@ export async function getOrCreateCustomer(user: User, email: string = ''): Promi
  * if one doesn't exist. Use this when you only need to check if a
  * customer record exists but don't want to create one.
  *
- * @param {string} discordId - Discord user ID
- * @returns {Customer|null} - Customer data object or null if not found
+ * @param discordId - Discord user ID
+ * @returns Customer data object or null if not found
+ *
+ * @example
+ * ```typescript
+ * const customer = await getCustomerByDiscordId('123456789');
+ * if (customer) {
+ *   console.log(`Found customer: ${customer.email}`);
+ * }
+ * ```
  */
 export async function getCustomerByDiscordId(discordId: string): Promise<Customer | null> {
 	if (!discordId) {
@@ -139,9 +165,18 @@ export async function getCustomerByDiscordId(discordId: string): Promise<Custome
  * Note: This only updates the local cache, not the Unthread API.
  * For Unthread API updates, additional API calls would be needed.
  *
- * @param {Customer} customer - Customer object to update
- * @returns {Customer} - Updated customer object
- * @throws {Error} - If invalid customer object is provided
+ * @param customer - Customer object to update
+ * @returns Updated customer object
+ * @throws {Error} When invalid customer object is provided (missing discordId)
+ * @throws {Error} When cache operations fail
+ *
+ * @example
+ * ```typescript
+ * const updatedCustomer = await updateCustomer({
+ *   ...existingCustomer,
+ *   email: 'newemail@example.com'
+ * });
+ * ```
  */
 export async function updateCustomer(customer: Customer): Promise<Customer> {
 	if (!customer || !customer.discordId) {

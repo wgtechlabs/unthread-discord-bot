@@ -37,9 +37,17 @@ interface QuotedContentResult {
  * 2. Fuzzy duplicate: The message content is contained within another message
  *    or vice versa (common with forum posts that have different formatting)
  *
- * @param messages - Array or Discord.js Collection of messages
+ * @param messages - Array of messages to check against
  * @param newContent - The new message content to check
  * @returns True if the message is a duplicate, false otherwise
+ *
+ * @example
+ * ```typescript
+ * const isDupe = isDuplicateMessage(existingMessages, "Hello world");
+ * if (isDupe) {
+ *   console.log("Message already exists");
+ * }
+ * ```
  */
 function isDuplicateMessage(messages: ProcessableMessage[], newContent: string): boolean {
 	// Early return if no content to check
@@ -107,6 +115,16 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
  *
  * @param messageContent - Message content to check
  * @returns True if the message contains Discord attachments, false otherwise
+ *
+ * @example
+ * ```typescript
+ * const hasAttachments = containsDiscordAttachments(
+ *   "Check this out: https://cdn.discordapp.com/attachments/123/456/image.png"
+ * );
+ * if (hasAttachments) {
+ *   console.log("Message contains Discord attachments");
+ * }
+ * ```
  */
 function containsDiscordAttachments(messageContent: string): boolean {
 	if (!messageContent) return false;
@@ -155,6 +173,14 @@ function containsDiscordAttachments(messageContent: string): boolean {
  *
  * @param messageContent - Message content to process
  * @returns Message content without attachment sections
+ *
+ * @example
+ * ```typescript
+ * const cleanContent = removeAttachmentSection(
+ *   "Hello world\n\nAttachments: [image.png](https://cdn.discordapp.com/...)"
+ * );
+ * // Returns: "Hello world"
+ * ```
  */
 function removeAttachmentSection(messageContent: string): string {
 	if (!messageContent) return '';
@@ -192,8 +218,19 @@ function removeAttachmentSection(messageContent: string): string {
  * between Discord and Unthread.
  *
  * @param messageContent - The message content to process
- * @param existingMessages - Collection of existing messages to match against
+ * @param existingMessages - Array of existing messages to match against
  * @returns Object containing reply reference, content to send, and duplicate status
+ *
+ * @example
+ * ```typescript
+ * const result = processQuotedContent(
+ *   "> Original message\nMy reply",
+ *   existingMessages
+ * );
+ * if (result.replyReference) {
+ *   console.log(`Replying to message: ${result.replyReference}`);
+ * }
+ * ```
  */
 function processQuotedContent(
 	messageContent: string,
