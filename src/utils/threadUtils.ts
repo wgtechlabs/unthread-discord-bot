@@ -161,7 +161,13 @@ export async function findDiscordThreadByTicketId(
 
 	// Fetch the Discord thread
 	try {
-		const channel = await (global as typeof globalThis).discordClient?.channels.fetch(ticketMapping.discordThreadId);
+		const discordClient = (global as typeof globalThis).discordClient;
+		if (!discordClient) {
+			const error = new Error('Discord client is not initialized or unavailable.');
+			LogEngine.error(error.message);
+			throw error;
+		}
+		const channel = await discordClient.channels.fetch(ticketMapping.discordThreadId);
 		if (!channel) {
 			const error = new Error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
 			LogEngine.error(error.message);

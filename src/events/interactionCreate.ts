@@ -13,7 +13,7 @@
  * @module events/interactionCreate
  */
 
-import { Events, MessageFlags, Interaction, CommandInteraction, ModalSubmitInteraction } from 'discord.js';
+import { Events, MessageFlags, Interaction, CommandInteraction, ModalSubmitInteraction, EmbedBuilder } from 'discord.js';
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { LogEngine } from '../config/logger';
 import { setKey } from '../utils/memory';
