@@ -48,8 +48,8 @@ export interface BotConfig {
  */
 export interface CacheOperations {
 	getKey: (key: string) => Promise<unknown>;
-	setKey: (key: string, value: unknown, ttl?: number) => Promise<boolean>;
-	deleteKey: (key: string) => Promise<boolean>;
+	setKey: (key: string, value: unknown, ttl?: number) => Promise<void>;
+	deleteKey: (key: string) => Promise<void>;
 }
 
 /**
@@ -58,5 +58,5 @@ export interface CacheOperations {
 export interface CustomerOperations {
 	getOrCreateCustomer: (user: unknown, email?: string) => Promise<unknown>;
 	getCustomerByDiscordId: (discordId: string) => Promise<unknown>;
-	updateCustomer: (customerId: string, updates: Record<string, unknown>) => Promise<unknown>;
+	updateCustomer: (customer: unknown) => Promise<unknown>;
 }

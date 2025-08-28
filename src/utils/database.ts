@@ -87,8 +87,16 @@ async function testRedisConnection(): Promise<void> {
 	}
 }
 
-// Test connection when module loads - commented out to avoid conflicts
-// testRedisConnection();
+// Activate Redis health check during module initialization with process exit on failure
+(async () => {
+	try {
+		await testRedisConnection();
+	}
+	catch (error) {
+		LogEngine.error('Redis health check failed during module initialization:', error);
+		throw error;
+	}
+})();
 
 /**
  * Redis Error Handler

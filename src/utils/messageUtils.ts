@@ -244,8 +244,10 @@ function processQuotedContent(
 		return result;
 	}
 
-	// Try to find the quoted message in existing messages
-	const matchingMsg = existingMessages.find(msg => msg.content.trim() === quotedMessage);
+	// Try to find the quoted message in existing messages using normalized content
+	const matchingMsg = existingMessages.find(msg =>
+		removeAttachmentSection(msg.content).trim() === removeAttachmentSection(quotedMessage).trim(),
+	);
 	if (matchingMsg && matchingMsg.id) {
 		result.replyReference = matchingMsg.id;
 		// Empty message fallback
