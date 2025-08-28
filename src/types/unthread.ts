@@ -33,6 +33,7 @@ export interface CreateCustomerRequest {
  */
 export interface UnthreadTicket {
 	id: string;
+	friendlyId: string;
 	title: string;
 	status: TicketStatus;
 	priority: TicketPriority;

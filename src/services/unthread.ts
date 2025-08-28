@@ -23,19 +23,11 @@ import { isDuplicateMessage, containsDiscordAttachments } from '../utils/message
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId } from '../utils/customerUtils';
 import { version } from '../../package.json';
-import { UnthreadApiResponse } from '../types/unthread';
+import { UnthreadApiResponse, UnthreadTicket } from '../types/unthread';
 
 interface TicketMapping {
     unthreadTicketId: string;
     discordThreadId: string;
-}
-
-interface UnthreadTicket {
-    id: string;
-    friendlyId: string;
-    title: string;
-    status: string;
-    customerId?: string;
 }
 
 interface UnthreadCustomer {
@@ -514,26 +506,64 @@ export async function sendMessageToUnthread(
 			name: user.displayName || user.username,
 			email: email,
 		},
+		metadata: {
+			source: 'discord',
+		},
 	};
 
 	LogEngine.debug(`Sending message to Unthread conversation ${conversationId}:`, requestData);
 
-	const response = await fetch(`https://api.unthread.io/api/conversations/${conversationId}/messages`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'X-API-KEY': process.env.UNTHREAD_API_KEY as string,
-		},
-		body: JSON.stringify(requestData),
-	});
+	const conversationUrl = `https://api.unthread.io/api/conversations/${conversationId}`;
+	const abortController = new AbortController();
+	// 8 second timeout for request operations
+	const timeoutId = setTimeout(() => abortController.abort(), 8000);
 
-	if (!response.ok) {
-		const errorText = await response.text();
-		LogEngine.error(`Failed to send message to Unthread: ${response.status} - ${errorText}`);
-		throw new Error(`Failed to send message to Unthread: ${response.status}`);
+	try {
+		// Perform preflight check to verify conversation exists
+		LogEngine.debug(`Performing preflight check for conversation ${conversationId}`);
+		const preflightResponse = await fetch(conversationUrl, {
+			method: 'HEAD',
+			headers: {
+				'X-API-KEY': process.env.UNTHREAD_API_KEY as string,
+			},
+			signal: abortController.signal,
+		});
+
+		if (!preflightResponse.ok) {
+			throw new Error(`Conversation preflight check failed: ${preflightResponse.status} - Conversation may not exist or be accessible`);
+		}
+
+		LogEngine.debug(`Preflight check passed for conversation ${conversationId}`);
+
+		// Send the actual message
+		const response = await fetch(`${conversationUrl}/messages`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-API-KEY': process.env.UNTHREAD_API_KEY as string,
+			},
+			body: JSON.stringify(requestData),
+			signal: abortController.signal,
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			LogEngine.error(`Failed to send message to Unthread: ${response.status} - ${errorText}`);
+			throw new Error(`Failed to send message to Unthread: ${response.status}`);
+		}
+
+		const responseData = await response.json();
+		LogEngine.debug('Message sent to Unthread successfully:', responseData);
+		return responseData;
 	}
-
-	const responseData = await response.json();
-	LogEngine.debug('Message sent to Unthread successfully:', responseData);
-	return responseData;
+	catch (error: any) {
+		if (error.name === 'AbortError') {
+			LogEngine.error(`Request to Unthread conversation ${conversationId} timed out after 8 seconds`);
+			throw new Error('Request to Unthread timed out');
+		}
+		throw error;
+	}
+	finally {
+		clearTimeout(timeoutId);
+	}
 }
