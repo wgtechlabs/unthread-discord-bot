@@ -27,6 +27,33 @@ import { UnthreadApiResponse, UnthreadTicket, WebhookPayload } from '../types/un
 import { ThreadTicketMapping } from '../types/discord';
 
 /**
+ * ==================== ENVIRONMENT VALIDATION ====================
+ * Preflight checks to ensure required environment variables are present
+ */
+
+// Validate critical environment variables at module initialization
+function validateEnvironment(): void {
+	const requiredEnvVars = [
+		{ name: 'UNTHREAD_API_KEY', value: process.env.UNTHREAD_API_KEY },
+		{ name: 'UNTHREAD_SLACK_CHANNEL_ID', value: process.env.UNTHREAD_SLACK_CHANNEL_ID },
+	];
+
+	const missingVars = requiredEnvVars.filter(envVar => !envVar.value?.trim());
+
+	if (missingVars.length > 0) {
+		const missingNames = missingVars.map(v => v.name).join(', ');
+		LogEngine.error(`Missing required environment variables: ${missingNames}`);
+		LogEngine.error('Please ensure all required environment variables are set before starting the application.');
+		throw new Error(`Missing required environment variables: ${missingNames}`);
+	}
+
+	LogEngine.info('Environment validation passed - all required variables are set');
+}
+
+// Perform validation immediately when module is loaded
+validateEnvironment();
+
+/**
  * ==================== CUSTOMER MANAGEMENT FUNCTIONS ====================
  * These functions handle creating and retrieving customer records in Unthread
  */
@@ -72,7 +99,7 @@ export async function getCustomerById(discordId: string): Promise<Customer | nul
 export async function createTicket(user: User, title: string, issue: string, email: string): Promise<UnthreadTicket> {
 	// Enhanced debugging: Initial request context
 	LogEngine.info(`Creating ticket for user: ${user.displayName || user.username} (${user.id})`);
-	LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? process.env.UNTHREAD_API_KEY.length + 'chars' : 'NOT_SET'}, SLACK_CHANNEL_ID=${JSON.stringify(process.env.UNTHREAD_SLACK_CHANNEL_ID || 'NOT_SET')}`);
+	LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? 'SET' : 'NOT_SET'}, SLACK_CHANNEL_ID=${process.env.UNTHREAD_SLACK_CHANNEL_ID ? 'SET' : 'NOT_SET'}`);
 
 	const customer = await getOrCreateCustomer(user, email);
 	LogEngine.debug(`Customer: ${customer?.customerId || 'unknown'} (${customer?.email || email})`);
