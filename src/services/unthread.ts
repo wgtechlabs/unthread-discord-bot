@@ -111,7 +111,7 @@ export async function getCustomerById(discordId: string): Promise<UnthreadCustom
  */
 export async function createTicket(user: User, title: string, issue: string, email: string): Promise<UnthreadTicket> {
 	// Enhanced debugging: Initial request context
-	LogEngine.info(`Creating ticket for user: ${user.tag} (${user.id})`);
+	LogEngine.info(`Creating ticket for user: ${user.displayName || user.username} (${user.id})`);
 	LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? process.env.UNTHREAD_API_KEY.length + 'chars' : 'NOT_SET'}, SLACK_CHANNEL_ID=${JSON.stringify(process.env.UNTHREAD_SLACK_CHANNEL_ID || 'NOT_SET')}`);
 
 	const customer = await getOrCreateCustomer(user, email);
@@ -125,7 +125,7 @@ export async function createTicket(user: User, title: string, issue: string, ema
 		channelId: process.env.UNTHREAD_SLACK_CHANNEL_ID?.trim(),
 		customerId: customer?.customerId,
 		onBehalfOf: {
-			name: user.tag,
+			name: user.displayName || user.username,
 			email: email,
 		},
 	};
@@ -164,7 +164,7 @@ export async function createTicket(user: User, title: string, issue: string, ema
 		throw new Error('Ticket was created but friendlyId is missing');
 	}
 
-	LogEngine.info(`Created ticket ${data.friendlyId} (${data.id}) for user ${user.tag}`);
+	LogEngine.info(`Created ticket ${data.friendlyId} (${data.id}) for user ${user.displayName || user.username}`);
 	return data as UnthreadTicket;
 }
 
@@ -454,7 +454,7 @@ export async function sendMessageToUnthread(
 	const requestData = {
 		markdown: message,
 		onBehalfOf: {
-			name: user.tag,
+			name: user.displayName || user.username,
 			email: email,
 		},
 	};

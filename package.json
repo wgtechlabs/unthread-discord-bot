@@ -5,11 +5,11 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
-    "build": ".yarn/sdks/typescript/bin/tsc",
-    "start": "yarn build && yarn node dist/index.js",
+    "build": "yarn tsc",
+    "start": "yarn build && node dist/index.js",
     "dev": "ts-node src/index.ts",
     "dev:watch": "nodemon --exec ts-node src/index.ts",
-    "deploycommand": "yarn build && yarn node dist/deploy_commands.js",
+    "deploycommand": "yarn build && node dist/deploy_commands.js",
     "deploycommand:dev": "ts-node src/deploy_commands.ts",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"
@@ -35,7 +35,6 @@
     "@keyv/redis": "^4.4.0",
     "@wgtechlabs/log-engine": "2.2.0",
     "cacheable": "^1.10.0",
-    "crypto": "^1.0.1",
     "discord.js": "^14.20.0",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",

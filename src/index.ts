@@ -217,7 +217,7 @@ app.get('/health', async (req: express.Request, res: express.Response) => {
 			environment: process.env.NODE_ENV || 'development',
 			discord: {
 				status: client?.isReady() ? 'connected' : 'disconnected',
-				user: client?.user?.tag || 'not logged in',
+				user: client?.user?.displayName || client?.user?.username || 'not logged in',
 			},
 			redis: {
 				status: 'connected',

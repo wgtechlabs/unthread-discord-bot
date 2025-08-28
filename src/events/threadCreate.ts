@@ -151,7 +151,7 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 				{ name: 'Ticket ID', value: `#${ticket.friendlyId}`, inline: true },
 				{ name: 'Status', value: 'Open', inline: true },
 				{ name: 'Title', value: title, inline: false },
-				{ name: 'Created By', value: author.tag, inline: true },
+				{ name: 'Created By', value: author.displayName || author.username, inline: true },
 			)
 			.setFooter({ text: `Unthread Discord Bot v${version}` })
 			.setTimestamp();
@@ -174,7 +174,7 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 		else {
 			LogEngine.error('An error occurred while creating the ticket:', errorMessage);
 			LogEngine.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
-			LogEngine.error(`Author: ${firstMessage?.author?.tag || 'Unknown'} (${firstMessage?.author?.id || 'Unknown'})`);
+			LogEngine.error(`Author: ${firstMessage?.author?.displayName || firstMessage?.author?.username || 'Unknown'} (${firstMessage?.author?.id || 'Unknown'})`);
 		}
 
 		try {
