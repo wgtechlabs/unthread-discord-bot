@@ -16,14 +16,19 @@ export const data = new SlashCommandBuilder()
 /**
  * Executes the version command.
  *
- * @async
- * @param {CommandInteraction} interaction - The interaction object from Discord.js.
- * @returns {Promise<void>}
+ * @param interaction - The interaction object from Discord.js
+ * @throws {Error} When interaction reply fails
  *
  * Implementation Details:
  * - Retrieves version information from package.json
  * - Creates an embedded message with the bot version
  * - Replies to the interaction with the formatted embed
+ *
+ * @example
+ * ```typescript
+ * // Command usage in Discord: /version
+ * // Response: Embedded message showing current bot version
+ * ```
  */
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	const embed = new EmbedBuilder()

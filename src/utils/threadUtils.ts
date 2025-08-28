@@ -7,6 +7,8 @@
  *
  * These utilities help ensure consistent error handling and reduce code duplication
  * when performing common thread-related operations across the application.
+ *
+ * @module utils/threadUtils
  */
 
 import { LogEngine } from '../config/logger';
@@ -18,6 +20,17 @@ import { ThreadChannel, Message } from 'discord.js';
  * This provides more precise error handling for cases where ticket mappings
  * are not found, allowing consumers to distinguish between mapping issues
  * and other types of errors.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await findThread(ticketId);
+ * } catch (error) {
+ *   if (error instanceof MappingNotFoundError) {
+ *     console.log("Mapping not found, might be normal for external tickets");
+ *   }
+ * }
+ * ```
  */
 export class MappingNotFoundError extends Error {
 	constructor(message: string) {
@@ -26,29 +39,54 @@ export class MappingNotFoundError extends Error {
 	}
 }
 
+/**
+ * Ticket mapping structure for thread-ticket relationships
+ */
 interface TicketMapping {
+    /** Discord thread ID */
     discordThreadId: string;
+    /** Unthread ticket/conversation ID */
     unthreadTicketId: string;
 }
 
+/**
+ * Result structure containing both mapping and Discord thread
+ */
 interface ThreadResult {
+    /** The ticket mapping data */
     ticketMapping: TicketMapping;
+    /** The Discord thread channel object */
     discordThread: ThreadChannel;
 }
 
+/**
+ * Enhanced error with additional context for debugging
+ */
 interface EnhancedError extends Error {
+    /** Additional context about the error and retry attempts */
     context?: {
+        /** The ticket ID that was being looked up */
         ticketId: string;
+        /** Number of retry attempts made */
         attemptsMade: number;
+        /** Total time spent retrying in milliseconds */
         totalRetryTime: number;
+        /** Whether this appears to be a race condition */
         likelyRaceCondition: boolean;
+        /** Original error message */
         originalError: string;
     };
 }
 
+/**
+ * Configuration options for retry behavior
+ */
 interface RetryOptions {
+    /** Maximum number of retry attempts (default: 3) */
     maxAttempts?: number;
+    /** Maximum time window for retries in milliseconds (default: 10000) */
     maxRetryWindow?: number;
+    /** Base delay between retries in milliseconds (default: 1000) */
     baseDelayMs?: number;
 }
 
@@ -64,11 +102,29 @@ interface RetryOptions {
  * - Temporary storage system unavailability
  * - Webhooks arriving faster than expected from Unthread
  *
- * @param {string} unthreadTicketId - Unthread ticket/conversation ID
- * @param {Function} lookupFunction - Function to lookup ticket mapping by Unthread ID
- * @param {RetryOptions} options - Retry configuration options
- * @returns {Promise<ThreadResult>} - Object containing mapping and thread
- * @throws {Error} - If thread not found after all retries or other error occurs
+ * @param unthreadTicketId - Unthread ticket/conversation ID
+ * @param lookupFunction - Function to lookup ticket mapping by Unthread ID
+ * @param options - Retry configuration options
+ * @returns Object containing mapping and thread
+ * @throws {MappingNotFoundError} When ticket mapping not found after all retries
+ * @throws {Error} When Discord API errors occur or thread is not accessible
+ * @throws {Error} When lookup function fails for non-mapping reasons
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   const result = await findDiscordThreadByTicketIdWithRetry(
+ *     'ticket123',
+ *     getTicketByUnthreadTicketId,
+ *     { maxAttempts: 5, maxRetryWindow: 15000 }
+ *   );
+ *   console.log(`Found thread: ${result.discordThread.id}`);
+ * } catch (error) {
+ *   if (error instanceof MappingNotFoundError) {
+ *     console.log("Ticket mapping not found - likely external ticket");
+ *   }
+ * }
+ * ```
  */
 export async function findDiscordThreadByTicketIdWithRetry(
 	unthreadTicketId: string,
@@ -165,10 +221,26 @@ export async function findDiscordThreadByTicketIdWithRetry(
  * Using this function ensures consistent error handling and logging
  * throughout the application when threads need to be fetched.
  *
- * @param {string} unthreadTicketId - Unthread ticket/conversation ID
- * @param {Function} lookupFunction - Function to lookup ticket mapping by Unthread ID
- * @returns {Promise<ThreadResult>} - Object containing mapping and thread
- * @throws {Error} - If thread not found or other error occurs
+ * @param unthreadTicketId - Unthread ticket/conversation ID
+ * @param lookupFunction - Function to lookup ticket mapping by Unthread ID
+ * @returns Object containing mapping and thread
+ * @throws {MappingNotFoundError} When no Discord thread mapping exists for ticket
+ * @throws {Error} When Discord client is not initialized
+ * @throws {Error} When Discord thread is not found or not accessible
+ * @throws {Error} When channel exists but is not a thread type
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   const result = await findDiscordThreadByTicketId(
+ *     'ticket123',
+ *     getTicketByUnthreadTicketId
+ *   );
+ *   console.log(`Found thread: ${result.discordThread.name}`);
+ * } catch (error) {
+ *   console.error(`Thread lookup failed: ${error.message}`);
+ * }
+ * ```
  */
 export async function findDiscordThreadByTicketId(
 	unthreadTicketId: string,
@@ -227,7 +299,18 @@ export async function findDiscordThreadByTicketId(
  * For forum threads, this ensures we get the actual forum post content.
  *
  * @param thread - The Discord thread channel
- * @returns Promise<Message | null> - The starter message or null if not found
+ * @returns The starter message or null if not found
+ * @throws Never throws - errors are logged and null is returned
+ *
+ * @example
+ * ```typescript
+ * const starterMessage = await fetchStarterMessage(threadChannel);
+ * if (starterMessage) {
+ *   console.log(`Thread started with: ${starterMessage.content}`);
+ * } else {
+ *   console.log("Could not fetch starter message");
+ * }
+ * ```
  */
 export async function fetchStarterMessage(thread: ThreadChannel): Promise<Message | null> {
 	try {

@@ -34,8 +34,16 @@ export const once = false;
  * - Forward thread messages to Unthread if in a mapped thread
  * - Process legacy commands with !! prefix
  *
- * @param {Message} message - The Discord message object containing all message data
- * @returns {Promise<void>} - No return value
+ * @param message - The Discord message object containing all message data
+ * @throws {Error} When message forwarding to Unthread fails
+ * @throws {Error} When customer lookup fails
+ * @throws {Error} When Discord API operations fail
+ *
+ * @example
+ * ```typescript
+ * // This function is automatically called by Discord.js when messages are created
+ * // Users don't call this directly - it handles all incoming messages
+ * ```
  *
  * @debug
  * Common issues to check if messages aren't being forwarded:
