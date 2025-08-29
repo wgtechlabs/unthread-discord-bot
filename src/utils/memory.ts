@@ -24,7 +24,7 @@ import cachedData from './cache';
  *
  * @param key - The unique identifier for storing the value
  * @param value - The value to store (will be serialized internally by the cache)
- * @param customTtl - Optional custom TTL in milliseconds (defaults to 24 hours)
+ * @param customTtl - Optional custom TTL in milliseconds (defaults to 7 days)
  * @returns A promise that resolves when the key is set
  *
  * @example
@@ -39,9 +39,33 @@ import cachedData from './cache';
  * 4. Memory constraints if storing large objects
  */
 async function setKey(key: string, value: unknown, customTtl?: number): Promise<void> {
-	// Use custom TTL or default to 24 hours
-	const ttl = customTtl || 86400000;
+	// Use custom TTL or default to 7 days for better memory management
+	const ttl = customTtl || 604800000; // 7 days = 7 * 24 * 60 * 60 * 1000
 	await cachedData.set(key, value, ttl);
+}
+
+/**
+ * Sets a key-value pair with long-term persistence (3 years TTL)
+ *
+ * This function is specifically designed for data that needs long-term persistence,
+ * such as ticket mappings, customer relationships, and audit trails.
+ * Uses a 3-year TTL to balance storage costs with long-term access needs.
+ *
+ * @param key - The unique identifier for storing the value
+ * @param value - The value to store (will be serialized internally by the cache)
+ * @returns A promise that resolves when the key is set
+ *
+ * @example
+ * // Store ticket mapping for 3 years
+ * await setPersistentKey('ticket:discord:123', ticketMapping);
+ *
+ * // Store customer relationship for long-term access
+ * await setPersistentKey('customer:456', customerData);
+ */
+async function setPersistentKey(key: string, value: unknown): Promise<void> {
+	// 3 years TTL for long-term persistence
+	const threeYearsTtl = 3 * 365 * 24 * 60 * 60 * 1000; // 94,608,000,000 ms
+	await cachedData.set(key, value, threeYearsTtl);
 }
 
 /**
@@ -91,9 +115,10 @@ const memoryCache: CacheOperations = {
 	setKey,
 	getKey,
 	deleteKey,
+	setPersistentKey,
 };
 
 export default memoryCache;
 
 // Export individual functions for named imports
-export { setKey, getKey, deleteKey };
+export { setKey, getKey, deleteKey, setPersistentKey };

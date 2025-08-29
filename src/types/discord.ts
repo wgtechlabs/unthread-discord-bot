@@ -73,6 +73,8 @@ export interface CacheOperations {
 	getKey: (key: string) => Promise<unknown>;
 	/** Store a value with optional TTL in seconds */
 	setKey: (key: string, value: unknown, ttl?: number) => Promise<void>;
+	/** Store a value with long-term persistence (3 years TTL) */
+	setPersistentKey: (key: string, value: unknown) => Promise<void>;
 	/** Remove a key from cache */
 	deleteKey: (key: string) => Promise<void>;
 }

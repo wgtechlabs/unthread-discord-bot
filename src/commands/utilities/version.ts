@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { version } from '../../../package.json';
+import { getBotFooter } from '../../utils/botUtils';
 
 /**
  * Version Command
@@ -35,7 +36,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		.setColor(0xEB1A1A)
 		.setTitle('Bot Version')
 		.setDescription(`Current version: v${version}`)
-		.setFooter({ text: `Unthread Discord Bot v${version}` })
+		.setFooter({ text: getBotFooter() })
 		.setTimestamp();
 
 	await interaction.reply({ embeds: [embed], ephemeral: true });

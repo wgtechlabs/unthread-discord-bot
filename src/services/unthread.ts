@@ -16,13 +16,13 @@
  */
 
 import { decodeHtmlEntities } from '../utils/decodeHtmlEntities';
-import { setKey, getKey } from '../utils/memory';
+import { setKey, getKey, setPersistentKey } from '../utils/memory';
+import { getBotFooter } from '../utils/botUtils';
 import { EmbedBuilder, User } from 'discord.js';
 import { LogEngine } from '../config/logger';
 import { isDuplicateMessage, containsDiscordAttachments } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
-import { version } from '../../package.json';
 import { UnthreadApiResponse, UnthreadTicket, WebhookPayload } from '../types/unthread';
 import { ThreadTicketMapping } from '../types/discord';
 
@@ -177,31 +177,79 @@ export async function bindTicketWithThread(unthreadTicketId: string, discordThre
 		createdAt: new Date().toISOString(),
 	};
 
-	// Create bidirectional mapping for efficient lookups
+	// Create bidirectional mapping for efficient lookups with hybrid storage strategy:
+	// - Memory cache (7 days) for fast access to recent tickets
+	// - Persistent storage (3 years) for long-term customer access
+	
+	// Store in memory cache for fast access (7 days TTL)
 	await setKey(`ticket:discord:${discordThreadId}`, mapping);
 	await setKey(`ticket:unthread:${unthreadTicketId}`, mapping);
+	
+	// Store in persistent storage for long-term access (3 years TTL)
+	await setPersistentKey(`persistent:ticket:discord:${discordThreadId}`, mapping);
+	await setPersistentKey(`persistent:ticket:unthread:${unthreadTicketId}`, mapping);
 
-	LogEngine.info(`Bound Discord thread ${discordThreadId} with Unthread ticket ${unthreadTicketId}`);
+	LogEngine.info(`Bound Discord thread ${discordThreadId} with Unthread ticket ${unthreadTicketId} (hybrid storage: 7d cache + 3y persistent)`);
 }
 
 /**
  * Retrieves Unthread ticket mapping by Discord thread ID
  *
+ * Uses hybrid storage strategy: checks memory cache first (fast),
+ * then falls back to persistent storage (3-year retention)
+ *
  * @param discordThreadId - Discord thread ID
  * @returns Ticket mapping or null if not found
  */
 export async function getTicketByDiscordThreadId(discordThreadId: string): Promise<ThreadTicketMapping | null> {
-	return (await getKey(`ticket:discord:${discordThreadId}`)) as ThreadTicketMapping | null;
+	// First, try memory cache (fast access for recent tickets)
+	let mapping = (await getKey(`ticket:discord:${discordThreadId}`)) as ThreadTicketMapping | null;
+	
+	if (mapping) {
+		LogEngine.debug(`Found ticket mapping in memory cache for Discord thread: ${discordThreadId}`);
+		return mapping;
+	}
+	
+	// Fallback to persistent storage (for older tickets)
+	mapping = (await getKey(`persistent:ticket:discord:${discordThreadId}`)) as ThreadTicketMapping | null;
+	
+	if (mapping) {
+		LogEngine.debug(`Found ticket mapping in persistent storage for Discord thread: ${discordThreadId}`);
+		// Optionally refresh the memory cache for future fast access
+		await setKey(`ticket:discord:${discordThreadId}`, mapping);
+	}
+	
+	return mapping;
 }
 
 /**
  * Retrieves Discord thread mapping by Unthread ticket ID
  *
+ * Uses hybrid storage strategy: checks memory cache first (fast),
+ * then falls back to persistent storage (3-year retention)
+ *
  * @param unthreadTicketId - Unthread ticket ID
  * @returns Ticket mapping or null if not found
  */
 export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Promise<ThreadTicketMapping | null> {
-	return (await getKey(`ticket:unthread:${unthreadTicketId}`)) as ThreadTicketMapping | null;
+	// First, try memory cache (fast access for recent tickets)
+	let mapping = (await getKey(`ticket:unthread:${unthreadTicketId}`)) as ThreadTicketMapping | null;
+	
+	if (mapping) {
+		LogEngine.debug(`Found ticket mapping in memory cache for Unthread ticket: ${unthreadTicketId}`);
+		return mapping;
+	}
+	
+	// Fallback to persistent storage (for older tickets)
+	mapping = (await getKey(`persistent:ticket:unthread:${unthreadTicketId}`)) as ThreadTicketMapping | null;
+	
+	if (mapping) {
+		LogEngine.debug(`Found ticket mapping in persistent storage for Unthread ticket: ${unthreadTicketId}`);
+		// Optionally refresh the memory cache for future fast access
+		await setKey(`ticket:unthread:${unthreadTicketId}`, mapping);
+	}
+	
+	return mapping;
 }
 
 /**
@@ -456,20 +504,7 @@ async function handleStatusUpdated(data: any): Promise<void> {
 				{ name: 'Status', value: statusInfo.displayName, inline: true },
 			)
 			.setFooter({
-				text: (() => {
-					const client = (global as typeof globalThis).discordClient;
-					if (client?.user?.displayName) {
-						return `${client.user.displayName} v${version}`;
-					}
-					else if (client?.user?.username) {
-						return `${client.user.username} v${version}`;
-					}
-					else {
-						// Fallback when Discord client is unavailable (e.g., during startup, network issues)
-						LogEngine.debug('Discord client unavailable for footer text, using fallback');
-						return `Unthread Discord Bot v${version}`;
-					}
-				})(),
+				text: getBotFooter(),
 			})
 			.setTimestamp();
 

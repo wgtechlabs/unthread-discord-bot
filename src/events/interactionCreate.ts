@@ -18,7 +18,7 @@ import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { LogEngine } from '../config/logger';
 import { setKey } from '../utils/memory';
 import { getOrCreateCustomer, getCustomerByDiscordId, updateCustomer } from '../utils/customerUtils';
-import { version } from '../../package.json';
+import { getBotFooter } from '../utils/botUtils';
 
 /**
  * Simple type for ticket objects from external API
@@ -166,7 +166,7 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 			.addFields(
 				{ name: '🔄 Next Steps', value: 'Our support team will respond here shortly. Please monitor this thread for updates.', inline: false },
 			)
-			.setFooter({ text: `Unthread Discord Bot v${version}` })
+			.setFooter({ text: getBotFooter() })
 			.setTimestamp();
 
 		await threadObj.send({ embeds: [ticketEmbed] });

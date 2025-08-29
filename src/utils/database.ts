@@ -39,12 +39,10 @@ LogEngine.debug(`Creating Redis connection with URL: ${process.env.REDIS_URL?.re
 const keyv = createKeyv(process.env.REDIS_URL);
 
 /**
- * Tests the Redis connection and logs the result
+ * Tests the Redis connection using PING command (non-intrusive)
  *
- * Performs a round-trip test by setting and retrieving a test value
- * to verify that Redis is properly connected and functioning.
- * This function will throw an error if Redis connection fails,
- * ensuring the application doesn't start with a broken cache.
+ * Uses Redis PING command instead of actual data operations to verify connectivity.
+ * This eliminates race conditions and ensures clean, non-intrusive connection testing.
  *
  * @async
  * @returns {Promise<void>}
@@ -52,36 +50,20 @@ const keyv = createKeyv(process.env.REDIS_URL);
  */
 async function testRedisConnection(): Promise<void> {
 	try {
-		// Test connection by setting and getting a test value
-		const testKey = 'redis:connection:test';
-		const testValue = Date.now().toString();
-
-		LogEngine.debug(`Testing Redis connection with key: ${testKey}, value: ${testValue}`);
-
-		// 10 seconds TTL for testing
-		await keyv.set(testKey, testValue, 10000);
-		LogEngine.debug('Successfully set test value in Redis');
-
-		// Add a small delay to ensure the value is properly stored
-		await new Promise(resolve => setTimeout(resolve, 100));
-
-		const retrievedValue = await keyv.get(testKey);
-		LogEngine.debug(`Retrieved value from Redis: ${retrievedValue} (type: ${typeof retrievedValue})`);
-
-		if (retrievedValue === testValue) {
-			LogEngine.info('Successfully connected to Redis');
-			// Clean up test key
-			await keyv.delete(testKey);
+		// Access the underlying Redis client from Keyv and perform PING
+		if (keyv.store && typeof keyv.store.ping === 'function') {
+			const pong = await keyv.store.ping();
+			LogEngine.info(`Redis PING successful: ${pong}`);
 		}
 		else {
-			const errorMessage = `Redis connection test failed: value mismatch. Expected: "${testValue}", Got: "${retrievedValue}"`;
-			LogEngine.error(errorMessage);
-			throw new Error(errorMessage);
+			// Fallback: check connection without data operations
+			await keyv.has('__redis_health_check__');
+			LogEngine.info('Redis connection verified - store accessible');
 		}
 	}
 	catch (error: unknown) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		LogEngine.error('Redis connection error:', errorMessage);
+		LogEngine.error('Redis connection test failed:', errorMessage);
 		LogEngine.error('Application cannot start without a working Redis connection');
 		throw new Error(`Redis connection failed: ${errorMessage}`);
 	}

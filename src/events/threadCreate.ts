@@ -2,16 +2,7 @@
  * Thread Creation Event Handler
  * Converts new forum posts in validated forum channels to Unthread support tickets.
  *
- * Now includes		// Notify users in the thread that a ticket has been created.
-		const ticketEmbed = new EmbedBuilder()
-			.setColor(0xFF5241)
-			.setTitle(`🎫 Support Ticket #${ticket.friendlyId}`)
-			.setDescription(`**${title}**\n\n${content}`)
-			.addFields(
-				{ name: '🔄 Next Steps', value: 'Our support team will respond here shortly. Please monitor this thread for updates.', inline: false },
-			)
-			.setFooter({ text: `Unthread Discord Bot v${version}` })
-			.setTimestamp();e validation to ensure only actual forum channels
+ * Now includes validation to ensure only actual forum channels
  * are processed, preventing conflicts with text channels accidentally added
  * to FORUM_CHANNEL_IDS.
  */
@@ -22,7 +13,7 @@ import { fetchStarterMessage } from '../utils/threadUtils';
 import { LogEngine } from '../config/logger';
 import { getOrCreateCustomer } from '../utils/customerUtils';
 import { isValidatedForumChannel } from '../utils/channelUtils';
-import { version } from '../../package.json';
+import { getBotFooter } from '../utils/botUtils';
 
 export const name = Events.ThreadCreate;
 
@@ -157,10 +148,9 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 			.setTitle(`🎫 Support Ticket #${ticket.friendlyId}`)
 			.setDescription(`**${title}**\n\n${content}`)
 			.addFields(
-				{ name: 'Status', value: 'Open', inline: true },
 				{ name: '🔁 Next Steps', value: 'Our support team will respond here shortly. Please monitor this thread for updates.', inline: false },
 			)
-			.setFooter({ text: `Unthread Discord Bot v${version}` })
+			.setFooter({ text: getBotFooter() })
 			.setTimestamp();
 
 		await thread.send({ embeds: [ticketEmbed] });
@@ -192,7 +182,7 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 					.setColor(0xFF0000)
 					.setTitle('Error Creating Support Ticket')
 					.setDescription('There was an error creating a support ticket from this forum post. A staff member will assist you shortly.')
-					.setFooter({ text: `Unthread Discord Bot v${version}` })
+					.setFooter({ text: getBotFooter() })
 					.setTimestamp();
 
 				await thread.send({ embeds: [errorEmbed] });
