@@ -180,11 +180,11 @@ export async function bindTicketWithThread(unthreadTicketId: string, discordThre
 	// Create bidirectional mapping for efficient lookups with hybrid storage strategy:
 	// - Memory cache (7 days) for fast access to recent tickets
 	// - Persistent storage (3 years) for long-term customer access
-	
+
 	// Store in memory cache for fast access (7 days TTL)
 	await setKey(`ticket:discord:${discordThreadId}`, mapping);
 	await setKey(`ticket:unthread:${unthreadTicketId}`, mapping);
-	
+
 	// Store in persistent storage for long-term access (3 years TTL)
 	await setPersistentKey(`persistent:ticket:discord:${discordThreadId}`, mapping);
 	await setPersistentKey(`persistent:ticket:unthread:${unthreadTicketId}`, mapping);
@@ -204,21 +204,21 @@ export async function bindTicketWithThread(unthreadTicketId: string, discordThre
 export async function getTicketByDiscordThreadId(discordThreadId: string): Promise<ThreadTicketMapping | null> {
 	// First, try memory cache (fast access for recent tickets)
 	let mapping = (await getKey(`ticket:discord:${discordThreadId}`)) as ThreadTicketMapping | null;
-	
+
 	if (mapping) {
 		LogEngine.debug(`Found ticket mapping in memory cache for Discord thread: ${discordThreadId}`);
 		return mapping;
 	}
-	
+
 	// Fallback to persistent storage (for older tickets)
 	mapping = (await getKey(`persistent:ticket:discord:${discordThreadId}`)) as ThreadTicketMapping | null;
-	
+
 	if (mapping) {
 		LogEngine.debug(`Found ticket mapping in persistent storage for Discord thread: ${discordThreadId}`);
 		// Optionally refresh the memory cache for future fast access
 		await setKey(`ticket:discord:${discordThreadId}`, mapping);
 	}
-	
+
 	return mapping;
 }
 
@@ -234,21 +234,21 @@ export async function getTicketByDiscordThreadId(discordThreadId: string): Promi
 export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Promise<ThreadTicketMapping | null> {
 	// First, try memory cache (fast access for recent tickets)
 	let mapping = (await getKey(`ticket:unthread:${unthreadTicketId}`)) as ThreadTicketMapping | null;
-	
+
 	if (mapping) {
 		LogEngine.debug(`Found ticket mapping in memory cache for Unthread ticket: ${unthreadTicketId}`);
 		return mapping;
 	}
-	
+
 	// Fallback to persistent storage (for older tickets)
 	mapping = (await getKey(`persistent:ticket:unthread:${unthreadTicketId}`)) as ThreadTicketMapping | null;
-	
+
 	if (mapping) {
 		LogEngine.debug(`Found ticket mapping in persistent storage for Unthread ticket: ${unthreadTicketId}`);
 		// Optionally refresh the memory cache for future fast access
 		await setKey(`ticket:unthread:${unthreadTicketId}`, mapping);
 	}
-	
+
 	return mapping;
 }
 

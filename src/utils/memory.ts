@@ -40,7 +40,8 @@ import cachedData from './cache';
  */
 async function setKey(key: string, value: unknown, customTtl?: number): Promise<void> {
 	// Use custom TTL or default to 7 days for better memory management
-	const ttl = customTtl || 604800000; // 7 days = 7 * 24 * 60 * 60 * 1000
+	// 7 days = 7 * 24 * 60 * 60 * 1000
+	const ttl = customTtl || 604800000;
 	await cachedData.set(key, value, ttl);
 }
 
@@ -64,7 +65,8 @@ async function setKey(key: string, value: unknown, customTtl?: number): Promise<
  */
 async function setPersistentKey(key: string, value: unknown): Promise<void> {
 	// 3 years TTL for long-term persistence
-	const threeYearsTtl = 3 * 365 * 24 * 60 * 60 * 1000; // 94,608,000,000 ms
+	// 94,608,000,000 ms
+	const threeYearsTtl = 3 * 365 * 24 * 60 * 60 * 1000;
 	await cachedData.set(key, value, threeYearsTtl);
 }
 

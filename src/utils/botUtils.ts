@@ -27,15 +27,15 @@ import { version } from '../../package.json';
  */
 export function getBotName(): string {
 	const client = global.discordClient;
-	
+
 	if (client?.user?.displayName) {
 		return client.user.displayName;
 	}
-	
+
 	if (client?.user?.username) {
 		return client.user.username;
 	}
-	
+
 	// Fallback to package name if client is not available
 	return 'Unthread Discord Bot';
 }
