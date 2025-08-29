@@ -365,7 +365,7 @@ try {
 
 				if ('data' in command && 'execute' in command) {
 					client.commands.set(command.data.name, command);
-					LogEngine.debug(`Loaded command: ${command.data.name}`);
+					// Individual command loading moved to summary for cleaner logs
 				}
 				else {
 					LogEngine.warn(`The command at ${filePath} is missing a required "data" or "execute" property.`);
@@ -377,7 +377,8 @@ try {
 		}
 	}
 
-	LogEngine.info(`Loaded ${client.commands.size} commands successfully.`);
+	const commandNames = Array.from(client.commands.keys()).join(', ');
+	LogEngine.info(`Loaded ${client.commands.size} commands successfully: ${commandNames}`);
 }
 catch (error) {
 	LogEngine.error('Failed to load commands directory:', error);
@@ -400,6 +401,8 @@ try {
 	const eventFiles = fs
 		.readdirSync(eventsPath)
 		.filter((file) => usingTsNode ? file.endsWith('.ts') : file.endsWith('.js'));
+
+	const loadedEventNames: string[] = [];
 
 	for (const file of eventFiles) {
 		const filePath = path.join(eventsPath, file);
@@ -425,14 +428,14 @@ try {
 				client.on(event.name, (...args: unknown[]) => event.execute!(...args));
 			}
 
-			LogEngine.debug(`Loaded event: ${event.name}`);
+			loadedEventNames.push(event.name);
 		}
 		catch (error) {
 			LogEngine.error(`Failed to load event from ${filePath}:`, error);
 		}
 	}
 
-	LogEngine.info(`Loaded ${eventFiles.length} events successfully.`);
+	LogEngine.info(`Loaded ${loadedEventNames.length} events successfully: ${loadedEventNames.join(', ')}`);
 }
 catch (error) {
 	LogEngine.error('Failed to load events directory:', error);
