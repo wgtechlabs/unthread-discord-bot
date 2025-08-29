@@ -25,11 +25,12 @@
  * - UNTHREAD_SLACK_CHANNEL_ID: Slack channel ID for ticket routing
  * - UNTHREAD_WEBHOOK_SECRET: Secret for webhook signature verification
  * - REDIS_URL: Redis connection URL for caching and data persistence (required)
+ * - FORUM_CHANNEL_IDS: Comma-separated list of forum channel IDs for automatic ticket creation (optional)
+ * - DEBUG_MODE: Enable verbose logging during development (optional, defaults to false)
  * - PORT: Port for webhook server (optional, defaults to 3000)
  *
  * @module index
  * @author Waren Gonzaga
- * @version v1.0.0-rc1
  * @since 0.1.0
  *
  * @example
@@ -55,6 +56,7 @@ import express from 'express';
 import { BotConfig } from './types/discord';
 import { webhookHandler } from './services/webhook';
 import { LogEngine } from './config/logger';
+import { version } from '../package.json';
 import './types/global';
 
 // Import database to ensure Redis connection is tested on startup
@@ -66,6 +68,8 @@ import keyv from './utils/database';
  *
  * Validates all required dependencies before starting the bot.
  * This includes Redis connection testing and other critical validations.
+ *
+ * @throws {Error} When Redis connection fails or other startup requirements are not met
  */
 async function validateStartupRequirements(): Promise<void> {
 	LogEngine.info('Validating startup requirements...');
@@ -112,6 +116,13 @@ async function checkRedisHealth(): Promise<{ status: 'connected' | 'disconnected
 
 /**
  * Main startup function
+ *
+ * Initializes the Discord bot and Express webhook server with comprehensive
+ * environment validation and error handling.
+ *
+ * @throws {Error} When required environment variables are missing or invalid
+ * @throws {Error} When Discord client login fails
+ * @throws {Error} When Redis connection cannot be established
  */
 async function main(): Promise<void> {
 	try {
@@ -286,7 +297,7 @@ app.get('/health', async (_req: express.Request, res: express.Response) => {
 			status: 'healthy',
 			timestamp: new Date().toISOString(),
 			uptime: process.uptime(),
-			version: process.env.npm_package_version || 'unknown',
+			version: version,
 			environment: process.env.NODE_ENV || 'development',
 			discord: {
 				status: client?.isReady() ? 'connected' : 'disconnected',

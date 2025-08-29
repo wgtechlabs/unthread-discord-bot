@@ -17,6 +17,15 @@ import '../types/global';
  *
  * @param channelId - The Discord channel ID to check
  * @returns True if the channel is a forum channel, false otherwise
+ * @throws Never throws - errors are logged and false is returned
+ *
+ * @example
+ * ```typescript
+ * const isValidForum = await isForumChannel('123456789');
+ * if (isValidForum) {
+ *   console.log('Channel is a valid forum');
+ * }
+ * ```
  */
 async function isForumChannel(channelId: string): Promise<boolean> {
 	try {
@@ -45,6 +54,13 @@ async function isForumChannel(channelId: string): Promise<boolean> {
  *
  * @param forumChannelIds - Comma-separated list of channel IDs
  * @returns Array of validated forum channel IDs
+ * @throws Never throws - invalid channels are logged and filtered out
+ *
+ * @example
+ * ```typescript
+ * const validChannels = await validateForumChannelIds('123,456,789');
+ * console.log(`Found ${validChannels.length} valid forum channels`);
+ * ```
  */
 async function validateForumChannelIds(forumChannelIds: string): Promise<string[]> {
 	if (!forumChannelIds) {
@@ -70,7 +86,20 @@ async function validateForumChannelIds(forumChannelIds: string): Promise<string[
 
 /**
  * Gets the validated forum channel IDs with caching
- * This prevents repeated validation calls
+ *
+ * This prevents repeated validation calls by caching results for 5 minutes.
+ * Automatically validates channels from FORUM_CHANNEL_IDS environment variable.
+ *
+ * @returns Array of validated forum channel IDs
+ * @throws Never throws - returns empty array if validation fails
+ *
+ * @example
+ * ```typescript
+ * const validChannels = await getValidatedForumChannelIds();
+ * if (validChannels.length > 0) {
+ *   console.log('Forum channels are configured');
+ * }
+ * ```
  */
 let cachedForumChannelIds: string[] | null = null;
 let lastValidationTime = 0;
@@ -100,6 +129,15 @@ async function getValidatedForumChannelIds(): Promise<string[]> {
  *
  * @param channelId - The channel ID to check
  * @returns True if the channel is a validated forum channel
+ * @throws Never throws - returns false if validation fails
+ *
+ * @example
+ * ```typescript
+ * const isValidForum = await isValidatedForumChannel('123456789');
+ * if (isValidForum) {
+ *   console.log('Channel is in validated forum list');
+ * }
+ * ```
  */
 async function isValidatedForumChannel(channelId: string): Promise<boolean> {
 	const validForumChannels = await getValidatedForumChannelIds();

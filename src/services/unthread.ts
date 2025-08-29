@@ -59,23 +59,18 @@ validateEnvironment();
  */
 
 /**
- * Legacy wrapper for customer creation (now delegates to customerUtils)
+ * Legacy wrapper for customer creation
  *
  * @deprecated Use getOrCreateCustomer from customerUtils directly
- * @param {User} user - Discord user object
- * @param {string} email - User's email address
- * @returns {Customer} Customer data object
  */
 export async function saveCustomer(user: User, email: string): Promise<Customer> {
 	return await getOrCreateCustomer(user, email);
 }
 
 /**
- * Legacy wrapper for customer retrieval (now delegates to customerUtils)
+ * Legacy wrapper for customer retrieval
  *
  * @deprecated Use getCustomerByDiscordId from customerUtils directly
- * @param {string} discordId - Discord user ID
- * @returns {Customer|null} Customer data object or null if not found
  */
 export async function getCustomerById(discordId: string): Promise<Customer | null> {
 	return await getCustomerByDiscordId(discordId);
@@ -89,12 +84,15 @@ export async function getCustomerById(discordId: string): Promise<Customer | nul
 /**
  * Creates a new support ticket in Unthread
  *
- * @param {User} user - Discord user object
- * @param {string} title - Ticket title
- * @param {string} issue - Ticket description/content
- * @param {string} email - User's email address
- * @returns {UnthreadTicket} - Unthread API response with ticket details
- * @throws {Error} - If ticket creation fails
+ * @param user - Discord user object
+ * @param title - Ticket title
+ * @param issue - Ticket description/content
+ * @param email - User's email address
+ * @returns Unthread API response with ticket details
+ * @throws {Error} When UNTHREAD_API_KEY environment variable is not set
+ * @throws {Error} When customer creation fails
+ * @throws {Error} When API request fails (4xx/5xx responses)
+ * @throws {Error} When ticket response is missing required fields (id, friendlyId)
  */
 export async function createTicket(user: User, title: string, issue: string, email: string): Promise<UnthreadTicket> {
 	// Enhanced debugging: Initial request context
@@ -168,9 +166,9 @@ export async function createTicket(user: User, title: string, issue: string, ema
  * Creates a bidirectional mapping in the cache to enable message forwarding
  * and webhook event routing between the two systems.
  *
- * @param {string} unthreadTicketId - Unthread ticket ID
- * @param {string} discordThreadId - Discord thread ID
- * @returns {Promise<void>}
+ * @param unthreadTicketId - Unthread ticket ID
+ * @param discordThreadId - Discord thread ID
+ * @throws {Error} When cache operations fail
  */
 export async function bindTicketWithThread(unthreadTicketId: string, discordThreadId: string): Promise<void> {
 	const mapping: ThreadTicketMapping = {
@@ -189,8 +187,8 @@ export async function bindTicketWithThread(unthreadTicketId: string, discordThre
 /**
  * Retrieves Unthread ticket mapping by Discord thread ID
  *
- * @param {string} discordThreadId - Discord thread ID
- * @returns {ThreadTicketMapping|null} - Ticket mapping or null if not found
+ * @param discordThreadId - Discord thread ID
+ * @returns Ticket mapping or null if not found
  */
 export async function getTicketByDiscordThreadId(discordThreadId: string): Promise<ThreadTicketMapping | null> {
 	return (await getKey(`ticket:discord:${discordThreadId}`)) as ThreadTicketMapping | null;
@@ -199,8 +197,8 @@ export async function getTicketByDiscordThreadId(discordThreadId: string): Promi
 /**
  * Retrieves Discord thread mapping by Unthread ticket ID
  *
- * @param {string} unthreadTicketId - Unthread ticket ID
- * @returns {ThreadTicketMapping|null} - Ticket mapping or null if not found
+ * @param unthreadTicketId - Unthread ticket ID
+ * @returns Ticket mapping or null if not found
  */
 export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Promise<ThreadTicketMapping | null> {
 	return (await getKey(`ticket:unthread:${unthreadTicketId}`)) as ThreadTicketMapping | null;
@@ -214,8 +212,20 @@ export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Pro
 /**
  * Processes webhook events from Unthread
  *
- * @param {WebhookPayload} payload - Webhook payload from Unthread
- * @returns {Promise<void>}
+ * Handles various webhook event types including message creation and conversation updates.
+ * Routes events to appropriate handlers based on event type.
+ *
+ * @param payload - Webhook payload from Unthread
+ * @throws {Error} When event processing fails for supported event types
+ * @throws {Error} When message forwarding or status updates fail
+ *
+ * @example
+ * ```typescript
+ * await handleWebhookEvent({
+ *   event: 'message_created',
+ *   data: { conversationId: '123', text: 'Hello', userId: 'user123' }
+ * });
+ * ```
  */
 export async function handleWebhookEvent(payload: WebhookPayload): Promise<void> {
 	const { event, data } = payload;
@@ -495,11 +505,28 @@ async function handleStatusUpdated(data: any): Promise<void> {
 /**
  * Sends a message from Discord to an Unthread conversation
  *
- * @param {string} conversationId - Unthread conversation ID
- * @param {User} user - Discord user who sent the message
- * @param {string} message - Message content
- * @param {string} email - User's email address
- * @returns {Promise<any>} - Unthread API response
+ * Forwards Discord messages to Unthread with proper metadata tagging
+ * to prevent message loops. Includes timeout handling and preflight checks.
+ *
+ * @param conversationId - Unthread conversation ID
+ * @param user - Discord user who sent the message
+ * @param message - Message content
+ * @param email - User's email address
+ * @returns Unthread API response
+ * @throws {Error} When UNTHREAD_API_KEY is not set
+ * @throws {Error} When conversation doesn't exist (preflight check fails)
+ * @throws {Error} When API request fails or times out (8 second timeout)
+ * @throws {Error} When message sending fails (4xx/5xx responses)
+ *
+ * @example
+ * ```typescript
+ * const response = await sendMessageToUnthread(
+ *   'conv123',
+ *   discordUser,
+ *   'Hello from Discord',
+ *   'user@example.com'
+ * );
+ * ```
  */
 export async function sendMessageToUnthread(
 	conversationId: string,

@@ -8,55 +8,85 @@
  */
 
 /**
- * Support ticket modal data from Discord
+ * Support ticket data collected from Discord modal forms
  */
 export interface SupportTicketData {
+	/** Ticket title/subject */
 	title: string;
+	/** Detailed description of the issue */
 	issue: string;
+	/** User's email address (optional) */
 	email?: string;
 }
 
 /**
- * Thread-to-ticket mapping stored in cache
+ * Bidirectional mapping between Discord threads and Unthread tickets
+ *
+ * Stored in cache to enable message forwarding and webhook routing.
  */
 export interface ThreadTicketMapping {
+	/** Discord thread ID */
 	discordThreadId: string;
+	/** Unthread ticket/conversation ID */
 	unthreadTicketId: string;
+	/** ISO timestamp when mapping was created */
 	createdAt: string;
+	/** ISO timestamp of last synchronization (optional) */
 	lastSyncAt?: string;
 }
 
 /**
- * Bot configuration from environment variables
+ * Bot configuration loaded from environment variables
+ *
+ * All required environment variables for the Discord bot to function properly.
  */
 export interface BotConfig {
+	/** Discord bot token from Developer Portal */
 	DISCORD_BOT_TOKEN: string;
+	/** Discord application/client ID */
 	CLIENT_ID: string;
+	/** Discord server/guild ID where bot operates */
 	GUILD_ID: string;
+	/** Unthread API key for service integration */
 	UNTHREAD_API_KEY: string;
+	/** Slack channel ID for ticket routing in Unthread */
 	UNTHREAD_SLACK_CHANNEL_ID: string;
+	/** Secret for verifying Unthread webhook signatures */
 	UNTHREAD_WEBHOOK_SECRET: string;
-	// Redis URL is now required for data persistence and caching
+	/** Redis connection URL for caching and data persistence (required) */
 	REDIS_URL: string;
+	/** Comma-separated list of forum channel IDs for auto-ticket creation (optional) */
 	FORUM_CHANNEL_IDS?: string;
+	/** Enable verbose logging for development (optional) */
 	DEBUG_MODE?: string;
+	/** Port for webhook server (optional, defaults to 3000) */
 	PORT?: string;
 }
 
 /**
- * Cache key-value operations interface
+ * Cache operations interface for key-value storage
+ *
+ * Abstraction over Redis or other caching systems.
  */
 export interface CacheOperations {
+	/** Retrieve a value by key */
 	getKey: (key: string) => Promise<unknown>;
+	/** Store a value with optional TTL in seconds */
 	setKey: (key: string, value: unknown, ttl?: number) => Promise<void>;
+	/** Remove a key from cache */
 	deleteKey: (key: string) => Promise<void>;
 }
 
 /**
  * Customer utility operations interface
+ *
+ * Interface for customer management functions.
  */
 export interface CustomerOperations {
+	/** Create or retrieve existing customer */
 	getOrCreateCustomer: (user: unknown, email?: string) => Promise<unknown>;
+	/** Find customer by Discord user ID */
 	getCustomerByDiscordId: (discordId: string) => Promise<unknown>;
+	/** Update existing customer record */
 	updateCustomer: (customer: unknown) => Promise<unknown>;
 }
