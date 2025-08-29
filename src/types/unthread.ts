@@ -151,7 +151,7 @@ export interface MessageAttachment {
 /**
  * Available ticket statuses in Unthread
  */
-export type TicketStatus = 'open' | 'in_progress' | 'on_hold' | 'closed' | 'resolved';
+export type TicketStatus = 'in_progress' | 'on_hold' | 'resolved';
 
 /**
  * Available ticket priorities in Unthread
