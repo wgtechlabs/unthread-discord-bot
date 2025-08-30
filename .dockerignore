@@ -4,6 +4,7 @@
 README.md
 .env
 .env.example
+.env.docker
 .vscode
 .devcontainer
 

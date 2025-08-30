@@ -22,6 +22,9 @@ ENV NODE_ENV=production \
 # Set working directory
 WORKDIR /usr/src/app
 
+# Install wget for health checks
+RUN apk add --no-cache wget
+
 # Create a dedicated user for the application
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S discordbot -u 1001 -G nodejs
@@ -37,9 +40,9 @@ USER discordbot
 # Expose webhook port
 EXPOSE 3000
 
-# Health check endpoint (if the application supports it)
+# Health check endpoint - simplified using wget
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
 # Start the application
 CMD ["node", "dist/index.js"]
