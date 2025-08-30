@@ -245,108 +245,28 @@ yarn build
 yarn deploycommand:dev
 ```
 
-## 📦 Docker Installation
+### How to Get Your Discord Server ID
 
-For production deployments or containerized environments, you can use Docker to run the Unthread Discord Bot.
+1. Open Discord and go to your server.
+2. Click on the server name at the top of the channel list to open the dropdown menu.
+3. Select "Server Settings".
+4. In the "Server Settings" menu, go to the "Widget" tab.
+5. Enable the "Server Widget" option if it is not already enabled.
+6. The "Server ID" will be displayed under the "Widget" settings.
 
-**Important for Yarn PnP Configurations**: When using Yarn with Plug'n'Play (PnP) mode instead of the default `node-modules` linker, Docker containers must include all Yarn PnP artifacts (`.pnp.cjs` file and `.yarn` directory with cache/plug'n'play data) and must invoke Node.js through Yarn (e.g., `yarn node` instead of direct `node` commands) to avoid "module not found" errors. When building your Docker image, ensure these PnP files are copied to the container, and update your `CMD`/`ENTRYPOINT` to use `yarn node dist/index.js` or ensure start scripts run through Yarn's runtime.
+Alternatively, you can enable Developer Mode to get the server ID:
 
-### Docker Prerequisites
+1. Go to your Discord user settings.
+2. Navigate to the "Advanced" tab under "App Settings".
+3. Enable "Developer Mode".
+4. Right-click on your server name in the server list.
+5. Select "Copy ID" to copy the server ID to your clipboard.
 
-- **Docker**: Version 20.10 or higher
-- **Docker Compose**: Version 2.0 or higher (comes with Docker Desktop)
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/wgtechlabs/unthread-discord-bot.git
-cd unthread-discord-bot
-```
-
-### 2. Configure Environment Variables
-
-1. Copy the example environment file:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Edit the `.env` file with your actual configuration values (see [Environment Configuration](#4-fill-out-the-environment-files) above for details).
-
-### 3. Build and Run with Docker Compose
-
-1. Create the external network (required):
-
-   ```bash
-   docker network create unthread-integration-network
-   ```
-
-2. Build the application locally:
-
-   ```bash
-   # Enable Corepack for Yarn 4
-   corepack enable
-   
-   # Install dependencies
-   yarn install
-   
-   # Build the TypeScript application
-   yarn build
-   ```
-
-3. Start the services:
-
-   ```bash
-   docker compose up -d
-   ```
-
-   This will start:
-   - Discord bot application with webhook server
-   - Redis for caching and data persistence
-
-4. Check the status of services:
-
-   ```bash
-   docker compose ps
-   docker compose logs -f discord-bot
-   ```
-
-### 4. Docker Commands Reference
-
-```bash
-# Start services
-docker compose up -d
-
-# Stop services
-docker compose down
-
-# View logs
-docker compose logs -f discord-bot
-docker compose logs -f redis-platform
-
-# Rebuild and restart
-docker compose up -d --build
-
-# Remove all data (including Redis data)
-docker compose down -v
-```
-
-### 5. Production Deployment
-
-For production deployments:
-
-1. Use a reverse proxy (like Nginx) to handle SSL termination
-2. Configure proper logging and monitoring
-3. Set up automated backups for Redis data if needed
-4. Use Docker Swarm or Kubernetes for high availability
-
-> **Note**: The Docker setup uses a shared external network (`unthread-integration-network`) to allow future integration with other Unthread services.
-
-### 6. Port Forwarding for Webhook (Development)
+## 🌐 Webhook Configuration (Development)
 
 For local development, you'll need to expose your webhook endpoint to receive events from Unthread:
 
-#### Option 1: Using VS Code Port Forwarding (Recommended for development)
+### Option 1: Using VS Code Port Forwarding (Recommended)
 
 1. Open your project in VS Code.
 2. Open the Command Palette (Ctrl+Shift+P or Cmd+Shift+P on Mac).
@@ -356,7 +276,7 @@ For local development, you'll need to expose your webhook endpoint to receive ev
 6. Click on the globe icon next to the port to make it publicly accessible.
 7. Copy the generated public URL for use in the Unthread webhook configuration.
 
-#### Option 2: Using ngrok (Alternative)
+### Option 2: Using ngrok (Alternative)
 
 1. Install ngrok: [https://ngrok.com/download](https://ngrok.com/download)
 2. Run ngrok to expose your local port:
@@ -367,9 +287,7 @@ For local development, you'll need to expose your webhook endpoint to receive ev
 
 3. Copy the generated HTTPS URL for use in the Unthread webhook configuration.
 
-> **Note**: For production deployments, use the actual domain/IP of your server instead of port forwarding tools.
-
-### 7. Configure Webhook in Unthread Dashboard
+### Configure Webhook in Unthread Dashboard
 
 1. Log in to your Unthread dashboard.
 2. Navigate to the "Settings" or "Integrations" section.
@@ -381,7 +299,7 @@ For local development, you'll need to expose your webhook endpoint to receive ev
 
 Your bot should now be able to receive events from Unthread and sync ticket updates in real-time.
 
-### 8. Configure Forum Channels (Optional)
+### Configure Forum Channels (Optional)
 
 To enable automatic ticket creation from forum posts:
 
@@ -400,23 +318,6 @@ To enable automatic ticket creation from forum posts:
 5. The bot includes validation to ensure only actual forum channels are processed, preventing conflicts with text channels.
 
 > **Important**: Only add actual forum channel IDs to this list. The bot will validate channel types to prevent issues.
-
-### How to Get Your Discord Server ID
-
-1. Open Discord and go to your server.
-2. Click on the server name at the top of the channel list to open the dropdown menu.
-3. Select "Server Settings".
-4. In the "Server Settings" menu, go to the "Widget" tab.
-5. Enable the "Server Widget" option if it is not already enabled.
-6. The "Server ID" will be displayed under the "Widget" settings.
-
-Alternatively, you can enable Developer Mode to get the server ID:
-
-1. Go to your Discord user settings.
-2. Navigate to the "Advanced" tab under "App Settings".
-3. Enable "Developer Mode".
-4. Right-click on your server name in the server list.
-5. Select "Copy ID" to copy the server ID to your clipboard.
 
 ## 💬 Community Discussions
 
