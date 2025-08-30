@@ -273,8 +273,9 @@ const app = express();
  */
 const rawBodyJsonMiddleware = express.json({
 	limit: '1mb',
-	verify: (req: WebhookRequest, _res: express.Response, buf: Buffer) => {
-		req.rawBody = buf.toString();
+	verify: (req: express.Request, _res: express.Response, buf: Buffer, encoding: string) => {
+		const webhookReq = req as WebhookRequest;
+		webhookReq.rawBody = buf.toString(encoding as BufferEncoding);
 	},
 });
 
