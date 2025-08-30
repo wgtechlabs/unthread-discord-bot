@@ -1,13 +1,16 @@
 {
   "name": "unthread-discord-bot",
   "description": "A simple official discord bot integration for unthread.io ticketing system.",
-  "version": "0.2.0-beta.6.14",
+  "version": "1.0.0-rc1",
   "private": true,
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node src/deploy_commands.js && node src/index.js",
-    "dev": "nodemon src/index.js",
-    "deploycommand": "node src/deploy_commands.js"
+    "build": ".yarn/sdks/typescript/bin/tsc",
+    "start": "yarn build && yarn node dist/index.js",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "deploycommand": "yarn build && yarn node dist/deploy_commands.js",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
   },
   "keywords": [],
   "author": "Waren Gonzaga <opensource@warengonzaga.com> (https://warengonzaga.com)",
@@ -23,19 +26,27 @@
     "url": "https://github.com/wgtechlabs/unthread-discord-bot/issues"
   },
   "engines": {
-    "node": ">=18.16.0"
+    "node": ">=22.16.0"
   },
-  "packageManager": "yarn@4.9.2",
+  "packageManager": "yarn@4.9.4",
   "dependencies": {
     "@keyv/redis": "^4.4.0",
+    "@wgtechlabs/log-engine": "2.2.0",
     "cacheable": "^1.10.0",
-    "crypto": "^1.0.1",
     "discord.js": "^14.20.0",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "keyv": "^5.3.4"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "@types/express": "^4.17.21",
+    "@types/node": "^18.19.0",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
+    "eslint": "^9.34.0",
+    "eslint-plugin-security": "^3.0.1",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
   }
 }

@@ -85,6 +85,38 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
 - `/user` - Shows details about your user account.
 - `/version` - Displays the current bot version.
 
+## 🏗️ Architecture
+
+This bot is built with **TypeScript** for enhanced maintainability, type safety, and developer experience. The codebase follows clean coding principles and the KISS (Keep It Simple, Stupid) methodology for easy maintenance and extensibility.
+
+### Technology Stack
+
+- **TypeScript**: For type safety and better code maintainability
+- **Discord.js v14**: Modern Discord API interactions
+- **Express.js**: Webhook server for Unthread integration
+- **Node.js 18+**: Runtime environment
+- **Yarn with PnP**: Package management and dependency resolution
+- **ESLint**: Code quality and consistent formatting
+- **Redis**: Required for caching and data persistence
+
+### Build System
+
+The project uses TypeScript compilation with Yarn SDK integration:
+
+```bash
+# Development with live reload
+yarn dev
+
+# Build for production
+yarn build
+
+# Deploy commands only
+yarn deploycommand
+
+# Production start
+yarn start
+```
+
 ## 📦 Manual Installation
 
 > [!WARNING]
@@ -93,7 +125,8 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
 ### Prerequisites
 
 - **Node.js**: Version 18.16.0 or higher
-- **Yarn**: Version 4.9.2 (recommended package manager)
+- **Yarn**: Version 4.9.4 (required for proper dependency management)
+- **TypeScript**: Automatically managed via Yarn SDK
 - **Discord Application**: Bot token and proper permissions
 - **Unthread Account**: API access and configuration
 
@@ -142,10 +175,9 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
    - `CLIENT_ID`: Your application's client ID, found in the "General Information" tab.
    - `GUILD_ID`: The ID of the Discord server where you want to deploy the bot. [How to Get Your Discord Server ID](#how-to-get-your-discord-server-id)
    - `UNTHREAD_API_KEY`: Your Unthread API key.
-   - `UNTHREAD_TRIAGE_CHANNEL_ID`: Your Unthread triage channel ID.
-   - `UNTHREAD_EMAIL_INBOX_ID`: Your Unthread email inbox ID.
+   - `UNTHREAD_SLACK_CHANNEL_ID`: Your Unthread Slack channel ID for ticket routing.
    - `UNTHREAD_WEBHOOK_SECRET`: Your Unthread webhook secret.
-   - `REDIS_URL`: Redis connection URL for caching (optional but recommended for production).
+   - `REDIS_URL`: Redis connection URL for caching and data persistence (required).
    - `FORUM_CHANNEL_IDS`: Comma-separated list of forum channel IDs for automatic ticket creation.
    - `DEBUG_MODE`: Set to `true` for verbose logging during development (default: `false`).
    - `PORT`: Port for the webhook server (default: `3000`).
@@ -159,39 +191,82 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
    cd unthread-discord-bot
    ```
 
-2. Install the dependencies using Yarn:
+2. Enable Corepack and install dependencies:
 
    ```bash
+   corepack enable
    yarn install
    ```
 
-   > **Note**: This project uses Yarn 4.9.2. If you don't have Yarn installed, you can install it with `npm install -g yarn`.
+   > **Note**: This project uses Yarn 4.9.4 with Plug'n'Play for efficient dependency management. Corepack ensures you're using the correct Yarn version.
 
-3. Deploy the slash commands to your Discord server:
+3. Build the TypeScript project:
+
+   ```bash
+   yarn build
+   ```
+
+4. Deploy the slash commands to your Discord server:
 
    ```bash
    yarn deploycommand
    ```
 
-4. Start the bot:
+5. Start the bot in production mode:
 
    ```bash
    yarn start
    ```
 
-   Or for development with auto-restart:
+   Or for development with TypeScript compilation and auto-restart:
 
    ```bash
    yarn dev
    ```
 
-5. The bot should now be running in your Discord server and the webhook server will be listening on the specified port.
+6. The bot should now be running in your Discord server and the webhook server will be listening on the specified port.
 
-### 6. Port Forwarding for Webhook (Development)
+### Development Workflow
+
+For active development, use these commands:
+
+```bash
+# Development with live reload (TypeScript)
+yarn dev
+
+# Type checking and linting
+yarn lint
+yarn lint:fix
+
+# Build only (creates dist/ folder)
+yarn build
+
+# Deploy commands only (development mode)
+yarn deploycommand:dev
+```
+
+### How to Get Your Discord Server ID
+
+1. Open Discord and go to your server.
+2. Click on the server name at the top of the channel list to open the dropdown menu.
+3. Select "Server Settings".
+4. In the "Server Settings" menu, go to the "Widget" tab.
+5. Enable the "Server Widget" option if it is not already enabled.
+6. The "Server ID" will be displayed under the "Widget" settings.
+
+Alternatively, you can enable Developer Mode to get the server ID:
+
+1. Go to your Discord user settings.
+2. Navigate to the "Advanced" tab under "App Settings".
+3. Enable "Developer Mode".
+4. Right-click on your server name in the server list.
+5. Select "Copy ID" to copy the server ID to your clipboard.
+
+## 🌐 Webhook Configuration (Development)
 
 For local development, you'll need to expose your webhook endpoint to receive events from Unthread:
 
-#### Option 1: Using VS Code Port Forwarding (Recommended for development)
+### Option 1: Using VS Code Port Forwarding (Recommended)
 
 1. Open your project in VS Code.
 2. Open the Command Palette (Ctrl+Shift+P or Cmd+Shift+P on Mac).
@@ -201,7 +276,7 @@ For local development, you'll need to expose your webhook endpoint to receive ev
 6. Click on the globe icon next to the port to make it publicly accessible.
 7. Copy the generated public URL for use in the Unthread webhook configuration.
 
-#### Option 2: Using ngrok (Alternative)
+### Option 2: Using ngrok (Alternative)
 
 1. Install ngrok: [https://ngrok.com/download](https://ngrok.com/download)
 2. Run ngrok to expose your local port:
@@ -212,9 +287,7 @@ For local development, you'll need to expose your webhook endpoint to receive ev
 
 3. Copy the generated HTTPS URL for use in the Unthread webhook configuration.
 
-> **Note**: For production deployments, use the actual domain/IP of your server instead of port forwarding tools.
-
-### 7. Configure Webhook in Unthread Dashboard
+### Configure Webhook in Unthread Dashboard
 
 1. Log in to your Unthread dashboard.
 2. Navigate to the "Settings" or "Integrations" section.
@@ -226,7 +299,7 @@ For local development, you'll need to expose your webhook endpoint to receive ev
 
 Your bot should now be able to receive events from Unthread and sync ticket updates in real-time.
 
-### 8. Configure Forum Channels (Optional)
+### Configure Forum Channels (Optional)
 
 To enable automatic ticket creation from forum posts:
 
@@ -245,23 +318,6 @@ To enable automatic ticket creation from forum posts:
 5. The bot includes validation to ensure only actual forum channels are processed, preventing conflicts with text channels.
 
 > **Important**: Only add actual forum channel IDs to this list. The bot will validate channel types to prevent issues.
-
-### How to Get Your Discord Server ID
-
-1. Open Discord and go to your server.
-2. Click on the server name at the top of the channel list to open the dropdown menu.
-3. Select "Server Settings".
-4. In the "Server Settings" menu, go to the "Widget" tab.
-5. Enable the "Server Widget" option if it is not already enabled.
-6. The "Server ID" will be displayed under the "Widget" settings.
-
-Alternatively, you can enable Developer Mode to get the server ID:
-
-1. Go to your Discord user settings.
-2. Navigate to the "Advanced" tab under "App Settings".
-3. Enable "Developer Mode".
-4. Right-click on your server name in the server list.
-5. Select "Copy ID" to copy the server ID to your clipboard.
 
 ## 💬 Community Discussions
 
@@ -308,7 +364,7 @@ Need assistance with the bot? Here's how to get help:
 
 - Verify your `REDIS_URL` is correctly formatted
 - Test Redis connectivity independently
-- Redis is optional for basic functionality but recommended for production
+- Redis is now required for application functionality and data persistence
 
 ### Reporting Issues
 
