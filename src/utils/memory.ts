@@ -17,6 +17,11 @@ import { CacheOperations } from '../types/discord';
 import cachedData from './cache';
 
 /**
+ * Default TTL for cache entries (7 days in milliseconds)
+ */
+const DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
  * Sets a key-value pair in the cache with optional expiration time
  *
  * This function stores data in the cache with a configurable Time-To-Live (TTL).
@@ -40,8 +45,7 @@ import cachedData from './cache';
  */
 async function setKey(key: string, value: unknown, customTtl?: number): Promise<void> {
 	// Use custom TTL or default to 7 days for better memory management
-	// 7 days = 7 * 24 * 60 * 60 * 1000
-	const ttl = customTtl || 604800000;
+	const ttl = customTtl ?? DEFAULT_TTL_MS;
 	await cachedData.set(key, value, ttl);
 }
 

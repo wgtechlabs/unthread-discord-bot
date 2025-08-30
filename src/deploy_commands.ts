@@ -115,13 +115,35 @@ for (const folder of commandFolders) {
 			// Handle both CommonJS and ESM exports
 			const command = ('default' in mod ? mod.default : mod) as CommandModule;
 
-			// Validate command structure and add to deployment array
-			if ('data' in command && 'execute' in command) {
+			// Robust validation with explicit type checks
+			if (command &&
+				typeof command === 'object' &&
+				command.data &&
+				typeof command.data === 'object' &&
+				typeof command.data.toJSON === 'function' &&
+				typeof command.execute === 'function') {
+
 				commands.push(command.data.toJSON());
 				LogEngine.debug(`Loaded command from ${filePath}`);
 			}
 			else {
-				LogEngine.warn(`The command at ${filePath} is missing a required "data" or "execute" property.`);
+				// Enhanced error reporting with specific validation failures
+				const issues: string[] = [];
+				if (!command || typeof command !== 'object') {
+					issues.push('command is not an object');
+				}
+				else {
+					if (!command.data || typeof command.data !== 'object') {
+						issues.push('command.data is missing or not an object');
+					}
+					else if (typeof command.data.toJSON !== 'function') {
+						issues.push('command.data.toJSON is missing or not a function');
+					}
+					if (typeof command.execute !== 'function') {
+						issues.push('command.execute is missing or not a function');
+					}
+				}
+				LogEngine.warn(`Skipping invalid command at ${filePath}: ${issues.join(', ')}`);
 			}
 		}
 		catch (error) {

@@ -31,8 +31,19 @@ import { ThreadTicketMapping } from '../types/discord';
  * Preflight checks to ensure required environment variables are present
  */
 
-// Validate critical environment variables at module initialization
-function validateEnvironment(): void {
+/**
+ * Validates critical environment variables required for Unthread service
+ *
+ * @throws {Error} When required environment variables are missing
+ * @example
+ * ```typescript
+ * import { validateEnvironment } from './services/unthread';
+ *
+ * // Call during application initialization
+ * validateEnvironment();
+ * ```
+ */
+export function validateEnvironment(): void {
 	const requiredEnvVars = [
 		{ name: 'UNTHREAD_API_KEY', value: process.env.UNTHREAD_API_KEY },
 		{ name: 'UNTHREAD_SLACK_CHANNEL_ID', value: process.env.UNTHREAD_SLACK_CHANNEL_ID },
@@ -47,11 +58,8 @@ function validateEnvironment(): void {
 		throw new Error(`Missing required environment variables: ${missingNames}`);
 	}
 
-	LogEngine.info('Environment validation passed - all required variables are set');
+	LogEngine.info('Unthread environment validation passed - all required variables are set');
 }
-
-// Perform validation immediately when module is loaded
-validateEnvironment();
 
 /**
  * ==================== CUSTOMER MANAGEMENT FUNCTIONS ====================
@@ -125,39 +133,57 @@ export async function createTicket(user: User, title: string, issue: string, ema
 	LogEngine.info('POST https://api.unthread.io/api/conversations');
 	LogEngine.debug(`Payload: ${JSON.stringify(requestPayload)}`);
 
-	const response = await fetch('https://api.unthread.io/api/conversations', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'X-API-KEY': apiKey,
-		},
-		body: JSON.stringify(requestPayload),
-	});
+	// Setup timeout handling for request resilience
+	const abortController = new AbortController();
+	const timeoutMs = Number(process.env.UNTHREAD_HTTP_TIMEOUT_MS) || 15000;
+	const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
 
-	LogEngine.debug(`Response status: ${response.status}`);
+	try {
+		const response = await fetch('https://api.unthread.io/api/conversations', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-API-KEY': apiKey,
+			},
+			body: JSON.stringify(requestPayload),
+			signal: abortController.signal,
+		});
 
-	if (!response.ok) {
-		const errorText = await response.text();
-		LogEngine.error(`Failed to create ticket: ${response.status} - ${errorText}`);
-		throw new Error(`Failed to create ticket: ${response.status}`);
+		LogEngine.debug(`Response status: ${response.status}`);
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			LogEngine.error(`Failed to create ticket: ${response.status} - ${errorText}`);
+			throw new Error(`Failed to create ticket: ${response.status}`);
+		}
+
+		const data = await response.json();
+		LogEngine.info('Ticket created successfully:', data);
+
+		// Validate required fields in response
+		if (!data.id) {
+			LogEngine.error('Ticket response missing required \'id\' field:', data);
+			throw new Error('Ticket was created but response is missing required fields');
+		}
+
+		if (!data.friendlyId) {
+			LogEngine.error('Ticket response missing required \'friendlyId\' field:', data);
+			throw new Error('Ticket was created but friendlyId is missing');
+		}
+
+		LogEngine.info(`Created ticket ${data.friendlyId} (${data.id}) for user ${user.displayName || user.username}`);
+		return data as UnthreadTicket;
 	}
-
-	const data = await response.json();
-	LogEngine.info('Ticket created successfully:', data);
-
-	// Validate required fields in response
-	if (!data.id) {
-		LogEngine.error('Ticket response missing required \'id\' field:', data);
-		throw new Error('Ticket was created but response is missing required fields');
+	catch (error: unknown) {
+		if (error instanceof Error && error.name === 'AbortError') {
+			LogEngine.error(`Request to create ticket timed out after ${timeoutMs}ms`);
+			throw new Error('Request to create ticket timed out');
+		}
+		throw error;
 	}
-
-	if (!data.friendlyId) {
-		LogEngine.error('Ticket response missing required \'friendlyId\' field:', data);
-		throw new Error('Ticket was created but friendlyId is missing');
+	finally {
+		clearTimeout(timeoutId);
 	}
-
-	LogEngine.info(`Created ticket ${data.friendlyId} (${data.id}) for user ${user.displayName || user.username}`);
-	return data as UnthreadTicket;
 }
 
 /**
@@ -211,7 +237,10 @@ export async function getTicketByDiscordThreadId(discordThreadId: string): Promi
 	}
 
 	// Fallback to persistent storage (for older tickets)
-	mapping = (await getKey(`persistent:ticket:discord:${discordThreadId}`)) as ThreadTicketMapping | null;
+	// PATCH: Fixed persistent key retrieval to match storage namespace
+	// TODO: Remove when SDK migration replaces this caching layer
+	const persistentKey = `persistent:ticket:discord:${discordThreadId}`;
+	mapping = (await getKey(persistentKey)) as ThreadTicketMapping | null;
 
 	if (mapping) {
 		LogEngine.debug(`Found ticket mapping in persistent storage for Discord thread: ${discordThreadId}`);
@@ -241,7 +270,10 @@ export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Pro
 	}
 
 	// Fallback to persistent storage (for older tickets)
-	mapping = (await getKey(`persistent:ticket:unthread:${unthreadTicketId}`)) as ThreadTicketMapping | null;
+	// PATCH: Fixed persistent key retrieval to match storage namespace
+	// TODO: Remove when SDK migration replaces this caching layer
+	const persistentKey = `persistent:ticket:unthread:${unthreadTicketId}`;
+	mapping = (await getKey(persistentKey)) as ThreadTicketMapping | null;
 
 	if (mapping) {
 		LogEngine.debug(`Found ticket mapping in persistent storage for Unthread ticket: ${unthreadTicketId}`);

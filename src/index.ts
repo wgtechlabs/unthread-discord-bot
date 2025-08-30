@@ -55,6 +55,7 @@ import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import express from 'express';
 import { BotConfig } from './types/discord';
 import { webhookHandler } from './services/webhook';
+import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
 import { version } from '../package.json';
 import './types/global';
@@ -145,6 +146,9 @@ async function main(): Promise<void> {
 			LogEngine.error('Please ensure all required environment variables are set before starting the bot');
 			process.exit(1);
 		}
+
+		// Step 2: Validate Unthread-specific environment variables
+		validateEnvironment();
 
 		// Additional specific validation for critical variables
 		if (!DISCORD_BOT_TOKEN) {
@@ -363,12 +367,36 @@ try {
 				// Handle both CommonJS and ESM exports
 				const command = ('default' in mod ? mod.default : mod) as CommandModule;
 
-				if ('data' in command && 'execute' in command) {
+				// Robust validation with explicit type checks
+				if (command &&
+					typeof command === 'object' &&
+					command.data &&
+					typeof command.data === 'object' &&
+					typeof command.data.name === 'string' &&
+					command.data.name.trim() !== '' &&
+					typeof command.execute === 'function') {
+
 					client.commands.set(command.data.name, command);
 					// Individual command loading moved to summary for cleaner logs
 				}
 				else {
-					LogEngine.warn(`The command at ${filePath} is missing a required "data" or "execute" property.`);
+					// Enhanced error reporting with specific validation failures
+					const issues: string[] = [];
+					if (!command || typeof command !== 'object') {
+						issues.push('command is not an object');
+					}
+					else {
+						if (!command.data || typeof command.data !== 'object') {
+							issues.push('command.data is missing or not an object');
+						}
+						else if (typeof command.data.name !== 'string' || command.data.name.trim() === '') {
+							issues.push('command.data.name is missing or not a non-empty string');
+						}
+						if (typeof command.execute !== 'function') {
+							issues.push('command.execute is missing or not a function');
+						}
+					}
+					LogEngine.warn(`Skipping invalid command at ${filePath}: ${issues.join(', ')}`);
 				}
 			}
 			catch (error) {
