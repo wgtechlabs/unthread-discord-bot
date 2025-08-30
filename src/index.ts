@@ -268,9 +268,11 @@ const app = express();
  *
  * This middleware is specifically designed for webhook routes that require
  * raw body access for HMAC signature verification. It captures the raw body
- * while still parsing JSON for convenient access.
+ * while still parsing JSON for convenient access. Includes a 1MB body size
+ * limit for security protection against DoS attacks.
  */
 const rawBodyJsonMiddleware = express.json({
+	limit: '1mb',
 	verify: (req: WebhookRequest, _res: express.Response, buf: Buffer) => {
 		req.rawBody = buf.toString();
 	},
