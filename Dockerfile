@@ -1,13 +1,18 @@
 # =============================================================================
 # UNTHREAD DISCORD BOT - DOCKERFILE
 # =============================================================================
-# Simple Docker build for the Unthread Discord Bot
+# Production-ready Docker build for the Unthread Discord Bot with Yarn PnP support
 # 
-# This Dockerfile creates a production-ready container for the Discord bot
-# by copying pre-built application files and dependencies.
+# This Dockerfile requires Yarn Plug'n'Play configuration to work properly.
+# Before building, ensure your .yarnrc.yml uses PnP and run yarn install to
+# generate the required .pnp.cjs and .yarn artifacts.
+#
+# Prerequisites:
+#   1. Configure .yarnrc.yml with: nodeLinker: pnp
+#   2. Run: yarn install (generates .pnp.cjs and .yarn artifacts)
+#   3. Run: yarn build (builds the application)
 #
 # Usage:
-#   yarn build  # Build the application first
 #   docker build -t unthread-discord-bot .
 #   docker run --env-file .env -p 3000:3000 unthread-discord-bot
 # =============================================================================
@@ -35,9 +40,11 @@ WORKDIR /usr/src/app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S discordbot -u 1001 -G nodejs
 
-# Copy application files (assuming build has been run locally)
+# Copy application files and Yarn PnP artifacts (requires PnP configuration)
 COPY --chown=discordbot:nodejs package.json ./
-COPY --chown=discordbot:nodejs node_modules ./node_modules
+COPY --chown=discordbot:nodejs yarn.lock ./
+COPY --chown=discordbot:nodejs .pnp.cjs ./
+COPY --chown=discordbot:nodejs .yarn ./.yarn
 COPY --chown=discordbot:nodejs dist ./dist
 
 # Switch to non-root user
@@ -52,4 +59,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Use dumb-init for proper signal handling and start the application
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/index.js"]
+CMD ["yarn", "node", "dist/index.js"]

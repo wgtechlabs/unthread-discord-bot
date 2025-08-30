@@ -249,7 +249,9 @@ yarn deploycommand:dev
 
 For production deployments or containerized environments, you can use Docker to run the Unthread Discord Bot.
 
-### Prerequisites
+**Important for Yarn PnP Configurations**: When using Yarn with Plug'n'Play (PnP) mode instead of the default `node-modules` linker, Docker containers must include all Yarn PnP artifacts (`.pnp.cjs` file and `.yarn` directory with cache/plug'n'play data) and must invoke Node.js through Yarn (e.g., `yarn node` instead of direct `node` commands) to avoid "module not found" errors. When building your Docker image, ensure these PnP files are copied to the container, and update your `CMD`/`ENTRYPOINT` to use `yarn node dist/index.js` or ensure start scripts run through Yarn's runtime.
+
+### Docker Prerequisites
 
 - **Docker**: Version 20.10 or higher
 - **Docker Compose**: Version 2.0 or higher (comes with Docker Desktop)
