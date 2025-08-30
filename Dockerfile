@@ -21,6 +21,9 @@ RUN apk update && apk upgrade && \
     apk add --no-cache wget dumb-init && \
     rm -rf /var/cache/apk/*
 
+# Enable Corepack to make yarn and pnpm available
+RUN corepack enable
+
 # Set production environment
 ENV NODE_ENV=production \
     NODE_OPTIONS="--enable-source-maps --max-old-space-size=512"

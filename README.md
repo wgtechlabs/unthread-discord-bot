@@ -125,7 +125,7 @@ yarn start
 ### Prerequisites
 
 - **Node.js**: Version 18.16.0 or higher
-- **Yarn**: Version 4.9.2 (required for proper dependency management)
+- **Yarn**: Version 4.9.4 (required for proper dependency management)
 - **TypeScript**: Automatically managed via Yarn SDK
 - **Discord Application**: Bot token and proper permissions
 - **Unthread Account**: API access and configuration
@@ -198,7 +198,7 @@ yarn start
    yarn install
    ```
 
-   > **Note**: This project uses Yarn 4.9.2 with Plug'n'Play for efficient dependency management. Corepack ensures you're using the correct Yarn version.
+   > **Note**: This project uses Yarn 4.9.4 with Plug'n'Play for efficient dependency management. Corepack ensures you're using the correct Yarn version.
 
 3. Build the TypeScript project:
 
