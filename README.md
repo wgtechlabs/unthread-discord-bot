@@ -245,6 +245,101 @@ yarn build
 yarn deploycommand:dev
 ```
 
+## 📦 Docker Installation
+
+For production deployments or containerized environments, you can use Docker to run the Unthread Discord Bot.
+
+### Prerequisites
+
+- **Docker**: Version 20.10 or higher
+- **Docker Compose**: Version 2.0 or higher (comes with Docker Desktop)
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/wgtechlabs/unthread-discord-bot.git
+cd unthread-discord-bot
+```
+
+### 2. Configure Environment Variables
+
+1. Copy the example environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file with your actual configuration values (see [Environment Configuration](#4-fill-out-the-environment-files) above for details).
+
+### 3. Build and Run with Docker Compose
+
+1. Create the external network (required):
+
+   ```bash
+   docker network create unthread-integration-network
+   ```
+
+2. Build the application locally:
+
+   ```bash
+   # Enable Corepack for Yarn 4
+   corepack enable
+   
+   # Install dependencies
+   yarn install
+   
+   # Build the TypeScript application
+   yarn build
+   ```
+
+3. Start the services:
+
+   ```bash
+   docker compose up -d
+   ```
+
+   This will start:
+   - Discord bot application with webhook server
+   - Redis for caching and data persistence
+
+4. Check the status of services:
+
+   ```bash
+   docker compose ps
+   docker compose logs -f discord-bot
+   ```
+
+### 4. Docker Commands Reference
+
+```bash
+# Start services
+docker compose up -d
+
+# Stop services
+docker compose down
+
+# View logs
+docker compose logs -f discord-bot
+docker compose logs -f redis-platform
+
+# Rebuild and restart
+docker compose up -d --build
+
+# Remove all data (including Redis data)
+docker compose down -v
+```
+
+### 5. Production Deployment
+
+For production deployments:
+
+1. Use a reverse proxy (like Nginx) to handle SSL termination
+2. Configure proper logging and monitoring
+3. Set up automated backups for Redis data if needed
+4. Use Docker Swarm or Kubernetes for high availability
+
+> **Note**: The Docker setup uses a shared external network (`unthread-integration-network`) to allow future integration with other Unthread services.
+
 ### 6. Port Forwarding for Webhook (Development)
 
 For local development, you'll need to expose your webhook endpoint to receive events from Unthread:
