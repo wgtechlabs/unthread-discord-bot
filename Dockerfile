@@ -12,8 +12,14 @@
 #   docker run --env-file .env -p 3000:3000 unthread-discord-bot
 # =============================================================================
 
-# Use Node.js 18.17 LTS Alpine for compatibility and stability
-FROM node:18.17-alpine
+# Use Node.js 22.16 LTS Alpine with security patches
+ARG NODE_VERSION=22.16-alpine3.21
+FROM node:${NODE_VERSION}
+
+# Install security updates for Alpine packages
+RUN apk update && apk upgrade && \
+    apk add --no-cache wget dumb-init && \
+    rm -rf /var/cache/apk/*
 
 # Set production environment
 ENV NODE_ENV=production \
@@ -21,9 +27,6 @@ ENV NODE_ENV=production \
 
 # Set working directory
 WORKDIR /usr/src/app
-
-# Install wget for health checks
-RUN apk add --no-cache wget
 
 # Create a dedicated user for the application
 RUN addgroup -g 1001 -S nodejs && \
@@ -44,5 +47,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
-# Start the application
+# Use dumb-init for proper signal handling and start the application
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/index.js"]
