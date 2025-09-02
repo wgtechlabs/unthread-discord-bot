@@ -87,17 +87,44 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
 
 ## 🏗️ Architecture
 
-This bot is built with **TypeScript** for enhanced maintainability, type safety, and developer experience. The codebase follows clean coding principles and the KISS (Keep It Simple, Stupid) methodology for easy maintenance and extensibility.
+This bot is built with **TypeScript** for enhanced maintainability, type safety, and developer experience. The codebase follows clean coding principles and implements a modern **3-layer data persistence architecture** for optimal performance and reliability.
+
+### 🚀 New 3-Layer Storage Architecture
+
+**Layer 1 (L1): In-Memory Cache**
+- Ultra-fast access for frequently used data
+- LRU eviction policy to manage memory efficiently
+- Automatic cache warming from lower layers
+
+**Layer 2 (L2): Redis Cache**
+- Distributed cache for persistence across restarts
+- Fast lookup with millisecond response times
+- Shared between application instances
+
+**Layer 3 (L3): PostgreSQL Database**
+- Primary source of truth for all data
+- ACID compliance and data integrity
+- Complex queries and reporting capabilities
 
 ### Technology Stack
 
 - **TypeScript**: For type safety and better code maintainability
 - **Discord.js v14**: Modern Discord API interactions
-- **Express.js**: Webhook server for Unthread integration
+- **Express.js**: RESTful API server with comprehensive monitoring
 - **Node.js 18+**: Runtime environment
 - **Yarn with PnP**: Package management and dependency resolution
 - **ESLint**: Code quality and consistent formatting
-- **Redis**: Required for caching and data persistence
+
+**Storage & Performance:**
+- **PostgreSQL**: Primary database with full ACID compliance
+- **Redis**: High-performance L2 cache and queue management
+- **BullMQ**: Robust job queue system for webhook processing
+- **IORedis**: High-performance Redis client with cluster support
+
+**Infrastructure:**
+- **Docker Compose**: Complete local development environment
+- **Health Monitoring**: Comprehensive health checks and metrics
+- **Queue Processing**: Async webhook handling with retry logic
 
 ### Build System
 
@@ -115,6 +142,54 @@ yarn deploycommand
 
 # Production start
 yarn start
+
+# Linting
+yarn lint
+yarn lint:fix
+```
+
+### 🐳 Local Development with Docker
+
+For the complete development experience with all dependencies:
+
+```bash
+# Start all services (PostgreSQL, Redis, Bot)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f discord-bot
+
+# Stop all services
+docker-compose down
+
+# Reset all data
+docker-compose down -v
+```
+
+### 📊 Monitoring & Health Checks
+
+The bot provides comprehensive monitoring endpoints:
+
+- **GET /health** - Overall system health (Discord + Storage layers)
+- **GET /webhook/health** - Queue system health and metrics
+- **GET /webhook/metrics** - Detailed processing statistics
+- **POST /webhook/retry** - Manual retry of failed webhook jobs
+
+Example health check response:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "services": {
+    "discord": "connected",
+    "storage": "healthy",
+    "storage_layers": {
+      "memory": true,
+      "redis": true,
+      "postgres": true
+    }
+  }
+}
 ```
 
 ## 📦 Manual Installation
@@ -166,23 +241,45 @@ yarn start
 
 > **Note**: The bot requires these specific permissions to create and manage threads for ticket handling. Missing permissions may cause functionality issues.
 
-### 4. Fill Out the Environment Files
+### 4. Setup Storage Dependencies
+
+**For Docker Compose (Recommended):**
+```bash
+# Use the provided Docker Compose configuration
+docker-compose up -d postgres redis-cache redis-queue
+```
+
+**For Manual Setup:**
+- **PostgreSQL 16+**: Required for L3 persistent storage
+- **Redis 7+**: Required for L2 cache and queue processing
+
+### 5. Fill Out the Environment Files
 
 1. Create a `.env` file in the root directory of your project.
 2. Copy the contents of `.env.example` to `.env`.
 3. Fill in the required information:
+
+**Discord Configuration:**
    - `DISCORD_BOT_TOKEN`: The token you copied from the "Bot" tab.
    - `CLIENT_ID`: Your application's client ID, found in the "General Information" tab.
    - `GUILD_ID`: The ID of the Discord server where you want to deploy the bot. [How to Get Your Discord Server ID](#how-to-get-your-discord-server-id)
+
+**Unthread Configuration:**
    - `UNTHREAD_API_KEY`: Your Unthread API key.
    - `UNTHREAD_SLACK_CHANNEL_ID`: Your Unthread Slack channel ID for ticket routing.
    - `UNTHREAD_WEBHOOK_SECRET`: Your Unthread webhook secret.
-   - `REDIS_URL`: Redis connection URL for caching and data persistence (required).
+
+**Storage Configuration (3-Layer Architecture):**
+   - `DATABASE_URL`: PostgreSQL connection string (e.g., `postgres://user:password@localhost:5432/database`)
+   - `REDIS_CACHE_URL`: Redis cache connection URL (e.g., `redis://localhost:6379`)
+   - `REDIS_QUEUE_URL`: Redis queue connection URL (e.g., `redis://localhost:6380`) - Optional, defaults to cache URL
+
+**Optional Configuration:**
    - `FORUM_CHANNEL_IDS`: Comma-separated list of forum channel IDs for automatic ticket creation.
    - `DEBUG_MODE`: Set to `true` for verbose logging during development (default: `false`).
    - `PORT`: Port for the webhook server (default: `3000`).
 
-### 5. Install and Run the Project Locally
+### 6. Install and Run the Project Locally
 
 1. Clone the repository and navigate to the project directory:
 

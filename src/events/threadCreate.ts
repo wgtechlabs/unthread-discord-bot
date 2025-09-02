@@ -134,7 +134,7 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 
 		// Retrieve or create customer using the new customerUtils module.
 		const customer = await getOrCreateCustomer(author, `${author.username}@discord.user`);
-		const email = customer.email;
+		const email = customer.email || `${author.username}@discord.user`;
 
 		// Create a support ticket in Unthread using the forum post details.
 		const ticket = await createTicket(author, title, content, email);

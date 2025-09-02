@@ -1,33 +1,20 @@
 /**
- * Customer Utilities Module
+ * Customer Utilities Module - Updated for 3-Layer Architecture
  *
  * This module provides utility functions for working with customer data
- * including caching, retrieval and creation of customer records.
+ * using the new BotsStore 3-layer storage system.
  *
  * The functions handle the integration between Discord users and Unthread customers,
  * maintaining a consistent mapping between the two systems and managing
- * customer-related data persistence.
+ * customer-related data persistence through the unified storage engine.
  */
 
-import { setKey, getKey } from './memory';
+import { BotsStore, Customer } from '../sdk/bots-brain/BotsStore';
 import { LogEngine } from '../config/logger';
 import { User } from 'discord.js';
 
-/**
- * Customer record combining Discord user data with Unthread customer information
- */
-export interface Customer {
-    /** Discord user ID (unique identifier in Discord) */
-    discordId: string;
-    /** Discord username (not display name) */
-    discordUsername: string;
-    /** Discord display name or username as fallback */
-    discordName: string;
-    /** Unthread customer ID (unique identifier in Unthread system) */
-    customerId: string;
-    /** Customer email address */
-    email: string;
-}
+// Re-export Customer interface for backward compatibility
+export { Customer } from '../sdk/bots-brain/BotsStore';
 
 /**
  * Creates a new customer in Unthread's system based on Discord user information
@@ -76,10 +63,10 @@ async function createCustomerInUnthread(user: User): Promise<string> {
 }
 
 /**
- * Retrieves or creates a customer record for a Discord user
+ * Retrieves or creates a customer record for a Discord user using BotsStore
  *
  * This is the main function for customer management, handling:
- * 1. Cache lookup for existing customer records
+ * 1. BotsStore lookup for existing customer records (3-layer cache)
  * 2. Creation of new customer records when needed
  * 3. Proper storage of customer data with Discord and Unthread IDs
  *
@@ -91,12 +78,12 @@ async function createCustomerInUnthread(user: User): Promise<string> {
  * @returns Customer data object with Discord and Unthread IDs
  * @throws {Error} When invalid user object is provided (missing id)
  * @throws {Error} When customer creation in Unthread fails
- * @throws {Error} When cache operations fail
+ * @throws {Error} When storage operations fail
  *
  * @example
  * ```typescript
  * const customer = await getOrCreateCustomer(discordUser, 'user@example.com');
- * console.log(`Customer ID: ${customer.customerId}`);
+ * console.log(`Customer ID: ${customer.unthreadCustomerId}`);
  * ```
  */
 export async function getOrCreateCustomer(user: User, email: string = ''): Promise<Customer> {
@@ -104,87 +91,70 @@ export async function getOrCreateCustomer(user: User, email: string = ''): Promi
 		throw new Error('Invalid user object provided to getOrCreateCustomer');
 	}
 
-	const key = `customer:${user.id}`;
-	let customer = await getKey(key) as Customer | null;
+	try {
+		const botsStore = BotsStore.getInstance();
+		
+		// Try to get existing customer from BotsStore (3-layer lookup)
+		let customer = await botsStore.getCustomerByDiscordId(user.id);
 
-	if (customer) {
-		LogEngine.debug(`Found cached customer for Discord user ${user.id}`);
+		if (customer) {
+			LogEngine.debug(`Found existing customer for Discord user ${user.id}`);
+			return customer;
+		}
+
+		// Create new customer in Unthread if not found
+		LogEngine.info(`Creating new customer for Discord user ${user.id}`);
+		const unthreadCustomerId = await createCustomerInUnthread(user);
+
+		// Store customer using BotsStore
+		customer = await botsStore.storeCustomer(user, email, unthreadCustomerId);
+		
+		LogEngine.info(`Customer created and stored: Discord ${user.id} -> Unthread ${unthreadCustomerId}`);
 		return customer;
+
+	} catch (error) {
+		LogEngine.error('Error in getOrCreateCustomer:', error);
+		throw error;
 	}
-
-	// Customer not found in cache, create a new one
-	LogEngine.debug(`Creating new customer record for Discord user ${user.id}`);
-	const customerId = await createCustomerInUnthread(user);
-
-	// Construct customer object with both Discord and Unthread identifiers
-	customer = {
-		discordId: user.id,
-		discordUsername: user.username,
-		discordName: user.displayName || user.username,
-		customerId,
-		email: email || '',
-	};
-
-	// Store customer in cache for future lookups
-	await setKey(key, customer);
-	LogEngine.info(`Created new customer record for ${user.username} (${user.id})`);
-	return customer;
 }
 
 /**
- * Retrieves a customer record by Discord user ID
+ * Retrieves a customer by Discord ID using BotsStore
  *
- * This is a lightweight lookup function that doesn't create a customer
- * if one doesn't exist. Use this when you only need to check if a
- * customer record exists but don't want to create one.
+ * This function performs a lookup in the 3-layer storage system for an existing
+ * customer record based on their Discord ID.
  *
- * @param discordId - Discord user ID
+ * @param discordId - Discord user ID to look up
  * @returns Customer data object or null if not found
+ * @throws {Error} When storage operations fail
  *
  * @example
  * ```typescript
  * const customer = await getCustomerByDiscordId('123456789');
  * if (customer) {
- *   console.log(`Found customer: ${customer.email}`);
+ *   console.log(`Found customer: ${customer.unthreadCustomerId}`);
  * }
  * ```
  */
 export async function getCustomerByDiscordId(discordId: string): Promise<Customer | null> {
 	if (!discordId) {
-		return null;
-	}
-	return (await getKey(`customer:${discordId}`)) as Customer | null;
-}
-
-/**
- * Updates a customer record in the cache
- *
- * Use this to update customer properties like email address
- * or any other customer-related data that changes over time.
- *
- * Note: This only updates the local cache, not the Unthread API.
- * For Unthread API updates, additional API calls would be needed.
- *
- * @param customer - Customer object to update
- * @returns Updated customer object
- * @throws {Error} When invalid customer object is provided (missing discordId)
- * @throws {Error} When cache operations fail
- *
- * @example
- * ```typescript
- * const updatedCustomer = await updateCustomer({
- *   ...existingCustomer,
- *   email: 'newemail@example.com'
- * });
- * ```
- */
-export async function updateCustomer(customer: Customer): Promise<Customer> {
-	if (!customer || !customer.discordId) {
-		throw new Error('Invalid customer object provided to updateCustomer');
+		throw new Error('Discord ID is required');
 	}
 
-	const key = `customer:${customer.discordId}`;
-	await setKey(key, customer);
-	LogEngine.debug(`Updated customer record for ${customer.discordUsername} (${customer.discordId})`);
-	return customer;
+	try {
+		const botsStore = BotsStore.getInstance();
+		const customer = await botsStore.getCustomerByDiscordId(discordId);
+		
+		if (customer) {
+			LogEngine.debug(`Retrieved customer for Discord ID ${discordId}`);
+		} else {
+			LogEngine.debug(`No customer found for Discord ID ${discordId}`);
+		}
+		
+		return customer;
+
+	} catch (error) {
+		LogEngine.error('Error in getCustomerByDiscordId:', error);
+		throw error;
+	}
 }
