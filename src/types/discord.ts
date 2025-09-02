@@ -54,7 +54,13 @@ export interface BotConfig {
 	/** Secret for verifying Unthread webhook signatures */
 	UNTHREAD_WEBHOOK_SECRET: string;
 	/** Redis connection URL for caching and data persistence (required) */
-	REDIS_URL: string;
+	REDIS_URL?: string; // Legacy support
+	/** PostgreSQL database URL for L3 storage (required) */
+	DATABASE_URL: string;
+	/** Redis cache URL for L2 storage (required) */
+	REDIS_CACHE_URL: string;
+	/** Redis queue URL for webhook processing (optional) */
+	REDIS_QUEUE_URL?: string;
 	/** Comma-separated list of forum channel IDs for auto-ticket creation (optional) */
 	FORUM_CHANNEL_IDS?: string;
 	/** Enable verbose logging for development (optional) */
