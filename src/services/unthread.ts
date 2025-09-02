@@ -205,19 +205,20 @@ export async function createTicket(user: User, title: string, issue: string, ema
 export async function bindTicketWithThread(unthreadTicketId: string, discordThreadId: string): Promise<void> {
 	try {
 		const botsStore = BotsStore.getInstance();
-		
+
 		const mapping: ExtendedThreadTicketMapping = {
 			unthreadTicketId,
 			discordThreadId,
 			createdAt: new Date().toISOString(),
-			status: 'active'
+			status: 'active',
 		};
 
 		// Store using BotsStore 3-layer architecture
 		await botsStore.storeThreadTicketMapping(mapping);
 
 		LogEngine.info(`Bound Discord thread ${discordThreadId} with Unthread ticket ${unthreadTicketId} using 3-layer storage`);
-	} catch (error) {
+	}
+	catch (error) {
 		LogEngine.error('Error binding ticket with thread:', error);
 		throw error;
 	}
@@ -242,15 +243,17 @@ export async function getTicketByDiscordThreadId(discordThreadId: string): Promi
 	try {
 		const botsStore = BotsStore.getInstance();
 		const mapping = await botsStore.getThreadTicketMapping(discordThreadId);
-		
+
 		if (mapping) {
 			LogEngine.debug(`Found ticket mapping for Discord thread: ${discordThreadId}`);
-		} else {
+		}
+		else {
 			LogEngine.debug(`No ticket mapping found for Discord thread: ${discordThreadId}`);
 		}
-		
+
 		return mapping;
-	} catch (error) {
+	}
+	catch (error) {
 		LogEngine.error('Error retrieving ticket mapping by Discord thread ID:', error);
 		return null;
 	}
@@ -275,15 +278,17 @@ export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Pro
 	try {
 		const botsStore = BotsStore.getInstance();
 		const mapping = await botsStore.getMappingByTicketId(unthreadTicketId);
-		
+
 		if (mapping) {
 			LogEngine.debug(`Found ticket mapping for Unthread ticket: ${unthreadTicketId}`);
-		} else {
+		}
+		else {
 			LogEngine.debug(`No ticket mapping found for Unthread ticket: ${unthreadTicketId}`);
 		}
-		
+
 		return mapping;
-	} catch (error) {
+	}
+	catch (error) {
 		LogEngine.error('Error retrieving ticket mapping:', error);
 		return null;
 	}
@@ -419,8 +424,10 @@ async function handleMessageCreated(data: any): Promise<void> {
 			conversationId,
 			{
 				maxAttempts: 3,
-				maxRetryWindow: 10000, // 10 seconds - reasonable for new ticket creation
-				baseDelayMs: 1000,     // 1 second base delay
+				// 10 seconds - reasonable for new ticket creation
+				maxRetryWindow: 10000,
+				// 1 second base delay
+				baseDelayMs: 1000,
 			},
 		);
 

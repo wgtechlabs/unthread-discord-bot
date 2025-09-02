@@ -93,7 +93,7 @@ export async function getOrCreateCustomer(user: User, email: string = ''): Promi
 
 	try {
 		const botsStore = BotsStore.getInstance();
-		
+
 		// Try to get existing customer from BotsStore (3-layer lookup)
 		let customer = await botsStore.getCustomerByDiscordId(user.id);
 
@@ -108,11 +108,12 @@ export async function getOrCreateCustomer(user: User, email: string = ''): Promi
 
 		// Store customer using BotsStore
 		customer = await botsStore.storeCustomer(user, email, unthreadCustomerId);
-		
+
 		LogEngine.info(`Customer created and stored: Discord ${user.id} -> Unthread ${unthreadCustomerId}`);
 		return customer;
 
-	} catch (error) {
+	}
+	catch (error) {
 		LogEngine.error('Error in getOrCreateCustomer:', error);
 		throw error;
 	}
@@ -144,16 +145,18 @@ export async function getCustomerByDiscordId(discordId: string): Promise<Custome
 	try {
 		const botsStore = BotsStore.getInstance();
 		const customer = await botsStore.getCustomerByDiscordId(discordId);
-		
+
 		if (customer) {
 			LogEngine.debug(`Retrieved customer for Discord ID ${discordId}`);
-		} else {
+		}
+		else {
 			LogEngine.debug(`No customer found for Discord ID ${discordId}`);
 		}
-		
+
 		return customer;
 
-	} catch (error) {
+	}
+	catch (error) {
 		LogEngine.error('Error in getCustomerByDiscordId:', error);
 		throw error;
 	}

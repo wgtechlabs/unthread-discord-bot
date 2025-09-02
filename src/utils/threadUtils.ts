@@ -3,8 +3,8 @@
  *
  * This module provides utility functions for working with Discord threads
  * and mapping them to Unthread tickets using the new BotsStore 3-layer storage system.
- * 
- * The utilities consolidate common operations like finding threads by ticket ID and 
+ *
+ * The utilities consolidate common operations like finding threads by ticket ID and
  * error handling patterns, now leveraging the unified storage engine for improved
  * performance and reliability.
  *
@@ -151,8 +151,10 @@ export async function findDiscordThreadByTicketIdWithRetry(
 ): Promise<{ ticketMapping: ExtendedThreadTicketMapping; discordThread: ThreadChannel }> {
 	const {
 		maxAttempts = 3,
-		maxRetryWindow = 10000, // 10 seconds
-		baseDelayMs = 1000,     // 1 second
+		// 10 seconds
+		maxRetryWindow = 10000,
+		// 1 second
+		baseDelayMs = 1000,
 	} = options;
 
 	const startTime = Date.now();
@@ -183,8 +185,10 @@ export async function findDiscordThreadByTicketIdWithRetry(
 			if (!isLastAttempt && withinRetryWindow && lastWasMappingError) {
 				// Exponential backoff with jitter: base * 2^(attempt-1) + random jitter
 				const exponentialDelay = baseDelayMs * Math.pow(2, attempt - 1);
-				const jitter = Math.random() * baseDelayMs * 0.1; // 10% jitter
-				const delay = Math.min(exponentialDelay + jitter, 5000); // Cap at 5 seconds
+				// 10% jitter
+				const jitter = Math.random() * baseDelayMs * 0.1;
+				// Cap at 5 seconds
+				const delay = Math.min(exponentialDelay + jitter, 5000);
 
 				LogEngine.debug(`Mapping not found for ticket ${unthreadTicketId}, attempt ${attempt}/${maxAttempts}. Retrying in ${Math.round(delay)}ms... (${timeSinceStart}ms since start)`);
 
@@ -284,7 +288,7 @@ export async function findDiscordThreadByTicketId(
 ): Promise<{ ticketMapping: ExtendedThreadTicketMapping; discordThread: ThreadChannel }> {
 	try {
 		const botsStore = BotsStore.getInstance();
-		
+
 		// Get the ticket mapping using BotsStore (3-layer lookup)
 		const ticketMapping = await botsStore.getMappingByTicketId(unthreadTicketId);
 		if (!ticketMapping) {

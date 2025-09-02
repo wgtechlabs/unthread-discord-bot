@@ -3,7 +3,7 @@
  *
  * This service handles incoming webhook requests from Unthread and routes them
  * to a queue-based processing system for reliable, scalable event handling.
- * 
+ *
  * Key Changes from Legacy System:
  * - Asynchronous processing via Redis queues
  * - Immediate HTTP response to prevent timeouts
@@ -56,7 +56,8 @@ export async function initializeWebhookService(): Promise<void> {
 	try {
 		queueProcessor = await QueueProcessor.initialize();
 		LogEngine.info('Webhook service initialized with queue-based processing');
-	} catch (error) {
+	}
+	catch (error) {
 		LogEngine.error('Failed to initialize webhook service:', error);
 		throw error;
 	}
@@ -74,7 +75,7 @@ export async function initializeWebhookService(): Promise<void> {
  */
 function verifySignature(req: WebhookRequest): boolean {
 	const { UNTHREAD_WEBHOOK_SECRET } = process.env;
-	
+
 	if (!UNTHREAD_WEBHOOK_SECRET) {
 		LogEngine.error('UNTHREAD_WEBHOOK_SECRET is not configured');
 		return false;
@@ -93,13 +94,14 @@ function verifySignature(req: WebhookRequest): boolean {
 			.digest('hex');
 
 		const expected = `sha256=${expectedSignature}`;
-		
+
 		// Use constant-time comparison to prevent timing attacks
 		return crypto.timingSafeEqual(
 			Buffer.from(signature),
-			Buffer.from(expected)
+			Buffer.from(expected),
 		);
-	} catch (error) {
+	}
+	catch (error) {
 		LogEngine.error('Signature verification error:', error);
 		return false;
 	}
@@ -113,24 +115,24 @@ function getEventPriority(payload: WebhookPayload): 'low' | 'normal' | 'high' {
 	const highPriorityEvents = [
 		'ticket.priority.changed',
 		'ticket.status.urgent',
-		'customer.escalation'
+		'customer.escalation',
 	];
-	
+
 	// Low priority events that can be processed later
 	const lowPriorityEvents = [
 		'ticket.tag.added',
 		'ticket.tag.removed',
-		'customer.metadata.updated'
+		'customer.metadata.updated',
 	];
-	
+
 	if (highPriorityEvents.includes(payload.event)) {
 		return 'high';
 	}
-	
+
 	if (lowPriorityEvents.includes(payload.event)) {
 		return 'low';
 	}
-	
+
 	return 'normal';
 }
 
@@ -166,10 +168,11 @@ async function webhookHandler(req: Request, res: Response): Promise<void> {
 	if (event === 'url_verification') {
 		LogEngine.info('URL verification webhook received');
 		const challenge = (body as UrlVerificationPayload).challenge;
-		
+
 		if (challenge) {
 			res.status(200).json({ challenge });
-		} else {
+		}
+		else {
 			res.sendStatus(200);
 		}
 		return;
@@ -186,30 +189,31 @@ async function webhookHandler(req: Request, res: Response): Promise<void> {
 	try {
 		const webhookPayload = body as WebhookPayload;
 		const priority = getEventPriority(webhookPayload);
-		
+
 		const jobId = await queueProcessor.addWebhookEvent(webhookPayload, {
 			priority,
-			source: 'webhook'
+			source: 'webhook',
 		});
-		
+
 		LogEngine.info(`Webhook event queued successfully: ${event} (Job ID: ${jobId}, Priority: ${priority})`);
-		
+
 		// Return immediate success to prevent webhook timeouts
-		res.status(200).json({ 
+		res.status(200).json({
 			status: 'queued',
 			jobId,
 			event,
-			priority
+			priority,
 		});
-		
-	} catch (error) {
+
+	}
+	catch (error) {
 		LogEngine.error('Failed to queue webhook event:', error);
-		
+
 		// Still return 200 to prevent webhook retries for application errors
 		// The error will be logged and can be investigated separately
-		res.status(200).json({ 
+		res.status(200).json({
 			status: 'error',
-			message: 'Event received but processing failed'
+			message: 'Event received but processing failed',
 		});
 	}
 }
@@ -222,17 +226,17 @@ async function webhookHealthCheck(_req: Request, res: Response): Promise<void> {
 		if (!queueProcessor) {
 			res.status(503).json({
 				status: 'unhealthy',
-				error: 'Queue processor not initialized'
+				error: 'Queue processor not initialized',
 			});
 			return;
 		}
-		
+
 		const health = await queueProcessor.getHealth();
 		const metrics = await queueProcessor.getMetrics();
-		
-		const httpStatus = health.status === 'healthy' ? 200 : 
+
+		const httpStatus = health.status === 'healthy' ? 200 :
 						 health.status === 'degraded' ? 200 : 503;
-		
+
 		res.status(httpStatus).json({
 			status: health.status,
 			timestamp: new Date().toISOString(),
@@ -244,15 +248,16 @@ async function webhookHealthCheck(_req: Request, res: Response): Promise<void> {
 				activeJobs: metrics.activeJobs,
 				waitingJobs: metrics.waitingJobs,
 				errorRate: metrics.errorRate.toFixed(2) + '%',
-				avgProcessingTime: metrics.processingTime.toFixed(2) + 'ms'
-			}
+				avgProcessingTime: metrics.processingTime.toFixed(2) + 'ms',
+			},
 		});
-		
-	} catch (error) {
+
+	}
+	catch (error) {
 		LogEngine.error('Webhook health check failed:', error);
 		res.status(503).json({
 			status: 'unhealthy',
-			error: 'Health check failed'
+			error: 'Health check failed',
 		});
 	}
 }
@@ -266,11 +271,12 @@ async function webhookMetrics(_req: Request, res: Response): Promise<void> {
 			res.status(503).json({ error: 'Queue processor not initialized' });
 			return;
 		}
-		
+
 		const metrics = await queueProcessor.getMetrics();
 		res.json(metrics);
-		
-	} catch (error) {
+
+	}
+	catch (error) {
 		LogEngine.error('Failed to get webhook metrics:', error);
 		res.status(500).json({ error: 'Failed to retrieve metrics' });
 	}
@@ -285,17 +291,18 @@ async function retryFailedWebhooks(req: Request, res: Response): Promise<void> {
 			res.status(503).json({ error: 'Queue processor not initialized' });
 			return;
 		}
-		
+
 		const limit = parseInt(req.query.limit as string) || 10;
 		const retriedCount = await queueProcessor.retryFailedJobs(limit);
-		
+
 		res.json({
 			success: true,
 			retriedCount,
-			message: `${retriedCount} failed jobs requeued for processing`
+			message: `${retriedCount} failed jobs requeued for processing`,
 		});
-		
-	} catch (error) {
+
+	}
+	catch (error) {
 		LogEngine.error('Failed to retry webhook jobs:', error);
 		res.status(500).json({ error: 'Failed to retry jobs' });
 	}
@@ -304,9 +311,9 @@ async function retryFailedWebhooks(req: Request, res: Response): Promise<void> {
 /**
  * Webhook service exports
  */
-export { 
+export {
 	webhookHandler,
 	webhookHealthCheck,
 	webhookMetrics,
-	retryFailedWebhooks
+	retryFailedWebhooks,
 };

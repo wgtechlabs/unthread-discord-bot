@@ -78,17 +78,17 @@ async function validateStartupRequirements(): Promise<void> {
 		// Initialize and test the new storage architecture
 		const botsStore = await BotsStore.initialize();
 		const health = await botsStore.healthCheck();
-		
+
 		if (!health.memory || !health.redis || !health.postgres) {
 			throw new Error('Storage layer health check failed');
 		}
-		
+
 		LogEngine.info('3-layer storage architecture validated successfully');
-		
+
 		// Initialize webhook service with queue processing
 		await initializeWebhookService();
 		LogEngine.info('Queue-based webhook processing initialized');
-		
+
 		LogEngine.info('All startup requirements validated successfully');
 	}
 	catch (error) {
@@ -107,27 +107,29 @@ async function checkStorageHealth(): Promise<{ status: 'healthy' | 'degraded' | 
 	try {
 		const botsStore = BotsStore.getInstance();
 		const health = await botsStore.healthCheck();
-		
+
 		const healthyLayers = Object.values(health).filter(h => h).length;
 		const totalLayers = Object.keys(health).length;
-		
+
 		let status: 'healthy' | 'degraded' | 'unhealthy';
 		if (healthyLayers === totalLayers) {
 			status = 'healthy';
-		} else if (healthyLayers > 0) {
+		}
+		else if (healthyLayers > 0) {
 			status = 'degraded';
-		} else {
+		}
+		else {
 			status = 'unhealthy';
 		}
-		
+
 		return { status, layers: health };
 	}
 	catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown storage error';
-		return { 
-			status: 'unhealthy', 
+		return {
+			status: 'unhealthy',
 			layers: { memory: false, redis: false, postgres: false },
-			error: errorMessage 
+			error: errorMessage,
 		};
 	}
 }
@@ -146,14 +148,14 @@ async function main(): Promise<void> {
 	try {
 		// Step 1: Load and validate environment variables
 		const requiredEnvVars = [
-			'DISCORD_BOT_TOKEN', 
-			'CLIENT_ID', 
-			'GUILD_ID', 
-			'UNTHREAD_API_KEY', 
-			'UNTHREAD_SLACK_CHANNEL_ID', 
+			'DISCORD_BOT_TOKEN',
+			'CLIENT_ID',
+			'GUILD_ID',
+			'UNTHREAD_API_KEY',
+			'UNTHREAD_SLACK_CHANNEL_ID',
 			'UNTHREAD_WEBHOOK_SECRET',
 			'DATABASE_URL',
-			'REDIS_CACHE_URL'
+			'REDIS_CACHE_URL',
 		];
 		const { DISCORD_BOT_TOKEN, DATABASE_URL, REDIS_CACHE_URL } = process.env as Partial<BotConfig>;
 
@@ -339,17 +341,19 @@ app.get('/health', async (_req: express.Request, res: express.Response) => {
 	try {
 		// Perform comprehensive storage health check
 		const storageHealth = await checkStorageHealth();
-		
+
 		// Check Discord client status
 		const discordStatus = client.isReady() ? 'connected' : 'disconnected';
-		
+
 		// Overall status logic
 		let overallStatus: 'healthy' | 'degraded' | 'unhealthy';
 		if (storageHealth.status === 'healthy' && discordStatus === 'connected') {
 			overallStatus = 'healthy';
-		} else if (storageHealth.status === 'unhealthy' || discordStatus === 'disconnected') {
+		}
+		else if (storageHealth.status === 'unhealthy' || discordStatus === 'disconnected') {
 			overallStatus = 'unhealthy';
-		} else {
+		}
+		else {
 			overallStatus = 'degraded';
 		}
 
@@ -362,9 +366,9 @@ app.get('/health', async (_req: express.Request, res: express.Response) => {
 			services: {
 				discord: discordStatus,
 				storage: storageHealth.status,
-				storage_layers: storageHealth.layers
+				storage_layers: storageHealth.layers,
 			},
-			error: storageHealth.error
+			error: storageHealth.error,
 		});
 	}
 	catch (error) {
@@ -373,7 +377,7 @@ app.get('/health', async (_req: express.Request, res: express.Response) => {
 			status: 'unhealthy',
 			timestamp: new Date().toISOString(),
 			version,
-			error: 'Health check failed'
+			error: 'Health check failed',
 		});
 	}
 });
@@ -392,8 +396,8 @@ app.get('/', (_req: express.Request, res: express.Response) => {
 			health: '/health',
 			webhook_health: '/webhook/health',
 			webhook_metrics: '/webhook/metrics',
-			webhook_retry: '/webhook/retry'
-		}
+			webhook_retry: '/webhook/retry',
+		},
 	});
 });
 

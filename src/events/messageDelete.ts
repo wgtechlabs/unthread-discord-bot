@@ -18,7 +18,7 @@ export async function execute(message: Message): Promise<void> {
 	try {
 		// Cache the deleted message for moderation purposes using BotsStore
 		const botsStore = BotsStore.getInstance();
-		
+
 		// Store individual deleted message details
 		// Key format: deleted:{messageId}
 		// TTL: 5 minutes (300 seconds)
