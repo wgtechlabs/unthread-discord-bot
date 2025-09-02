@@ -24,7 +24,9 @@
  * - UNTHREAD_API_KEY: API key for Unthread integration
  * - UNTHREAD_SLACK_CHANNEL_ID: Slack channel ID for ticket routing
  * - UNTHREAD_WEBHOOK_SECRET: Secret for webhook signature verification
- * - REDIS_URL: Redis connection URL for caching and data persistence (required)
+ * - DATABASE_URL: PostgreSQL connection URL for L3 persistent storage (required)
+ * - PLATFORM_REDIS_URL: Redis connection URL for L2 cache layer (required)
+ * - WEBHOOK_REDIS_URL: Redis connection URL for webhook queue processing (required)
  * - FORUM_CHANNEL_IDS: Comma-separated list of forum channel IDs for automatic ticket creation (optional)
  * - DEBUG_MODE: Enable verbose logging during development (optional, defaults to false)
  * - PORT: Port for webhook server (optional, defaults to 3000)
@@ -155,9 +157,10 @@ async function main(): Promise<void> {
 			'UNTHREAD_SLACK_CHANNEL_ID',
 			'UNTHREAD_WEBHOOK_SECRET',
 			'DATABASE_URL',
-			'REDIS_CACHE_URL',
+			'PLATFORM_REDIS_URL',
+			'WEBHOOK_REDIS_URL',
 		];
-		const { DISCORD_BOT_TOKEN, DATABASE_URL, REDIS_CACHE_URL } = process.env as Partial<BotConfig>;
+		const { DISCORD_BOT_TOKEN, DATABASE_URL, PLATFORM_REDIS_URL } = process.env as Partial<BotConfig>;
 
 		const missingVars: string[] = [];
 
@@ -190,8 +193,8 @@ async function main(): Promise<void> {
 			process.exit(1);
 		}
 
-		if (!REDIS_CACHE_URL) {
-			LogEngine.error('REDIS_CACHE_URL is required for L2 cache layer');
+		if (!PLATFORM_REDIS_URL) {
+			LogEngine.error('PLATFORM_REDIS_URL is required for L2 cache layer');
 			LogEngine.error('Please provide a valid Redis connection URL (e.g., redis://localhost:6379)');
 			process.exit(1);
 		}

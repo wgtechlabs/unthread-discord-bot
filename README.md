@@ -271,8 +271,8 @@ docker-compose up -d postgres redis-cache redis-queue
 
 **Storage Configuration (3-Layer Architecture):**
    - `DATABASE_URL`: PostgreSQL connection string (e.g., `postgres://user:password@localhost:5432/database`)
-   - `REDIS_CACHE_URL`: Redis cache connection URL (e.g., `redis://localhost:6379`)
-   - `REDIS_QUEUE_URL`: Redis queue connection URL (e.g., `redis://localhost:6380`) - Optional, defaults to cache URL
+   - `PLATFORM_REDIS_URL`: Redis cache connection URL (e.g., `redis://localhost:6379`)
+   - `WEBHOOK_REDIS_URL`: Redis queue connection URL (e.g., `redis://localhost:6380`)
 
 **Optional Configuration:**
    - `FORUM_CHANNEL_IDS`: Comma-separated list of forum channel IDs for automatic ticket creation.

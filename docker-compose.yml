@@ -74,8 +74,8 @@ services:
       
       # Storage Configuration
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/unthread_discord_bot
-      REDIS_CACHE_URL: redis://redis-cache:6379
-      REDIS_QUEUE_URL: redis://redis-queue:6379
+      PLATFORM_REDIS_URL: redis://redis-cache:6379
+      WEBHOOK_REDIS_URL: redis://redis-queue:6379
       
       # Optional Configuration
       FORUM_CHANNEL_IDS: ${FORUM_CHANNEL_IDS:-}

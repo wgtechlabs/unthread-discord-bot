@@ -123,7 +123,7 @@ export class BotsStore {
 	public static async initialize(): Promise<BotsStore> {
 		const config: BotsStoreConfig = {
 			databaseUrl: process.env.DATABASE_URL || 'postgres://localhost:5432/unthread_discord_bot',
-			redisCacheUrl: process.env.REDIS_CACHE_URL || 'redis://localhost:6379',
+			redisCacheUrl: process.env.PLATFORM_REDIS_URL || 'redis://localhost:6379',
 			// 1 hour default cache
 			defaultCacheTtl: 3600,
 			enableMetrics: process.env.DEBUG_MODE === 'true',

@@ -58,9 +58,9 @@ export interface BotConfig {
 	/** PostgreSQL database URL for L3 storage (required) */
 	DATABASE_URL: string;
 	/** Redis cache URL for L2 storage (required) */
-	REDIS_CACHE_URL: string;
-	/** Redis queue URL for webhook processing (optional) */
-	REDIS_QUEUE_URL?: string;
+	PLATFORM_REDIS_URL: string;
+	/** Redis queue URL for webhook processing (required) */
+	WEBHOOK_REDIS_URL: string;
 	/** Comma-separated list of forum channel IDs for auto-ticket creation (optional) */
 	FORUM_CHANNEL_IDS?: string;
 	/** Enable verbose logging for development (optional) */

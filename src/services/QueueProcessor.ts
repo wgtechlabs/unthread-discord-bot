@@ -138,12 +138,13 @@ export class QueueProcessor {
      */
 	public static async initialize(): Promise<QueueProcessor> {
 		const config: QueueConfig = {
-			redisUrl: process.env.REDIS_QUEUE_URL || 'redis://localhost:6380',
-			concurrency: parseInt(process.env.QUEUE_CONCURRENCY || '5'),
-			maxRetries: parseInt(process.env.QUEUE_MAX_RETRIES || '3'),
-			retryDelayMs: parseInt(process.env.QUEUE_RETRY_DELAY || '5000'),
-			rateLimitMax: parseInt(process.env.QUEUE_RATE_LIMIT_MAX || '100'),
-			rateLimitDuration: parseInt(process.env.QUEUE_RATE_LIMIT_DURATION || '60000'),
+			// Hard-coded queue configuration as per requirements
+			redisUrl: process.env.WEBHOOK_REDIS_URL || 'redis://localhost:6380',
+			concurrency: 5,
+			maxRetries: 3,
+			retryDelayMs: 5000,
+			rateLimitMax: 100,
+			rateLimitDuration: 60000,
 			enableMetrics: process.env.DEBUG_MODE === 'true',
 		};
 
