@@ -96,10 +96,15 @@ function verifySignature(req: WebhookRequest): boolean {
 		const expected = `sha256=${expectedSignature}`;
 
 		// Use constant-time comparison to prevent timing attacks
-		return crypto.timingSafeEqual(
-			Buffer.from(signature),
-			Buffer.from(expected),
-		);
+		const sigBuf = Buffer.from(signature);
+		const expBuf = Buffer.from(expected);
+		
+		// Prevent crash by checking buffer lengths match
+		if (sigBuf.length !== expBuf.length) {
+			return false;
+		}
+		
+		return crypto.timingSafeEqual(sigBuf, expBuf);
 	}
 	catch (error) {
 		LogEngine.error('Signature verification error:', error);

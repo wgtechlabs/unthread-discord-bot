@@ -420,15 +420,17 @@ async function handleMessageCreated(data: any): Promise<void> {
 
 	try {
 		// Use retry-enabled lookup for message_created events to handle race conditions
+		const retryOptions = {
+			maxAttempts: 3,
+			// 10 seconds - reasonable for new ticket creation
+			maxRetryWindow: 10000,
+			// 1 second base delay
+			baseDelayMs: 1000,
+		};
+
 		const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
 			conversationId,
-			{
-				maxAttempts: 3,
-				// 10 seconds - reasonable for new ticket creation
-				maxRetryWindow: 10000,
-				// 1 second base delay
-				baseDelayMs: 1000,
-			},
+			retryOptions,
 		);
 
 		if (!discordThread) {

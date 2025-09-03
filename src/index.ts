@@ -24,7 +24,7 @@
  * - UNTHREAD_API_KEY: API key for Unthread integration
  * - UNTHREAD_SLACK_CHANNEL_ID: Slack channel ID for ticket routing
  * - UNTHREAD_WEBHOOK_SECRET: Secret for webhook signature verification
- * - DATABASE_URL: PostgreSQL connection URL for L3 persistent storage (required)
+ * - POSTGRES_URL: PostgreSQL connection URL for L3 persistent storage (required)
  * - PLATFORM_REDIS_URL: Redis connection URL for L2 cache layer (required)
  * - WEBHOOK_REDIS_URL: Redis connection URL for webhook queue processing (required)
  * - FORUM_CHANNEL_IDS: Comma-separated list of forum channel IDs for automatic ticket creation (optional)
@@ -162,11 +162,11 @@ async function main(): Promise<void> {
 			'UNTHREAD_API_KEY',
 			'UNTHREAD_SLACK_CHANNEL_ID',
 			'UNTHREAD_WEBHOOK_SECRET',
-			'DATABASE_URL',
+			'POSTGRES_URL',
 			'PLATFORM_REDIS_URL',
 			'WEBHOOK_REDIS_URL',
 		];
-		const { DISCORD_BOT_TOKEN, DATABASE_URL, PLATFORM_REDIS_URL } = process.env as Partial<BotConfig>;
+		const { DISCORD_BOT_TOKEN, POSTGRES_URL, PLATFORM_REDIS_URL } = process.env as Partial<BotConfig>;
 
 		const missingVars: string[] = [];
 
@@ -193,8 +193,8 @@ async function main(): Promise<void> {
 			process.exit(1);
 		}
 
-		if (!DATABASE_URL) {
-			LogEngine.error('DATABASE_URL is required for PostgreSQL connection');
+		if (!POSTGRES_URL) {
+			LogEngine.error('POSTGRES_URL is required for PostgreSQL connection');
 			LogEngine.error('Please provide a valid PostgreSQL connection URL (e.g., postgres://user:password@localhost:5432/database)');
 			process.exit(1);
 		}

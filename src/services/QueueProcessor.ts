@@ -134,12 +134,43 @@ export class QueueProcessor {
 	}
 
 	/**
-     * Initialize with environment configuration
-     */
-	public static async initialize(): Promise<QueueProcessor> {
-		const config: QueueConfig = {
+	 * Validate required environment variables for QueueProcessor
+	 */
+	private static validateEnvironmentVariables(): void {
+		const requiredVars = [
+			{ name: 'WEBHOOK_REDIS_URL', description: 'Redis connection string for webhook processing queue' },
+		];
+
+		const missingVars: string[] = [];
+
+		for (const { name, description } of requiredVars) {
+			// Safe access since name comes from controlled requiredVars array
+			if (!process.env[name as keyof NodeJS.ProcessEnv]) {
+				missingVars.push(`${name} (${description})`);
+			}
+		}
+
+		if (missingVars.length > 0) {
+			const errorMessage = [
+				'QueueProcessor initialization failed: Missing required environment variables',
+				'',
+				'Required variables:',
+				...missingVars.map(variable => `  - ${variable}`),
+				'',
+				'Please set these variables in your .env file or environment.',
+			].join('\n');
+
+			throw new Error(errorMessage);
+		}
+	}
+
+	/**
+	 * Create configuration from validated environment variables
+	 */
+	private static createConfigFromEnvironment(): QueueConfig {
+		return {
 			// Hard-coded queue configuration as per requirements
-			redisUrl: process.env.WEBHOOK_REDIS_URL || 'redis://localhost:6380',
+			redisUrl: process.env.WEBHOOK_REDIS_URL!,
 			concurrency: 5,
 			maxRetries: 3,
 			retryDelayMs: 5000,
@@ -147,7 +178,19 @@ export class QueueProcessor {
 			rateLimitDuration: 60000,
 			enableMetrics: process.env.DEBUG_MODE === 'true',
 		};
+	}
 
+	/**
+	 * Initialize with environment configuration
+	 */
+	public static async initialize(): Promise<QueueProcessor> {
+		// Validate required environment variables
+		this.validateEnvironmentVariables();
+
+		// Create configuration from validated environment
+		const config = this.createConfigFromEnvironment();
+
+		// Initialize and return instance
 		const processor = QueueProcessor.getInstance(config);
 		await processor.start();
 		return processor;

@@ -270,7 +270,7 @@ docker-compose up -d postgres redis-cache redis-queue
    - `UNTHREAD_WEBHOOK_SECRET`: Your Unthread webhook secret.
 
 **Storage Configuration (3-Layer Architecture):**
-   - `DATABASE_URL`: PostgreSQL connection string (e.g., `postgres://user:password@localhost:5432/database`)
+   - `POSTGRES_URL`: PostgreSQL connection string (e.g., `postgres://user:password@localhost:5432/database`)
    - `PLATFORM_REDIS_URL`: Redis cache connection URL (e.g., `redis://localhost:6379`)
    - `WEBHOOK_REDIS_URL`: Redis queue connection URL (e.g., `redis://localhost:6380`)
 

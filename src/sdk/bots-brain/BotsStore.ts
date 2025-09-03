@@ -66,7 +66,7 @@ export interface BotConfig {
  * BotsStore configuration
  */
 interface BotsStoreConfig {
-    databaseUrl: string;
+    postgresUrl: string;
     redisCacheUrl: string;
     defaultCacheTtl: number;
     enableMetrics: boolean;
@@ -87,7 +87,7 @@ export class BotsStore {
 		// Initialize UnifiedStorage
 		this.storage = new UnifiedStorage({
 			redisCacheUrl: config.redisCacheUrl,
-			databaseUrl: config.databaseUrl,
+			postgresUrl: config.postgresUrl,
 			defaultTtlSeconds: config.defaultCacheTtl,
 			memoryMaxSize: 1000,
 			enableMetrics: config.enableMetrics,
@@ -95,7 +95,7 @@ export class BotsStore {
 
 		// Initialize direct database pool for complex queries
 		this.pool = new Pool({
-			connectionString: config.databaseUrl,
+			connectionString: config.postgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
 			connectionTimeoutMillis: 2000,
@@ -118,17 +118,61 @@ export class BotsStore {
 	}
 
 	/**
-     * Initialize BotsStore with environment configuration
-     */
-	public static async initialize(): Promise<BotsStore> {
-		const config: BotsStoreConfig = {
-			databaseUrl: process.env.DATABASE_URL || 'postgres://localhost:5432/unthread_discord_bot',
-			redisCacheUrl: process.env.PLATFORM_REDIS_URL || 'redis://localhost:6379',
+	 * Validate required environment variables for BotsStore
+	 */
+	private static validateEnvironmentVariables(): void {
+		const requiredVars = [
+			{ name: 'POSTGRES_URL', description: 'PostgreSQL database connection string' },
+			{ name: 'PLATFORM_REDIS_URL', description: 'Redis cache connection string for bot state' },
+		];
+
+		const missingVars: string[] = [];
+
+		for (const { name, description } of requiredVars) {
+			// Safe access since name comes from controlled requiredVars array
+			if (!process.env[name as keyof NodeJS.ProcessEnv]) {
+				missingVars.push(`${name} (${description})`);
+			}
+		}
+
+		if (missingVars.length > 0) {
+			const errorMessage = [
+				'BotsStore initialization failed: Missing required environment variables',
+				'',
+				'Required variables:',
+				...missingVars.map(variable => `  - ${variable}`),
+				'',
+				'Please set these variables in your .env file or environment.',
+			].join('\n');
+
+			throw new Error(errorMessage);
+		}
+	}
+
+	/**
+	 * Create configuration from validated environment variables
+	 */
+	private static createConfigFromEnvironment(): BotsStoreConfig {
+		return {
+			postgresUrl: process.env.POSTGRES_URL!,
+			redisCacheUrl: process.env.PLATFORM_REDIS_URL!,
 			// 1 hour default cache
 			defaultCacheTtl: 3600,
 			enableMetrics: process.env.DEBUG_MODE === 'true',
 		};
+	}
 
+	/**
+	 * Initialize BotsStore with environment configuration
+	 */
+	public static async initialize(): Promise<BotsStore> {
+		// Validate required environment variables
+		this.validateEnvironmentVariables();
+
+		// Create configuration from validated environment
+		const config = this.createConfigFromEnvironment();
+
+		// Initialize and return instance
 		const store = BotsStore.getInstance(config);
 		await store.healthCheck();
 		return store;
@@ -460,13 +504,19 @@ export class BotsStore {
      * Clear cache for a specific entity
      */
 	async clearCache(pattern: 'customer' | 'mapping' | 'config', identifier?: string): Promise<void> {
+		// Validate pattern to prevent object injection
+		const validPatterns = ['customer', 'mapping', 'config'];
+		if (!validPatterns.includes(pattern)) {
+			throw new Error(`Invalid cache pattern: ${pattern}. Must be one of: ${validPatterns.join(', ')}`);
+		}
+
 		const patterns = {
 			customer: identifier ? [`customer:discord:${identifier}`, `customer:unthread:${identifier}`] : [],
 			mapping: identifier ? [`mapping:thread:${identifier}`, `mapping:ticket:${identifier}`] : [],
 			config: identifier ? [`bot:config:${identifier}`] : [],
 		};
 
-		for (const key of patterns[pattern]) {
+		for (const key of patterns[pattern as keyof typeof patterns]) {
 			await this.storage.delete(key);
 		}
 

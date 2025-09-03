@@ -17,6 +17,7 @@
 import { LogEngine } from '../config/logger';
 import { ThreadChannel, Message } from 'discord.js';
 import { BotsStore, ExtendedThreadTicketMapping } from '../sdk/bots-brain/BotsStore';
+import { ThreadTicketMapping } from '../types/discord';
 
 // Re-export interfaces for backward compatibility
 export { ThreadTicketMapping } from '../types/discord';
@@ -90,8 +91,8 @@ interface RetryOptions {
  * - Webhooks arriving faster than expected from Unthread
  *
  * @param unthreadTicketId - Unthread ticket/conversation ID
- * @param lookupFunction - Function to lookup ticket mapping by Unthread ID
  * @param options - Retry configuration options
+ * @param lookupFunction - Optional function to lookup ticket mapping by Unthread ID
  * @returns Object containing mapping and thread
  * @throws {MappingNotFoundError} When ticket mapping not found after all retries
  * @throws {Error} When Discord API errors occur or thread is not accessible
@@ -102,7 +103,6 @@ interface RetryOptions {
  * try {
  *   const result = await findDiscordThreadByTicketIdWithRetry(
  *     'ticket123',
- *     getTicketByUnthreadTicketId,
  *     { maxAttempts: 5, maxRetryWindow: 15000 }
  *   );
  *   console.log(`Found thread: ${result.discordThread.id}`);
@@ -126,6 +126,7 @@ interface RetryOptions {
  *
  * @param unthreadTicketId - The Unthread ticket/conversation ID to search for
  * @param options - Configuration options for retry behavior
+ * @param lookupFunction - Optional custom lookup function for ticket mappings
  * @returns Promise that resolves to thread result containing mapping and Discord thread
  * @throws {MappingNotFoundError} When no mapping exists after all retry attempts
  * @throws {Error} When Discord client is unavailable or thread cannot be fetched
@@ -148,6 +149,7 @@ interface RetryOptions {
 export async function findDiscordThreadByTicketIdWithRetry(
 	unthreadTicketId: string,
 	options: RetryOptions = {},
+	lookupFunction?: (id: string) => Promise<ThreadTicketMapping | null>,
 ): Promise<{ ticketMapping: ExtendedThreadTicketMapping; discordThread: ThreadChannel }> {
 	const {
 		maxAttempts = 3,
@@ -165,7 +167,16 @@ export async function findDiscordThreadByTicketIdWithRetry(
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 		attemptsUsed = attempt;
 		try {
-			// Try the standard lookup using BotsStore
+			// Use provided lookup function or default to BotsStore lookup
+			if (lookupFunction) {
+				const customMapping = await lookupFunction(unthreadTicketId);
+				if (customMapping) {
+					// If custom lookup found a mapping, use the standard resolution
+					return await findDiscordThreadByTicketId(unthreadTicketId);
+				}
+			}
+			
+			// Default lookup using BotsStore
 			return await findDiscordThreadByTicketId(unthreadTicketId);
 		}
 		catch (error: unknown) {

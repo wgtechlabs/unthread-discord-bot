@@ -53,7 +53,7 @@ interface StorageResult<T = unknown> {
  */
 interface StorageConfig {
     redisCacheUrl: string;
-    databaseUrl: string;
+    postgresUrl: string;
     defaultTtlSeconds: number;
     memoryMaxSize: number;
     enableMetrics: boolean;
@@ -227,9 +227,9 @@ class PostgresStorage implements StorageLayer {
 	private pool: Pool;
 	private connected: boolean = false;
 
-	constructor(databaseUrl: string) {
+	constructor(postgresUrl: string) {
 		this.pool = new Pool({
-			connectionString: databaseUrl,
+			connectionString: postgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
 			connectionTimeoutMillis: 2000,
@@ -338,7 +338,7 @@ export class UnifiedStorage {
 		this.config = config;
 		this.l1Memory = new MemoryStorage(config.memoryMaxSize);
 		this.l2Redis = new RedisStorage(config.redisCacheUrl);
-		this.l3Postgres = new PostgresStorage(config.databaseUrl);
+		this.l3Postgres = new PostgresStorage(config.postgresUrl);
 
 		LogEngine.info('UnifiedStorage initialized with 3-layer architecture');
 	}
