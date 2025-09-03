@@ -16,7 +16,7 @@
  */
 
 import { decodeHtmlEntities } from '../utils/decodeHtmlEntities';
-import { setKey, getKey, setPersistentKey } from '../utils/memory';
+import { BotsStore, ExtendedThreadTicketMapping } from '../sdk/bots-brain/BotsStore';
 import { getBotFooter } from '../utils/botUtils';
 import { EmbedBuilder, User } from 'discord.js';
 import { LogEngine } from '../config/logger';
@@ -24,7 +24,6 @@ import { isDuplicateMessage, containsDiscordAttachments } from '../utils/message
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
 import { UnthreadApiResponse, UnthreadTicket, WebhookPayload } from '../types/unthread';
-import { ThreadTicketMapping } from '../types/discord';
 
 /**
  * ==================== ENVIRONMENT VALIDATION ====================
@@ -115,7 +114,7 @@ export async function createTicket(user: User, title: string, issue: string, ema
 	}
 
 	const customer = await getOrCreateCustomer(user, email);
-	LogEngine.debug(`Customer: ${customer?.customerId || 'unknown'} (${customer?.email || email})`);
+	LogEngine.debug(`Customer: ${customer?.unthreadCustomerId || 'unknown'} (${customer?.email || email})`);
 
 	const requestPayload = {
 		type: 'slack',
@@ -123,7 +122,7 @@ export async function createTicket(user: User, title: string, issue: string, ema
 		markdown: `${issue}`,
 		status: 'open',
 		channelId: process.env.UNTHREAD_SLACK_CHANNEL_ID?.trim(),
-		customerId: customer?.customerId,
+		customerId: customer?.unthreadCustomerId,
 		onBehalfOf: {
 			name: user.displayName || user.username,
 			email: email,
@@ -196,26 +195,33 @@ export async function createTicket(user: User, title: string, issue: string, ema
  * @param discordThreadId - Discord thread ID
  * @throws {Error} When cache operations fail
  */
+/**
+ * Binds a Discord thread with an Unthread ticket using BotsStore
+ *
+ * @param unthreadTicketId - Unthread ticket ID
+ * @param discordThreadId - Discord thread ID
+ * @throws {Error} When storage operations fail
+ */
 export async function bindTicketWithThread(unthreadTicketId: string, discordThreadId: string): Promise<void> {
-	const mapping: ThreadTicketMapping = {
-		unthreadTicketId,
-		discordThreadId,
-		createdAt: new Date().toISOString(),
-	};
+	try {
+		const botsStore = BotsStore.getInstance();
 
-	// Create bidirectional mapping for efficient lookups with hybrid storage strategy:
-	// - Memory cache (7 days) for fast access to recent tickets
-	// - Persistent storage (3 years) for long-term customer access
+		const mapping: ExtendedThreadTicketMapping = {
+			unthreadTicketId,
+			discordThreadId,
+			createdAt: new Date().toISOString(),
+			status: 'active',
+		};
 
-	// Store in memory cache for fast access (7 days TTL)
-	await setKey(`ticket:discord:${discordThreadId}`, mapping);
-	await setKey(`ticket:unthread:${unthreadTicketId}`, mapping);
+		// Store using BotsStore 3-layer architecture
+		await botsStore.storeThreadTicketMapping(mapping);
 
-	// Store in persistent storage for long-term access (3 years TTL)
-	await setPersistentKey(`persistent:ticket:discord:${discordThreadId}`, mapping);
-	await setPersistentKey(`persistent:ticket:unthread:${unthreadTicketId}`, mapping);
-
-	LogEngine.info(`Bound Discord thread ${discordThreadId} with Unthread ticket ${unthreadTicketId} (hybrid storage: 7d cache + 3y persistent)`);
+		LogEngine.info(`Bound Discord thread ${discordThreadId} with Unthread ticket ${unthreadTicketId} using 3-layer storage`);
+	}
+	catch (error) {
+		LogEngine.error('Error binding ticket with thread:', error);
+		throw error;
+	}
 }
 
 /**
@@ -227,28 +233,30 @@ export async function bindTicketWithThread(unthreadTicketId: string, discordThre
  * @param discordThreadId - Discord thread ID
  * @returns Ticket mapping or null if not found
  */
-export async function getTicketByDiscordThreadId(discordThreadId: string): Promise<ThreadTicketMapping | null> {
-	// First, try memory cache (fast access for recent tickets)
-	let mapping = (await getKey(`ticket:discord:${discordThreadId}`)) as ThreadTicketMapping | null;
+/**
+ * Retrieves the Unthread ticket mapping for a Discord thread using BotsStore
+ *
+ * @param discordThreadId - Discord thread ID
+ * @returns Ticket mapping or null if not found
+ */
+export async function getTicketByDiscordThreadId(discordThreadId: string): Promise<ExtendedThreadTicketMapping | null> {
+	try {
+		const botsStore = BotsStore.getInstance();
+		const mapping = await botsStore.getThreadTicketMapping(discordThreadId);
 
-	if (mapping) {
-		LogEngine.debug(`Found ticket mapping in memory cache for Discord thread: ${discordThreadId}`);
+		if (mapping) {
+			LogEngine.debug(`Found ticket mapping for Discord thread: ${discordThreadId}`);
+		}
+		else {
+			LogEngine.debug(`No ticket mapping found for Discord thread: ${discordThreadId}`);
+		}
+
 		return mapping;
 	}
-
-	// Fallback to persistent storage (for older tickets)
-	// PATCH: Fixed persistent key retrieval to match storage namespace
-	// TODO: Remove when SDK migration replaces this caching layer
-	const persistentKey = `persistent:ticket:discord:${discordThreadId}`;
-	mapping = (await getKey(persistentKey)) as ThreadTicketMapping | null;
-
-	if (mapping) {
-		LogEngine.debug(`Found ticket mapping in persistent storage for Discord thread: ${discordThreadId}`);
-		// Optionally refresh the memory cache for future fast access
-		await setKey(`ticket:discord:${discordThreadId}`, mapping);
+	catch (error) {
+		LogEngine.error('Error retrieving ticket mapping by Discord thread ID:', error);
+		return null;
 	}
-
-	return mapping;
 }
 
 /**
@@ -260,28 +268,30 @@ export async function getTicketByDiscordThreadId(discordThreadId: string): Promi
  * @param unthreadTicketId - Unthread ticket ID
  * @returns Ticket mapping or null if not found
  */
-export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Promise<ThreadTicketMapping | null> {
-	// First, try memory cache (fast access for recent tickets)
-	let mapping = (await getKey(`ticket:unthread:${unthreadTicketId}`)) as ThreadTicketMapping | null;
+/**
+ * Retrieves the Discord thread mapping for an Unthread ticket using BotsStore
+ *
+ * @param unthreadTicketId - Unthread ticket ID
+ * @returns Ticket mapping or null if not found
+ */
+export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Promise<ExtendedThreadTicketMapping | null> {
+	try {
+		const botsStore = BotsStore.getInstance();
+		const mapping = await botsStore.getMappingByTicketId(unthreadTicketId);
 
-	if (mapping) {
-		LogEngine.debug(`Found ticket mapping in memory cache for Unthread ticket: ${unthreadTicketId}`);
+		if (mapping) {
+			LogEngine.debug(`Found ticket mapping for Unthread ticket: ${unthreadTicketId}`);
+		}
+		else {
+			LogEngine.debug(`No ticket mapping found for Unthread ticket: ${unthreadTicketId}`);
+		}
+
 		return mapping;
 	}
-
-	// Fallback to persistent storage (for older tickets)
-	// PATCH: Fixed persistent key retrieval to match storage namespace
-	// TODO: Remove when SDK migration replaces this caching layer
-	const persistentKey = `persistent:ticket:unthread:${unthreadTicketId}`;
-	mapping = (await getKey(persistentKey)) as ThreadTicketMapping | null;
-
-	if (mapping) {
-		LogEngine.debug(`Found ticket mapping in persistent storage for Unthread ticket: ${unthreadTicketId}`);
-		// Optionally refresh the memory cache for future fast access
-		await setKey(`ticket:unthread:${unthreadTicketId}`, mapping);
+	catch (error) {
+		LogEngine.error('Error retrieving ticket mapping:', error);
+		return null;
 	}
-
-	return mapping;
 }
 
 /**
@@ -394,8 +404,9 @@ async function handleMessageCreated(data: any): Promise<void> {
 				LogEngine.debug(`No Discord thread found for Unthread ticket ${conversationId}, proceeding with message`);
 			}
 			else {
+				const botsStore = BotsStore.getInstance();
 				const deletedMessagesKey = `deleted:channel:${ticketMapping.discordThreadId}`;
-				const recentlyDeletedMessages = (await getKey(deletedMessagesKey)) as any[] || [];
+				const recentlyDeletedMessages = (await botsStore.getBotConfig<Array<Record<string, unknown>>>(deletedMessagesKey)) || [];
 
 				// If there are any recently deleted messages in the last 5 seconds,
 				// skip processing to avoid duplicates
@@ -409,16 +420,17 @@ async function handleMessageCreated(data: any): Promise<void> {
 
 	try {
 		// Use retry-enabled lookup for message_created events to handle race conditions
+		const retryOptions = {
+			maxAttempts: 3,
+			// 10 seconds - reasonable for new ticket creation
+			maxRetryWindow: 10000,
+			// 1 second base delay
+			baseDelayMs: 1000,
+		};
+
 		const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
 			conversationId,
-			getTicketByUnthreadTicketId,
-			{
-				maxAttempts: 3,
-				// 10 seconds - reasonable for new ticket creation
-				maxRetryWindow: 10000,
-				// 1 second base delay
-				baseDelayMs: 1000,
-			},
+			retryOptions,
 		);
 
 		if (!discordThread) {
@@ -494,10 +506,7 @@ async function handleStatusUpdated(data: any): Promise<void> {
 	LogEngine.debug(`Processing status update for conversation ${conversation.id} (ticket #${conversation.friendlyId}): ${conversation.status}`);
 
 	try {
-		const { discordThread } = await findDiscordThreadByTicketId(
-			conversation.id,
-			getTicketByUnthreadTicketId,
-		);
+		const { discordThread } = await findDiscordThreadByTicketId(conversation.id);
 
 		if (!discordThread) {
 			LogEngine.debug(`No Discord thread found for conversation ${conversation.id}`);

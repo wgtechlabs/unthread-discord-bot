@@ -17,6 +17,13 @@ import { getBotFooter } from '../utils/botUtils';
 
 export const name = Events.ThreadCreate;
 
+/**
+ * Generate a fallback email for Discord users
+ */
+function generateDiscordUserEmail(username: string): string {
+	return `${username}@discord.user`;
+}
+
 export async function execute(thread: ThreadChannel): Promise<void> {
 	try {
 		// Ignore threads created in channels that are not validated forum channels.
@@ -133,8 +140,8 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 		const content = firstMessage.content;
 
 		// Retrieve or create customer using the new customerUtils module.
-		const customer = await getOrCreateCustomer(author, `${author.username}@discord.user`);
-		const email = customer.email;
+		const customer = await getOrCreateCustomer(author, generateDiscordUserEmail(author.username));
+		const email = customer.email || generateDiscordUserEmail(author.username);
 
 		// Create a support ticket in Unthread using the forum post details.
 		const ticket = await createTicket(author, title, content, email);

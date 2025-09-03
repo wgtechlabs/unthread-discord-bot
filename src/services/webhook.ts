@@ -1,24 +1,30 @@
 /**
- * Webhook Service Module
+ * Webhook Service - Queue-Based Processing
  *
- * Handles incoming webhooks from Unthread for ticket synchronization.
- * Provides signature verification and event routing for secure webhook processing.
+ * This service handles incoming webhook requests from Unthread and routes them
+ * to a queue-based processing system for reliable, scalable event handling.
  *
- * Features:
- * - HMAC signature verification for security
- * - URL verification for webhook setup
- * - Event routing to appropriate handlers
+ * Key Changes from Legacy System:
+ * - Asynchronous processing via Redis queues
+ * - Immediate HTTP response to prevent timeouts
+ * - Automatic retry logic for failed events
+ * - Rate limiting and priority handling
+ * - Comprehensive error handling and monitoring
+ *
+ * Request Flow:
+ * 1. Verify webhook signature for security
+ * 2. Handle URL verification events immediately
+ * 3. Queue other events for async processing
+ * 4. Return HTTP 200 status immediately
  *
  * @module services/webhook
  */
 
 import { Request, Response } from 'express';
-import { createHmac, timingSafeEqual } from 'node:crypto';
-import { WebhookPayload } from '../types/unthread';
+import crypto from 'crypto';
 import { LogEngine } from '../config/logger';
-import { handleWebhookEvent as unthreadWebhookHandler } from './unthread';
-
-const SIGNING_SECRET = process.env.UNTHREAD_WEBHOOK_SECRET;
+import { WebhookPayload } from '../types/unthread';
+import { QueueProcessor } from './QueueProcessor';
 
 /**
  * Extended Express Request with raw body for signature verification
@@ -36,12 +42,29 @@ interface UrlVerificationPayload {
 }
 
 /**
- * Combined webhook payload types
+ * Union type for all webhook payload types
  */
-type WebhookEventPayload = WebhookPayload | UrlVerificationPayload;
+type AllWebhookPayloads = WebhookPayload | UrlVerificationPayload;
+
+// Global queue processor instance
+let queueProcessor: QueueProcessor | null = null;
 
 /**
- * Verifies the HMAC signature of incoming webhook requests
+ * Initialize the webhook service with queue processor
+ */
+export async function initializeWebhookService(): Promise<void> {
+	try {
+		queueProcessor = await QueueProcessor.initialize();
+		LogEngine.info('Webhook service initialized with queue-based processing');
+	}
+	catch (error) {
+		LogEngine.error('Failed to initialize webhook service:', error);
+		throw error;
+	}
+}
+
+/**
+ * Verifies webhook signature using HMAC-SHA256
  *
  * Uses the webhook signing secret to verify that the request comes from Unthread.
  * This prevents unauthorized webhook calls from malicious sources.
@@ -51,29 +74,71 @@ type WebhookEventPayload = WebhookPayload | UrlVerificationPayload;
  * @returns True if signature is valid, false otherwise
  */
 function verifySignature(req: WebhookRequest): boolean {
-	if (!SIGNING_SECRET) {
-		LogEngine.error('UNTHREAD_WEBHOOK_SECRET not configured');
+	const { UNTHREAD_WEBHOOK_SECRET } = process.env;
+
+	if (!UNTHREAD_WEBHOOK_SECRET) {
+		LogEngine.error('UNTHREAD_WEBHOOK_SECRET is not configured');
 		return false;
 	}
 
-	const rawBody = req.rawBody;
-	const computed = createHmac('sha256', SIGNING_SECRET)
-		.update(rawBody)
-		.digest('hex');
-
-	const receivedSignature = req.get('x-unthread-signature') || '';
-
-	// Use constant-time comparison to prevent timing attacks
-	const a = Buffer.from(computed, 'hex');
-	const b = Buffer.from(receivedSignature, 'hex');
-
-	// If lengths don't match, signatures are definitely different
-	if (a.length !== b.length) {
+	const signature = req.headers['x-unthread-signature'] as string;
+	if (!signature) {
+		LogEngine.error('Missing x-unthread-signature header');
 		return false;
 	}
 
-	// Use timing-safe comparison for the actual signature check
-	return timingSafeEqual(a, b);
+	try {
+		const expectedSignature = crypto
+			.createHmac('sha256', UNTHREAD_WEBHOOK_SECRET)
+			.update(req.rawBody)
+			.digest('hex');
+
+		const expected = `sha256=${expectedSignature}`;
+
+		// Use constant-time comparison to prevent timing attacks
+		const sigBuf = Buffer.from(signature);
+		const expBuf = Buffer.from(expected);
+		
+		// Prevent crash by checking buffer lengths match
+		if (sigBuf.length !== expBuf.length) {
+			return false;
+		}
+		
+		return crypto.timingSafeEqual(sigBuf, expBuf);
+	}
+	catch (error) {
+		LogEngine.error('Signature verification error:', error);
+		return false;
+	}
+}
+
+/**
+ * Determines the priority of a webhook event for queue processing
+ */
+function getEventPriority(payload: WebhookPayload): 'low' | 'normal' | 'high' {
+	// High priority events that need immediate processing
+	const highPriorityEvents = [
+		'ticket.priority.changed',
+		'ticket.status.urgent',
+		'customer.escalation',
+	];
+
+	// Low priority events that can be processed later
+	const lowPriorityEvents = [
+		'ticket.tag.added',
+		'ticket.tag.removed',
+		'customer.metadata.updated',
+	];
+
+	if (highPriorityEvents.includes(payload.event)) {
+		return 'high';
+	}
+
+	if (lowPriorityEvents.includes(payload.event)) {
+		return 'low';
+	}
+
+	return 'normal';
 }
 
 /**
@@ -81,9 +146,9 @@ function verifySignature(req: WebhookRequest): boolean {
  *
  * Processes incoming webhook requests with the following workflow:
  * 1. Verifies the signature for security
- * 2. Handles URL verification events for initial setup
- * 3. Routes other events to the appropriate handler
- * 4. Returns appropriate HTTP status codes
+ * 2. Handles URL verification events immediately
+ * 3. Queues other events for asynchronous processing
+ * 4. Returns appropriate HTTP status codes immediately
  *
  * @param req - The Express request object
  * @param res - The Express response object
@@ -94,36 +159,166 @@ async function webhookHandler(req: Request, res: Response): Promise<void> {
 
 	LogEngine.debug('Webhook received:', webhookReq.rawBody);
 
+	// Verify signature for security
 	if (!verifySignature(webhookReq)) {
-		LogEngine.error('Signature verification failed.');
-		res.sendStatus(403);
+		LogEngine.error('Webhook signature verification failed');
+		res.status(403).json({ error: 'Invalid signature' });
 		return;
 	}
 
-	const body = req.body as WebhookEventPayload;
+	const body = req.body as AllWebhookPayloads;
 	const { event } = body;
 
-	// Respond to URL verification events
+	// Handle URL verification events immediately (Unthread setup)
 	if (event === 'url_verification') {
 		LogEngine.info('URL verification webhook received');
-		res.sendStatus(200);
+		const challenge = (body as UrlVerificationPayload).challenge;
+
+		if (challenge) {
+			res.status(200).json({ challenge });
+		}
+		else {
+			res.sendStatus(200);
+		}
 		return;
 	}
 
-	// Process other webhook events coming from Unthread
-	try {
-		await unthreadWebhookHandler(body as WebhookPayload);
-		LogEngine.debug(`Successfully processed webhook event: ${event}`);
-	}
-	catch (error) {
-		LogEngine.error('Error processing webhook event:', error);
-		// Still return 200 to prevent webhook retries for application errors
+	// Ensure queue processor is initialized
+	if (!queueProcessor) {
+		LogEngine.error('Queue processor not initialized - falling back to synchronous processing');
+		res.status(503).json({ error: 'Service temporarily unavailable' });
+		return;
 	}
 
-	res.sendStatus(200);
+	// Queue webhook event for asynchronous processing
+	try {
+		const webhookPayload = body as WebhookPayload;
+		const priority = getEventPriority(webhookPayload);
+
+		const jobId = await queueProcessor.addWebhookEvent(webhookPayload, {
+			priority,
+			source: 'webhook',
+		});
+
+		LogEngine.info(`Webhook event queued successfully: ${event} (Job ID: ${jobId}, Priority: ${priority})`);
+
+		// Return immediate success to prevent webhook timeouts
+		res.status(200).json({
+			status: 'queued',
+			jobId,
+			event,
+			priority,
+		});
+
+	}
+	catch (error) {
+		LogEngine.error('Failed to queue webhook event:', error);
+
+		// Still return 200 to prevent webhook retries for application errors
+		// The error will be logged and can be investigated separately
+		res.status(200).json({
+			status: 'error',
+			message: 'Event received but processing failed',
+		});
+	}
+}
+
+/**
+ * Health check endpoint for webhook service
+ */
+async function webhookHealthCheck(_req: Request, res: Response): Promise<void> {
+	try {
+		if (!queueProcessor) {
+			res.status(503).json({
+				status: 'unhealthy',
+				error: 'Queue processor not initialized',
+			});
+			return;
+		}
+
+		const health = await queueProcessor.getHealth();
+		const metrics = await queueProcessor.getMetrics();
+
+		const httpStatus = health.status === 'healthy' ? 200 :
+						 health.status === 'degraded' ? 200 : 503;
+
+		res.status(httpStatus).json({
+			status: health.status,
+			timestamp: new Date().toISOString(),
+			queues: health.queues,
+			workers: health.workers,
+			redis: health.redis,
+			metrics: {
+				totalJobs: metrics.totalJobs,
+				activeJobs: metrics.activeJobs,
+				waitingJobs: metrics.waitingJobs,
+				errorRate: metrics.errorRate.toFixed(2) + '%',
+				avgProcessingTime: metrics.processingTime.toFixed(2) + 'ms',
+			},
+		});
+
+	}
+	catch (error) {
+		LogEngine.error('Webhook health check failed:', error);
+		res.status(503).json({
+			status: 'unhealthy',
+			error: 'Health check failed',
+		});
+	}
+}
+
+/**
+ * Metrics endpoint for webhook service monitoring
+ */
+async function webhookMetrics(_req: Request, res: Response): Promise<void> {
+	try {
+		if (!queueProcessor) {
+			res.status(503).json({ error: 'Queue processor not initialized' });
+			return;
+		}
+
+		const metrics = await queueProcessor.getMetrics();
+		res.json(metrics);
+
+	}
+	catch (error) {
+		LogEngine.error('Failed to get webhook metrics:', error);
+		res.status(500).json({ error: 'Failed to retrieve metrics' });
+	}
+}
+
+/**
+ * Manual retry endpoint for failed webhook jobs
+ */
+async function retryFailedWebhooks(req: Request, res: Response): Promise<void> {
+	try {
+		if (!queueProcessor) {
+			res.status(503).json({ error: 'Queue processor not initialized' });
+			return;
+		}
+
+		const limit = parseInt(req.query.limit as string) || 10;
+		const retriedCount = await queueProcessor.retryFailedJobs(limit);
+
+		res.json({
+			success: true,
+			retriedCount,
+			message: `${retriedCount} failed jobs requeued for processing`,
+		});
+
+	}
+	catch (error) {
+		LogEngine.error('Failed to retry webhook jobs:', error);
+		res.status(500).json({ error: 'Failed to retry jobs' });
+	}
 }
 
 /**
  * Webhook service exports
  */
-export { webhookHandler };
+export {
+	webhookHandler,
+	webhookHealthCheck,
+	webhookMetrics,
+	retryFailedWebhooks,
+};

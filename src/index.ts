@@ -24,7 +24,9 @@
  * - UNTHREAD_API_KEY: API key for Unthread integration
  * - UNTHREAD_SLACK_CHANNEL_ID: Slack channel ID for ticket routing
  * - UNTHREAD_WEBHOOK_SECRET: Secret for webhook signature verification
- * - REDIS_URL: Redis connection URL for caching and data persistence (required)
+ * - POSTGRES_URL: PostgreSQL connection URL for L3 persistent storage (required)
+ * - PLATFORM_REDIS_URL: Redis connection URL for L2 cache layer (required)
+ * - WEBHOOK_REDIS_URL: Redis connection URL for webhook queue processing (required)
  * - FORUM_CHANNEL_IDS: Comma-separated list of forum channel IDs for automatic ticket creation (optional)
  * - DEBUG_MODE: Enable verbose logging during development (optional, defaults to false)
  * - PORT: Port for webhook server (optional, defaults to 3000)
@@ -54,30 +56,47 @@ import * as path from 'node:path';
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import express from 'express';
 import { BotConfig } from './types/discord';
-import { webhookHandler } from './services/webhook';
+import { webhookHandler, webhookHealthCheck, webhookMetrics, retryFailedWebhooks, initializeWebhookService } from './services/webhook';
 import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
 import { version } from '../package.json';
 import './types/global';
 
-// Import database to ensure Redis connection is tested on startup
-import { testRedisConnection } from './utils/database';
-import keyv from './utils/database';
+// Import new storage architecture
+import { BotsStore } from './sdk/bots-brain/BotsStore';
 
 /**
  * Startup Validation Function
  *
  * Validates all required dependencies before starting the bot.
- * This includes Redis connection testing and other critical validations.
+ * This includes storage layers testing and other critical validations.
  *
- * @throws {Error} When Redis connection fails or other startup requirements are not met
+ * @throws {Error} When storage connection fails or other startup requirements are not met
  */
 async function validateStartupRequirements(): Promise<void> {
 	LogEngine.info('Validating startup requirements...');
 
 	try {
-		// Test Redis connection explicitly
-		await testRedisConnection();
+		// Initialize and test the new storage architecture
+		const botsStore = await BotsStore.initialize();
+		const health = await botsStore.healthCheck();
+
+		// Check storage health with specific error details
+		const failedLayers = [];
+		if (!health.memory) failedLayers.push('memory');
+		if (!health.redis) failedLayers.push('redis');
+		if (!health.postgres) failedLayers.push('postgres');
+
+		if (failedLayers.length > 0) {
+			throw new Error(`Storage layer health check failed: ${failedLayers.join(', ')} layer(s) unhealthy`);
+		}
+
+		LogEngine.info('3-layer storage architecture validated successfully');
+
+		// Initialize webhook service with queue processing
+		await initializeWebhookService();
+		LogEngine.info('Queue-based webhook processing initialized');
+
 		LogEngine.info('All startup requirements validated successfully');
 	}
 	catch (error) {
@@ -87,31 +106,39 @@ async function validateStartupRequirements(): Promise<void> {
 }
 
 /**
- * Redis Health Check
+ * Storage Health Check
  *
- * Safely probes Redis connection without throwing errors.
+ * Safely probes all storage layers without throwing errors.
  * Returns status and error information for health monitoring.
  */
-async function checkRedisHealth(): Promise<{ status: 'connected' | 'disconnected'; error?: string }> {
+async function checkStorageHealth(): Promise<{ status: 'healthy' | 'degraded' | 'unhealthy'; layers: Record<string, boolean>; error?: string }> {
 	try {
-		// Use the keyv instance to perform a quick health check
-		const testKey = `health:check:${Date.now()}`;
-		const testValue = 'ping';
+		const botsStore = BotsStore.getInstance();
+		const health = await botsStore.healthCheck();
 
-		// Set and immediately get a test value with short TTL
-		await keyv.set(testKey, testValue, 1000);
-		const result = await keyv.get(testKey);
+		const healthyLayers = Object.values(health).filter(h => h).length;
+		const totalLayers = Object.keys(health).length;
 
-		if (result === testValue) {
-			return { status: 'connected' };
+		let status: 'healthy' | 'degraded' | 'unhealthy';
+		if (healthyLayers === totalLayers) {
+			status = 'healthy';
+		}
+		else if (healthyLayers > 0) {
+			status = 'degraded';
 		}
 		else {
-			return { status: 'disconnected', error: 'Redis ping test failed - value mismatch' };
+			status = 'unhealthy';
 		}
+
+		return { status, layers: health };
 	}
 	catch (error) {
-		const errorMessage = error instanceof Error ? error.message : 'Unknown Redis error';
-		return { status: 'disconnected', error: errorMessage };
+		const errorMessage = error instanceof Error ? error.message : 'Unknown storage error';
+		return {
+			status: 'unhealthy',
+			layers: { memory: false, redis: false, postgres: false },
+			error: errorMessage,
+		};
 	}
 }
 
@@ -128,8 +155,18 @@ async function checkRedisHealth(): Promise<{ status: 'connected' | 'disconnected
 async function main(): Promise<void> {
 	try {
 		// Step 1: Load and validate environment variables
-		const requiredEnvVars = ['DISCORD_BOT_TOKEN', 'REDIS_URL', 'CLIENT_ID', 'GUILD_ID', 'UNTHREAD_API_KEY', 'UNTHREAD_SLACK_CHANNEL_ID', 'UNTHREAD_WEBHOOK_SECRET'];
-		const { DISCORD_BOT_TOKEN, REDIS_URL } = process.env as Partial<BotConfig>;
+		const requiredEnvVars = [
+			'DISCORD_BOT_TOKEN',
+			'CLIENT_ID',
+			'GUILD_ID',
+			'UNTHREAD_API_KEY',
+			'UNTHREAD_SLACK_CHANNEL_ID',
+			'UNTHREAD_WEBHOOK_SECRET',
+			'POSTGRES_URL',
+			'PLATFORM_REDIS_URL',
+			'WEBHOOK_REDIS_URL',
+		];
+		const { DISCORD_BOT_TOKEN, POSTGRES_URL, PLATFORM_REDIS_URL } = process.env as Partial<BotConfig>;
 
 		const missingVars: string[] = [];
 
@@ -156,24 +193,32 @@ async function main(): Promise<void> {
 			process.exit(1);
 		}
 
-		if (!REDIS_URL) {
-			LogEngine.error('REDIS_URL is required but not set in environment variables');
-			LogEngine.error('Redis is now required for proper caching and data persistence');
+		if (!POSTGRES_URL) {
+			LogEngine.error('POSTGRES_URL is required for PostgreSQL connection');
+			LogEngine.error('Please provide a valid PostgreSQL connection URL (e.g., postgres://user:password@localhost:5432/database)');
+			process.exit(1);
+		}
+
+		if (!PLATFORM_REDIS_URL) {
+			LogEngine.error('PLATFORM_REDIS_URL is required for L2 cache layer');
 			LogEngine.error('Please provide a valid Redis connection URL (e.g., redis://localhost:6379)');
 			process.exit(1);
 		}
 
-		// Step 2: Validate all dependencies before proceeding
+		// Step 3: Initialize and validate the new 3-layer storage architecture
 		await validateStartupRequirements();
 
-		// Step 3: Start Discord login after validation succeeds
+		// Step 4: Start Discord login after validation succeeds
 		await client.login(DISCORD_BOT_TOKEN);
 		global.discordClient = client;
 		LogEngine.info('Discord client is ready and set globally.');
 
-		// Step 4: Start Express server after all validation and setup completes
+		// Step 5: Start Express server after all validation and setup completes
 		app.listen(port, () => {
-			LogEngine.info(`Server listening on port ${port}`);
+			LogEngine.info(`🚀 Unthread Discord Bot server listening on port ${port}`);
+			LogEngine.info(`📊 Health check available at: http://localhost:${port}/health`);
+			LogEngine.info(`🔗 Webhook endpoint at: http://localhost:${port}/webhook/unthread`);
+			LogEngine.info(`📈 Webhook metrics at: http://localhost:${port}/webhook/metrics`);
 		});
 	}
 	catch (error) {
@@ -284,54 +329,85 @@ const rawBodyJsonMiddleware = express.json({
  *
  * Handles incoming webhooks from Unthread for ticket updates and synchronization.
  * Uses dedicated JSON middleware with raw body capture for signature verification.
- * All webhook processing is delegated to the webhookHandler service.
+ * All webhook processing is delegated to the queue-based webhookHandler service.
  */
 app.post('/webhook/unthread', rawBodyJsonMiddleware, webhookHandler);
 
 /**
+ * Webhook Management Endpoints
+ */
+app.get('/webhook/health', webhookHealthCheck);
+app.get('/webhook/metrics', webhookMetrics);
+app.post('/webhook/retry', retryFailedWebhooks);
+
+/**
  * Health Check Endpoint
  *
- * Provides a simple health check endpoint for monitoring and load balancers.
- * Returns application status and dependency health information.
+ * Provides a comprehensive health check endpoint for monitoring and load balancers.
+ * Returns application status and all storage layer health information.
  */
 app.get('/health', async (_req: express.Request, res: express.Response) => {
 	try {
-		// Perform real Redis health check
-		const redisHealth = await checkRedisHealth();
+		// Perform comprehensive storage health check
+		const storageHealth = await checkStorageHealth();
 
-		// Basic health check response
-		const healthStatus = {
-			status: 'healthy',
-			timestamp: new Date().toISOString(),
-			uptime: process.uptime(),
-			version: version,
-			environment: process.env.NODE_ENV || 'development',
-			discord: {
-				status: client?.isReady() ? 'connected' : 'disconnected',
-				user: client?.user?.displayName || client?.user?.username || 'not logged in',
-			},
-			redis: redisHealth,
-		};
+		// Check Discord client status
+		const discordStatus = client.isReady() ? 'connected' : 'disconnected';
 
-		// Set overall status based on dependencies
-		const isHealthy = redisHealth.status === 'connected' && (client?.isReady() ?? false);
-		if (isHealthy) {
-			healthStatus.status = 'healthy';
-			res.status(200).json(healthStatus);
+		// Overall status logic
+		let overallStatus: 'healthy' | 'degraded' | 'unhealthy';
+		if (storageHealth.status === 'healthy' && discordStatus === 'connected') {
+			overallStatus = 'healthy';
+		}
+		else if (storageHealth.status === 'unhealthy' || discordStatus === 'disconnected') {
+			overallStatus = 'unhealthy';
 		}
 		else {
-			healthStatus.status = 'unhealthy';
-			res.status(503).json(healthStatus);
+			overallStatus = 'degraded';
 		}
+
+		const statusCode = overallStatus === 'unhealthy' ? 503 : 200;
+
+		res.status(statusCode).json({
+			status: overallStatus,
+			timestamp: new Date().toISOString(),
+			version,
+			services: {
+				discord: discordStatus,
+				storage: storageHealth.status,
+				storage_layers: storageHealth.layers,
+			},
+			error: storageHealth.error,
+		});
 	}
 	catch (error) {
-		LogEngine.error('Health check failed:', error);
+		LogEngine.error('Health check endpoint error:', error);
 		res.status(503).json({
 			status: 'unhealthy',
 			timestamp: new Date().toISOString(),
-			error: error instanceof Error ? error.message : 'Unknown error',
+			version,
+			error: 'Health check failed',
 		});
 	}
+});
+
+/**
+ * Basic Application Info Endpoint
+ */
+app.get('/', (_req: express.Request, res: express.Response) => {
+	res.json({
+		name: 'Unthread Discord Bot',
+		version,
+		description: 'Official Discord bot integration for Unthread.io ticketing system',
+		architecture: '3-layer storage with queue-based processing',
+		endpoints: {
+			webhook: '/webhook/unthread',
+			health: '/health',
+			webhook_health: '/webhook/health',
+			webhook_metrics: '/webhook/metrics',
+			webhook_retry: '/webhook/retry',
+		},
+	});
 });
 
 /**

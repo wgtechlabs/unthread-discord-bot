@@ -16,8 +16,8 @@
 import { Events, ChannelType, Interaction, CommandInteraction, ModalSubmitInteraction, EmbedBuilder } from 'discord.js';
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { LogEngine } from '../config/logger';
-import { setKey } from '../utils/memory';
-import { getOrCreateCustomer, getCustomerByDiscordId, updateCustomer } from '../utils/customerUtils';
+import { BotsStore } from '../sdk/bots-brain/BotsStore';
+import { getOrCreateCustomer, getCustomerByDiscordId } from '../utils/customerUtils';
 import { getBotFooter } from '../utils/botUtils';
 
 /**
@@ -91,8 +91,9 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 		// If email provided, update or create customer record
 		const existingCustomer = await getCustomerByDiscordId(interaction.user.id);
 		if (existingCustomer) {
-			existingCustomer.email = email;
-			await updateCustomer(existingCustomer);
+			// Update customer with new email using BotsStore
+			const botsStore = BotsStore.getInstance();
+			await botsStore.storeCustomer(interaction.user, email, existingCustomer.unthreadCustomerId);
 		}
 		else {
 			await getOrCreateCustomer(interaction.user, email);
@@ -184,10 +185,10 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 		const threadObj = thread as ThreadResponse | null;
 		if (ticketObj?.id && threadObj?.id) {
 			try {
-				// Remove the mapping to prevent orphaned entries
-				// Set with short TTL to delete
-				await setKey(`ticket:discord:${threadObj.id}`, null, 1);
-				await setKey(`ticket:unthread:${ticketObj.id}`, null, 1);
+				// Remove the mapping using BotsStore
+				const botsStore = BotsStore.getInstance();
+				await botsStore.clearCache('mapping', threadObj.id);
+				await botsStore.clearCache('mapping', ticketObj.id);
 				LogEngine.info(`Cleaned up orphaned ticket mapping: Discord thread ${threadObj.id} <-> Unthread ticket ${ticketObj.id}`);
 			}
 			catch (cleanupError) {
