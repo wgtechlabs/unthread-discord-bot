@@ -81,8 +81,14 @@ async function validateStartupRequirements(): Promise<void> {
 		const botsStore = await BotsStore.initialize();
 		const health = await botsStore.healthCheck();
 
-		if (!health.memory || !health.redis || !health.postgres) {
-			throw new Error('Storage layer health check failed');
+		// Check storage health with specific error details
+		const failedLayers = [];
+		if (!health.memory) failedLayers.push('memory');
+		if (!health.redis) failedLayers.push('redis');
+		if (!health.postgres) failedLayers.push('postgres');
+
+		if (failedLayers.length > 0) {
+			throw new Error(`Storage layer health check failed: ${failedLayers.join(', ')} layer(s) unhealthy`);
 		}
 
 		LogEngine.info('3-layer storage architecture validated successfully');
