@@ -30,7 +30,8 @@ import { QueueProcessor } from './QueueProcessor';
  * Extended Express Request with raw body for signature verification
  */
 interface WebhookRequest extends Request {
-	rawBody: string;
+	// Make optional to handle cases where middleware isn't properly configured
+	rawBody?: string;
 }
 
 /**
@@ -81,9 +82,23 @@ function verifySignature(req: WebhookRequest): boolean {
 		return false;
 	}
 
-	const signature = req.headers['x-unthread-signature'] as string;
-	if (!signature) {
+	// Defensive handling for missing rawBody
+	if (!req.rawBody) {
+		LogEngine.error('Missing rawBody for signature verification. Ensure raw body capture middleware is properly configured.');
+		return false;
+	}
+
+	// Defensive header handling with proper type checking
+	const signatureHeader = req.headers['x-unthread-signature'];
+	if (!signatureHeader) {
 		LogEngine.error('Missing x-unthread-signature header');
+		return false;
+	}
+
+	// Handle both string and string[] header types
+	const signature = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader;
+	if (!signature || typeof signature !== 'string') {
+		LogEngine.error('Invalid x-unthread-signature header format');
 		return false;
 	}
 
@@ -214,12 +229,37 @@ async function webhookHandler(req: Request, res: Response): Promise<void> {
 	catch (error) {
 		LogEngine.error('Failed to queue webhook event:', error);
 
-		// Still return 200 to prevent webhook retries for application errors
-		// The error will be logged and can be investigated separately
-		res.status(200).json({
-			status: 'error',
-			message: 'Event received but processing failed',
-		});
+		// Differentiate between application errors and infrastructure failures
+		// Return 5xx for infrastructure failures to enable upstream retries
+		// Return 4xx for malformed/invalid webhook data (non-retryable)
+
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+		// Check if this is likely an infrastructure failure (Redis/queue issues)
+		const isInfrastructureFailure = errorMessage.includes('Redis') ||
+										errorMessage.includes('connection') ||
+										errorMessage.includes('timeout') ||
+										errorMessage.includes('ECONNREFUSED') ||
+										errorMessage.includes('network');
+
+		if (isInfrastructureFailure) {
+			// Return 5xx for infrastructure failures to trigger upstream retries
+			LogEngine.warn('Infrastructure failure detected, returning 502 to enable retries');
+			res.status(502).json({
+				status: 'error',
+				message: 'Service temporarily unavailable - please retry',
+				retryable: true,
+			});
+		}
+		else {
+			// Return 4xx for application/validation errors (non-retryable)
+			LogEngine.warn('Application error detected, returning 400 to prevent retries');
+			res.status(400).json({
+				status: 'error',
+				message: 'Invalid webhook data or application error',
+				retryable: false,
+			});
+		}
 	}
 }
 
