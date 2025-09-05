@@ -175,7 +175,7 @@ export async function findDiscordThreadByTicketIdWithRetry(
 					return await findDiscordThreadByTicketId(unthreadTicketId);
 				}
 			}
-			
+
 			// Default lookup using BotsStore
 			return await findDiscordThreadByTicketId(unthreadTicketId);
 		}

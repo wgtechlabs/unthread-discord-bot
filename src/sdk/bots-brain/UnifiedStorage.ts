@@ -284,7 +284,8 @@ class PostgresStorage implements StorageLayer {
 					ON CONFLICT (cache_key) 
 					DO UPDATE SET data = $2, expires_at = $3, updated_at = NOW()
 				`, [key, JSON.stringify(value), expiresAt]);
-			} else {
+			}
+			else {
 				await client.query(`
 					INSERT INTO storage_cache (cache_key, data, expires_at) 
 					VALUES ($1, $2, NULL)

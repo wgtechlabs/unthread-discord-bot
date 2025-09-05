@@ -93,7 +93,16 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 		if (existingCustomer) {
 			// Update customer with new email using BotsStore
 			const botsStore = BotsStore.getInstance();
-			await botsStore.storeCustomer(interaction.user, email, existingCustomer.unthreadCustomerId);
+			const normalizedEmail = email.trim().toLowerCase();
+			try {
+				await botsStore.storeCustomer(interaction.user, normalizedEmail, existingCustomer.unthreadCustomerId);
+				// Proactively clear both discord and unthread keyed caches
+				await botsStore.clearCache('customer', interaction.user.id);
+				await botsStore.clearCache('customer', existingCustomer.unthreadCustomerId);
+			}
+			catch (err) {
+				LogEngine.warn(`Customer email update failed for ${interaction.user.id}; proceeding.`, err);
+			}
 		}
 		else {
 			await getOrCreateCustomer(interaction.user, email);

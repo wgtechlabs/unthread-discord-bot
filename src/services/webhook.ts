@@ -98,12 +98,12 @@ function verifySignature(req: WebhookRequest): boolean {
 		// Use constant-time comparison to prevent timing attacks
 		const sigBuf = Buffer.from(signature);
 		const expBuf = Buffer.from(expected);
-		
+
 		// Prevent crash by checking buffer lengths match
 		if (sigBuf.length !== expBuf.length) {
 			return false;
 		}
-		
+
 		return crypto.timingSafeEqual(sigBuf, expBuf);
 	}
 	catch (error) {
