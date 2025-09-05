@@ -35,6 +35,8 @@ interface StorageLayer {
     delete(key: string): Promise<void>;
     exists(key: string): Promise<boolean>;
     clear?(): Promise<void>;
+    // New method for health checks
+    ping(): Promise<boolean>;
 }
 
 /**
@@ -127,6 +129,16 @@ class MemoryStorage implements StorageLayer {
 		this.cache.clear();
 	}
 
+	async ping(): Promise<boolean> {
+		try {
+			// Memory storage is always available if the object exists
+			return true;
+		}
+		catch {
+			return false;
+		}
+	}
+
 	getSize(): number {
 		return this.cache.size;
 	}
@@ -215,6 +227,19 @@ class RedisStorage implements StorageLayer {
 		}
 		catch (error) {
 			LogEngine.error('Redis L2 exists error:', error);
+			return false;
+		}
+	}
+
+	async ping(): Promise<boolean> {
+		if (!this.connected) return false;
+
+		try {
+			const result = await this.client.ping();
+			return result === 'PONG';
+		}
+		catch (error) {
+			LogEngine.error('Redis L2 ping error:', error);
 			return false;
 		}
 	}
@@ -329,6 +354,21 @@ class PostgresStorage implements StorageLayer {
 		}
 		catch (error) {
 			LogEngine.error('PostgreSQL L3 exists error:', error);
+			return false;
+		}
+	}
+
+	async ping(): Promise<boolean> {
+		if (!this.connected) return false;
+
+		try {
+			const client = await this.pool.connect();
+			await client.query('SELECT 1');
+			client.release();
+			return true;
+		}
+		catch (error) {
+			LogEngine.error('PostgreSQL L3 ping error:', error);
 			return false;
 		}
 	}
@@ -497,18 +537,22 @@ export class UnifiedStorage {
 
 	/**
      * Health check for all storage layers
+     *
+     * Now uses proper ping() methods to actually test connectivity
+     * instead of relying on Promise.allSettled which reports "fulfilled"
+     * even when operations fail.
      */
 	async healthCheck(): Promise<Record<string, boolean>> {
-		const checks = await Promise.allSettled([
-			this.l1Memory.exists('__health_check__'),
-			this.l2Redis.exists('__health_check__'),
-			this.l3Postgres.exists('__health_check__'),
+		const results = await Promise.allSettled([
+			this.l1Memory.ping(),
+			this.l2Redis.ping(),
+			this.l3Postgres.ping(),
 		]);
 
 		return {
-			memory: checks[0].status === 'fulfilled',
-			redis: checks[1].status === 'fulfilled',
-			postgres: checks[2].status === 'fulfilled',
+			memory: results[0].status === 'fulfilled' && results[0].value === true,
+			redis: results[1].status === 'fulfilled' && results[1].value === true,
+			postgres: results[2].status === 'fulfilled' && results[2].value === true,
 		};
 	}
 }

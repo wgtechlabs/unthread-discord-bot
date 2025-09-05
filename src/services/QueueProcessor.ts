@@ -334,7 +334,7 @@ export class QueueProcessor {
 
 		try {
 			let job;
-			
+
 			// BullMQ retry configuration
 			const retryOptions = {
 				attempts: this.config.maxRetries,
@@ -373,7 +373,7 @@ export class QueueProcessor {
 
 	/**
      * Process individual webhook job
-     * 
+     *
      * BullMQ expects thrown errors for retry logic to work properly.
      * This method now throws errors for retryable failures instead of returning failure objects.
      */
@@ -536,7 +536,7 @@ export class QueueProcessor {
 
 	/**
      * Retry failed jobs from DLQ
-     * 
+     *
      * Fixed to query correct job states ('failed' instead of 'completed')
      * and use proper error field access.
      */
@@ -548,7 +548,7 @@ export class QueueProcessor {
 
 			for (const job of failedJobs) {
 				const originalData = job.data as WebhookJobData;
-				
+
 				// Get error message from job's failed reason or generic message
 				const errorMessage = job.failedReason || 'Unknown error';
 
@@ -561,7 +561,7 @@ export class QueueProcessor {
 				};
 
 				LogEngine.debug(`Retrying failed job: ${originalData.eventType} - ${errorMessage}`);
-				
+
 				await this.addWebhookEvent(retryData.payload, { source: 'retry' });
 				await job.remove();
 				retriedCount++;
