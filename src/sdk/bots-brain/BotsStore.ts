@@ -205,6 +205,60 @@ export class BotsStore {
 		return store;
 	}
 
+	// ==================== PRIVATE MAPPER METHODS ====================
+
+	/**
+	 * Maps database customer row (snake_case) to Customer interface (camelCase)
+	 * Provides type-safe conversion from database format to application format
+	 */
+	private mapCustomerRow(dbRow: any): Customer {
+		const customer: Customer = {
+			discordId: dbRow.discord_id,
+			username: dbRow.username,
+		};
+
+		// Add optional fields only if they exist
+		if (dbRow.id !== undefined) customer.id = dbRow.id;
+		if (dbRow.unthread_customer_id !== undefined) customer.unthreadCustomerId = dbRow.unthread_customer_id;
+		if (dbRow.email !== undefined) customer.email = dbRow.email;
+		if (dbRow.display_name !== undefined) customer.displayName = dbRow.display_name;
+		if (dbRow.avatar_url !== undefined) customer.avatarUrl = dbRow.avatar_url;
+		
+		const createdAt = toSafeISOString(dbRow.created_at);
+		if (createdAt !== undefined) customer.createdAt = createdAt;
+		
+		const updatedAt = toSafeISOString(dbRow.updated_at);
+		if (updatedAt !== undefined) customer.updatedAt = updatedAt;
+
+		return customer;
+	}
+
+	/**
+	 * Maps database mapping row (snake_case) to ExtendedThreadTicketMapping interface (camelCase)
+	 * Provides type-safe conversion from database format to application format
+	 */
+	private mapMappingRow(dbRow: any): ExtendedThreadTicketMapping {
+		// Ensure required createdAt field is present
+		const createdAt = toSafeISOString(dbRow.created_at) || new Date().toISOString();
+		
+		const mapping: ExtendedThreadTicketMapping = {
+			discordThreadId: dbRow.discord_thread_id,
+			unthreadTicketId: dbRow.unthread_ticket_id,
+			status: dbRow.status,
+			createdAt,
+		};
+
+		// Add optional fields only if they exist
+		if (dbRow.id !== undefined) mapping.id = dbRow.id;
+		if (dbRow.discord_channel_id !== undefined) mapping.discordChannelId = dbRow.discord_channel_id;
+		if (dbRow.customer_id !== undefined) mapping.customerId = dbRow.customer_id;
+		
+		const updatedAt = toSafeISOString(dbRow.updated_at);
+		if (updatedAt !== undefined) mapping.updatedAt = updatedAt;
+
+		return mapping;
+	}
+
 	// ==================== CUSTOMER OPERATIONS ====================
 
 	/**
@@ -250,11 +304,7 @@ export class BotsStore {
 			});
 
 			const dbRow = result.rows[0];
-			const storedCustomer: Customer = {
-				...dbRow,
-				createdAt: toSafeISOString(dbRow.created_at),
-				updatedAt: toSafeISOString(dbRow.updated_at),
-			};
+			const storedCustomer = this.mapCustomerRow(dbRow);
 
 			// Cache in all storage layers
 			const cacheKey = `customer:discord:${user.id}`;
@@ -302,11 +352,7 @@ export class BotsStore {
 			}
 
 			const dbRow = result.rows[0];
-			const customer: Customer = {
-				...dbRow,
-				createdAt: toSafeISOString(dbRow.created_at),
-				updatedAt: toSafeISOString(dbRow.updated_at),
-			};
+			const customer = this.mapCustomerRow(dbRow);
 
 			// Warm cache
 			await this.storage.set(cacheKey, customer, this.config.defaultCacheTtl);
@@ -348,11 +394,7 @@ export class BotsStore {
 			}
 
 			const dbRow = result.rows[0];
-			const customer: Customer = {
-				...dbRow,
-				createdAt: toSafeISOString(dbRow.created_at),
-				updatedAt: toSafeISOString(dbRow.updated_at),
-			};
+			const customer = this.mapCustomerRow(dbRow);
 
 			// Warm both cache keys
 			await Promise.all([
@@ -400,11 +442,7 @@ export class BotsStore {
 			});
 
 			const dbRow = result.rows[0];
-			const storedMapping: ExtendedThreadTicketMapping = {
-				...dbRow,
-				createdAt: toSafeISOString(dbRow.created_at),
-				updatedAt: toSafeISOString(dbRow.updated_at),
-			};
+			const storedMapping = this.mapMappingRow(dbRow);
 
 			// Cache with both thread and ticket as keys
 			const threadCacheKey = `mapping:thread:${mapping.discordThreadId}`;
@@ -452,11 +490,7 @@ export class BotsStore {
 			}
 
 			const dbRow = result.rows[0];
-			const mapping: ExtendedThreadTicketMapping = {
-				...dbRow,
-				createdAt: toSafeISOString(dbRow.created_at),
-				updatedAt: toSafeISOString(dbRow.updated_at),
-			};
+			const mapping = this.mapMappingRow(dbRow);
 
 			// Warm cache
 			await this.storage.set(cacheKey, mapping, this.config.defaultCacheTtl);
@@ -498,11 +532,7 @@ export class BotsStore {
 			}
 
 			const dbRow = result.rows[0];
-			const mapping: ExtendedThreadTicketMapping = {
-				...dbRow,
-				createdAt: toSafeISOString(dbRow.created_at),
-				updatedAt: toSafeISOString(dbRow.updated_at),
-			};
+			const mapping = this.mapMappingRow(dbRow);
 
 			// Warm both cache keys
 			await Promise.all([
