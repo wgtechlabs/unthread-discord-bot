@@ -71,12 +71,6 @@ CREATE INDEX IF NOT EXISTS idx_storage_cache_expires_at ON storage_cache(expires
 CREATE INDEX IF NOT EXISTS idx_thread_ticket_mappings_unthread_ticket_id ON thread_ticket_mappings(unthread_ticket_id);
 CREATE INDEX IF NOT EXISTS idx_thread_ticket_mappings_customer_id ON thread_ticket_mappings(customer_id);
 
--- Trigger for automatic updated_at timestamp (reuses existing function)
-CREATE TRIGGER trigger_storage_cache_updated_at
-    BEFORE UPDATE ON storage_cache
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
