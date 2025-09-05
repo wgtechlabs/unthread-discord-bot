@@ -36,6 +36,25 @@ function toSafeISOString(date: Date | null | undefined): string | undefined {
 }
 
 /**
+ * Helper function to ensure database connections are always released
+ * @param pool - The PostgreSQL connection pool
+ * @param operation - The database operation to perform with the client
+ * @returns The result of the operation
+ */
+async function withDbClient<T>(
+	pool: Pool,
+	operation: (client: import('pg').PoolClient) => Promise<T>,
+): Promise<T> {
+	const client = await pool.connect();
+	try {
+		return await operation(client);
+	}
+	finally {
+		client.release();
+	}
+}
+
+/**
  * Customer data structure for Discord users
  */
 export interface Customer {
@@ -207,30 +226,28 @@ export class BotsStore {
 		}
 
 		try {
-			const client = await this.pool.connect();
-
-			const result = await client.query(`
-                INSERT INTO customers (discord_id, unthread_customer_id, email, username, display_name, avatar_url)
-                VALUES ($1, $2, $3, $4, $5, $6)
-                ON CONFLICT (discord_id)
-                DO UPDATE SET 
-                    unthread_customer_id = COALESCE($2, customers.unthread_customer_id),
-                    email = COALESCE($3, customers.email),
-                    username = $4,
-                    display_name = $5,
-                    avatar_url = $6,
-                    updated_at = NOW()
-                RETURNING *
-            `, [
-				customer.discordId,
-				customer.unthreadCustomerId || null,
-				customer.email || null,
-				customer.username,
-				customer.displayName,
-				customer.avatarUrl,
-			]);
-
-			client.release();
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query(`
+					INSERT INTO customers (discord_id, unthread_customer_id, email, username, display_name, avatar_url)
+					VALUES ($1, $2, $3, $4, $5, $6)
+					ON CONFLICT (discord_id)
+					DO UPDATE SET 
+						unthread_customer_id = COALESCE($2, customers.unthread_customer_id),
+						email = COALESCE($3, customers.email),
+						username = $4,
+						display_name = $5,
+						avatar_url = $6,
+						updated_at = NOW()
+					RETURNING *
+				`, [
+					customer.discordId,
+					customer.unthreadCustomerId || null,
+					customer.email || null,
+					customer.username,
+					customer.displayName,
+					customer.avatarUrl,
+				]);
+			});
 
 			const dbRow = result.rows[0];
 			const storedCustomer: Customer = {
@@ -273,12 +290,12 @@ export class BotsStore {
 
 		// Query database
 		try {
-			const client = await this.pool.connect();
-			const result = await client.query(
-				'SELECT * FROM customers WHERE discord_id = $1',
-				[discordId],
-			);
-			client.release();
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query(
+					'SELECT * FROM customers WHERE discord_id = $1',
+					[discordId],
+				);
+			});
 
 			if (result.rows.length === 0) {
 				return null;
@@ -319,12 +336,12 @@ export class BotsStore {
 
 		// Query database
 		try {
-			const client = await this.pool.connect();
-			const result = await client.query(
-				'SELECT * FROM customers WHERE unthread_customer_id = $1',
-				[unthreadCustomerId],
-			);
-			client.release();
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query(
+					'SELECT * FROM customers WHERE unthread_customer_id = $1',
+					[unthreadCustomerId],
+				);
+			});
 
 			if (result.rows.length === 0) {
 				return null;
@@ -360,29 +377,27 @@ export class BotsStore {
      */
 	async storeThreadTicketMapping(mapping: ExtendedThreadTicketMapping): Promise<ExtendedThreadTicketMapping> {
 		try {
-			const client = await this.pool.connect();
-
-			const result = await client.query(`
-                INSERT INTO thread_ticket_mappings 
-                (discord_thread_id, unthread_ticket_id, discord_channel_id, customer_id, status)
-                VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT (discord_thread_id)
-                DO UPDATE SET 
-                    unthread_ticket_id = $2,
-                    discord_channel_id = $3,
-                    customer_id = $4,
-                    status = $5,
-                    updated_at = NOW()
-                RETURNING *
-            `, [
-				mapping.discordThreadId,
-				mapping.unthreadTicketId,
-				mapping.discordChannelId,
-				mapping.customerId,
-				mapping.status || 'active',
-			]);
-
-			client.release();
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query(`
+					INSERT INTO thread_ticket_mappings 
+					(discord_thread_id, unthread_ticket_id, discord_channel_id, customer_id, status)
+					VALUES ($1, $2, $3, $4, $5)
+					ON CONFLICT (discord_thread_id)
+					DO UPDATE SET 
+						unthread_ticket_id = $2,
+						discord_channel_id = $3,
+						customer_id = $4,
+						status = $5,
+						updated_at = NOW()
+					RETURNING *
+				`, [
+					mapping.discordThreadId,
+					mapping.unthreadTicketId,
+					mapping.discordChannelId,
+					mapping.customerId,
+					mapping.status || 'active',
+				]);
+			});
 
 			const dbRow = result.rows[0];
 			const storedMapping: ExtendedThreadTicketMapping = {
@@ -425,12 +440,12 @@ export class BotsStore {
 
 		// Query database
 		try {
-			const client = await this.pool.connect();
-			const result = await client.query(
-				'SELECT * FROM thread_ticket_mappings WHERE discord_thread_id = $1',
-				[discordThreadId],
-			);
-			client.release();
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query(
+					'SELECT * FROM thread_ticket_mappings WHERE discord_thread_id = $1',
+					[discordThreadId],
+				);
+			});
 
 			if (result.rows.length === 0) {
 				return null;
@@ -471,12 +486,12 @@ export class BotsStore {
 
 		// Query database
 		try {
-			const client = await this.pool.connect();
-			const result = await client.query(
-				'SELECT * FROM thread_ticket_mappings WHERE unthread_ticket_id = $1',
-				[unthreadTicketId],
-			);
-			client.release();
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query(
+					'SELECT * FROM thread_ticket_mappings WHERE unthread_ticket_id = $1',
+					[unthreadTicketId],
+				);
+			});
 
 			if (result.rows.length === 0) {
 				return null;
@@ -577,9 +592,9 @@ export class BotsStore {
 		// Test database connection
 		let dbHealth = false;
 		try {
-			const client = await this.pool.connect();
-			await client.query('SELECT 1');
-			client.release();
+			await withDbClient(this.pool, async (client) => {
+				await client.query('SELECT 1');
+			});
 			dbHealth = true;
 		}
 		catch (error) {
@@ -597,10 +612,10 @@ export class BotsStore {
      */
 	async cleanup(): Promise<void> {
 		try {
-			const client = await this.pool.connect();
-			const result = await client.query('SELECT cleanup_expired_cache()');
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query('SELECT cleanup_expired_cache()');
+			});
 			const deletedCount = result.rows[0]?.cleanup_expired_cache || 0;
-			client.release();
 
 			LogEngine.info(`Cleanup completed: ${deletedCount} expired cache entries removed`);
 		}
