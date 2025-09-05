@@ -19,6 +19,15 @@ export const name = Events.ThreadCreate;
 
 /**
  * Generate a fallback email for Discord users
+ *
+ * Uses Discord's stable user ID with the RFC 6761 compliant .invalid TLD.
+ * The .invalid domain is officially reserved for non-deliverable email addresses,
+ * ensuring these dummy emails will never accidentally reach real mailboxes.
+ *
+ * @param userId - Discord user ID (stable, permanent identifier that never changes)
+ * @returns RFC-safe non-deliverable email address (e.g., "123456789012345678@discord.invalid")
+ *
+ * @see https://tools.ietf.org/html/rfc6761#section-6.4 - RFC 6761 Special Use Domain Names
  */
 function generateDiscordUserEmail(userId: string): string {
 	return `${userId}@discord.invalid`;
