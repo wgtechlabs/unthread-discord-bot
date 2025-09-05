@@ -34,7 +34,6 @@ interface WebhookJobData {
     payload: WebhookPayload;
     eventType: string;
     receivedAt: Date;
-    retryCount?: number;
     priority?: number;
     source: 'webhook' | 'retry' | 'manual';
 }
@@ -59,16 +58,6 @@ interface QueueConfig {
     rateLimitMax: number;
     rateLimitDuration: number;
     enableMetrics: boolean;
-}
-
-/**
- * Job processing result
- */
-interface ProcessingResult {
-    success: boolean;
-    error?: string;
-    duration: number;
-    retryable: boolean;
 }
 
 /**
@@ -345,10 +334,20 @@ export class QueueProcessor {
 
 		try {
 			let job;
+			
+			// BullMQ retry configuration
+			const retryOptions = {
+				attempts: this.config.maxRetries,
+				backoff: {
+					type: 'exponential' as const,
+					delay: this.config.retryDelayMs,
+				},
+			};
 
 			if (options.priority === 'high') {
 				job = await this.priorityQueue.add('webhook-event', jobData, {
 					priority: 10,
+					...retryOptions,
 					...(options.delay && { delay: options.delay }),
 				});
 			}
@@ -356,6 +355,7 @@ export class QueueProcessor {
 				const priority = options.priority === 'low' ? 1 : 5;
 				job = await this.webhookQueue.add('webhook-event', jobData, {
 					priority,
+					...retryOptions,
 					...(options.delay && { delay: options.delay }),
 				});
 			}
@@ -373,13 +373,16 @@ export class QueueProcessor {
 
 	/**
      * Process individual webhook job
+     * 
+     * BullMQ expects thrown errors for retry logic to work properly.
+     * This method now throws errors for retryable failures instead of returning failure objects.
      */
-	private async processWebhookJob(job: Job<WebhookJobData>): Promise<ProcessingResult> {
+	private async processWebhookJob(job: Job<WebhookJobData>): Promise<void> {
 		const startTime = Date.now();
-		const { payload, eventType, retryCount = 0 } = job.data;
+		const { payload, eventType } = job.data;
 
 		try {
-			LogEngine.debug(`Processing webhook job: ${eventType} (Attempt: ${retryCount + 1})`);
+			LogEngine.debug(`Processing webhook job: ${eventType} (Attempt: ${job.attemptsMade + 1})`);
 
 			// Call the original webhook handler
 			await unthreadWebhookHandler(payload);
@@ -387,33 +390,26 @@ export class QueueProcessor {
 			const duration = Date.now() - startTime;
 			this.updateMetrics('processing_time', duration);
 
-			return {
-				success: true,
-				duration,
-				retryable: false,
-			};
+			LogEngine.debug(`Webhook job completed successfully: ${eventType} (${duration}ms)`);
 
 		}
 		catch (error) {
-			const duration = Date.now() - startTime;
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-			LogEngine.error(`Webhook processing error: ${errorMessage}`);
+			LogEngine.error(`Webhook processing error: ${errorMessage} (Attempt: ${job.attemptsMade + 1})`);
 
 			// Determine if error is retryable
 			const retryable = this.isRetryableError(error);
 
-			if (!retryable || retryCount >= this.config.maxRetries - 1) {
-				// Send to dead letter queue
+			if (!retryable || job.attemptsMade >= this.config.maxRetries - 1) {
+				// Send to dead letter queue for non-retryable errors or max retries reached
 				await this.sendToDLQ(job.data, errorMessage);
+				LogEngine.error(`Job moved to DLQ: ${eventType} - ${errorMessage}`);
 			}
 
-			return {
-				success: false,
-				error: errorMessage,
-				duration,
-				retryable,
-			};
+			// Always throw for BullMQ retry mechanism to work
+			// BullMQ will handle the retry logic based on job configuration
+			throw error;
 		}
 	}
 
@@ -540,24 +536,32 @@ export class QueueProcessor {
 
 	/**
      * Retry failed jobs from DLQ
+     * 
+     * Fixed to query correct job states ('failed' instead of 'completed')
+     * and use proper error field access.
      */
 	async retryFailedJobs(limit: number = 10): Promise<number> {
 		try {
-			const failedJobs = await this.dlqQueue.getJobs(['completed'], 0, limit - 1);
+			// Query 'failed' and 'waiting' jobs instead of 'completed'
+			const failedJobs = await this.dlqQueue.getJobs(['failed', 'waiting'], 0, limit - 1);
 			let retriedCount = 0;
 
 			for (const job of failedJobs) {
-				const originalData = job.data as WebhookJobData & { error: string };
+				const originalData = job.data as WebhookJobData;
+				
+				// Get error message from job's failed reason or generic message
+				const errorMessage = job.failedReason || 'Unknown error';
 
-				// Remove error and increment retry count
+				// Create retry data without custom retryCount (using BullMQ's built-in retry)
 				const retryData: WebhookJobData = {
 					payload: originalData.payload,
 					eventType: originalData.eventType,
 					receivedAt: new Date(),
-					retryCount: (originalData.retryCount || 0) + 1,
 					source: 'retry',
 				};
 
+				LogEngine.debug(`Retrying failed job: ${originalData.eventType} - ${errorMessage}`);
+				
 				await this.addWebhookEvent(retryData.payload, { source: 'retry' });
 				await job.remove();
 				retriedCount++;
