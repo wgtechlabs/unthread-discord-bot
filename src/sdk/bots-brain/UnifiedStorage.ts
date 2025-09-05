@@ -277,12 +277,21 @@ class PostgresStorage implements StorageLayer {
 			const client = await this.pool.connect();
 			const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null;
 
-			await client.query(`
-                INSERT INTO storage_cache (cache_key, data, expires_at) 
-                VALUES ($1, $2, $3)
-                ON CONFLICT (cache_key) 
-                DO UPDATE SET data = $2, expires_at = $3, updated_at = NOW()
-            `, [key, JSON.stringify(value), expiresAt]);
+			if (expiresAt !== null) {
+				await client.query(`
+					INSERT INTO storage_cache (cache_key, data, expires_at) 
+					VALUES ($1, $2, $3)
+					ON CONFLICT (cache_key) 
+					DO UPDATE SET data = $2, expires_at = $3, updated_at = NOW()
+				`, [key, JSON.stringify(value), expiresAt]);
+			} else {
+				await client.query(`
+					INSERT INTO storage_cache (cache_key, data, expires_at) 
+					VALUES ($1, $2, NULL)
+					ON CONFLICT (cache_key) 
+					DO UPDATE SET data = $2, expires_at = NULL, updated_at = NOW()
+				`, [key, JSON.stringify(value)]);
+			}
 
 			client.release();
 		}
