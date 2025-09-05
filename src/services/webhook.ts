@@ -225,36 +225,25 @@ async function webhookHandler(req: Request, res: Response): Promise<void> {
 
 /**
  * Health check endpoint for webhook service
+ * Returns basic operational status without exposing sensitive system details
  */
 async function webhookHealthCheck(_req: Request, res: Response): Promise<void> {
 	try {
 		if (!queueProcessor) {
 			res.status(503).json({
 				status: 'unhealthy',
-				error: 'Queue processor not initialized',
+				timestamp: new Date().toISOString(),
 			});
 			return;
 		}
 
 		const health = await queueProcessor.getHealth();
-		const metrics = await queueProcessor.getMetrics();
-
 		const httpStatus = health.status === 'healthy' ? 200 :
 						 health.status === 'degraded' ? 200 : 503;
 
 		res.status(httpStatus).json({
 			status: health.status,
 			timestamp: new Date().toISOString(),
-			queues: health.queues,
-			workers: health.workers,
-			redis: health.redis,
-			metrics: {
-				totalJobs: metrics.totalJobs,
-				activeJobs: metrics.activeJobs,
-				waitingJobs: metrics.waitingJobs,
-				errorRate: metrics.errorRate.toFixed(2) + '%',
-				avgProcessingTime: metrics.processingTime.toFixed(2) + 'ms',
-			},
 		});
 
 	}
@@ -262,54 +251,39 @@ async function webhookHealthCheck(_req: Request, res: Response): Promise<void> {
 		LogEngine.error('Webhook health check failed:', error);
 		res.status(503).json({
 			status: 'unhealthy',
-			error: 'Health check failed',
+			timestamp: new Date().toISOString(),
 		});
 	}
 }
 
 /**
- * Metrics endpoint for webhook service monitoring
+ * Basic metrics endpoint for webhook service monitoring
+ * Returns essential operational metrics without sensitive system details
  */
 async function webhookMetrics(_req: Request, res: Response): Promise<void> {
 	try {
 		if (!queueProcessor) {
-			res.status(503).json({ error: 'Queue processor not initialized' });
+			res.status(503).json({
+				status: 'unavailable',
+				timestamp: new Date().toISOString(),
+			});
 			return;
 		}
 
-		const metrics = await queueProcessor.getMetrics();
-		res.json(metrics);
-
-	}
-	catch (error) {
-		LogEngine.error('Failed to get webhook metrics:', error);
-		res.status(500).json({ error: 'Failed to retrieve metrics' });
-	}
-}
-
-/**
- * Manual retry endpoint for failed webhook jobs
- */
-async function retryFailedWebhooks(req: Request, res: Response): Promise<void> {
-	try {
-		if (!queueProcessor) {
-			res.status(503).json({ error: 'Queue processor not initialized' });
-			return;
-		}
-
-		const limit = parseInt(req.query.limit as string) || 10;
-		const retriedCount = await queueProcessor.retryFailedJobs(limit);
-
+		const health = await queueProcessor.getHealth();
 		res.json({
-			success: true,
-			retriedCount,
-			message: `${retriedCount} failed jobs requeued for processing`,
+			status: health.status,
+			timestamp: new Date().toISOString(),
+			operational: health.status === 'healthy',
 		});
 
 	}
 	catch (error) {
-		LogEngine.error('Failed to retry webhook jobs:', error);
-		res.status(500).json({ error: 'Failed to retry jobs' });
+		LogEngine.error('Failed to get webhook metrics:', error);
+		res.status(500).json({
+			status: 'error',
+			timestamp: new Date().toISOString(),
+		});
 	}
 }
 
@@ -320,5 +294,4 @@ export {
 	webhookHandler,
 	webhookHealthCheck,
 	webhookMetrics,
-	retryFailedWebhooks,
 };

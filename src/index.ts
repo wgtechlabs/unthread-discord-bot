@@ -56,7 +56,7 @@ import * as path from 'node:path';
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import express from 'express';
 import { BotConfig } from './types/discord';
-import { webhookHandler, webhookHealthCheck, webhookMetrics, retryFailedWebhooks, initializeWebhookService } from './services/webhook';
+import { webhookHandler, webhookHealthCheck, webhookMetrics, initializeWebhookService } from './services/webhook';
 import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
 import { version } from '../package.json';
@@ -338,7 +338,6 @@ app.post('/webhook/unthread', rawBodyJsonMiddleware, webhookHandler);
  */
 app.get('/webhook/health', webhookHealthCheck);
 app.get('/webhook/metrics', webhookMetrics);
-app.post('/webhook/retry', retryFailedWebhooks);
 
 /**
  * Health Check Endpoint
