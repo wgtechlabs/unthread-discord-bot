@@ -20,8 +20,8 @@ export const name = Events.ThreadCreate;
 /**
  * Generate a fallback email for Discord users
  */
-function generateDiscordUserEmail(username: string): string {
-	return `${username}@discord.user`;
+function generateDiscordUserEmail(userId: string): string {
+	return `${userId}@discord.invalid`;
 }
 
 export async function execute(thread: ThreadChannel): Promise<void> {
@@ -140,8 +140,8 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 		const content = firstMessage.content;
 
 		// Retrieve or create customer using the new customerUtils module.
-		const customer = await getOrCreateCustomer(author, generateDiscordUserEmail(author.username));
-		const email = customer.email || generateDiscordUserEmail(author.username);
+		const customer = await getOrCreateCustomer(author, generateDiscordUserEmail(author.id));
+		const email = customer.email || generateDiscordUserEmail(author.id);
 
 		// Create a support ticket in Unthread using the forum post details.
 		const ticket = await createTicket(author, title, content, email);
