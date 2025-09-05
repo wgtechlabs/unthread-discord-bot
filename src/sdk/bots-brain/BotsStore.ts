@@ -28,6 +28,14 @@ import { LogEngine } from '../../config/logger';
 import { ThreadTicketMapping } from '../../types/discord';
 
 /**
+ * Safely converts a Date object to ISO string
+ * Guards against null/undefined values from database
+ */
+function toSafeISOString(date: Date | null | undefined): string | undefined {
+	return date ? date.toISOString() : undefined;
+}
+
+/**
  * Customer data structure for Discord users
  */
 export interface Customer {
@@ -38,8 +46,8 @@ export interface Customer {
     username: string;
     displayName?: string;
     avatarUrl?: string;
-    createdAt?: Date;
-    updatedAt?: Date;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 /**
@@ -50,7 +58,7 @@ export interface ExtendedThreadTicketMapping extends ThreadTicketMapping {
     discordChannelId?: string;
     customerId?: number;
     status: 'active' | 'closed' | 'archived';
-    updatedAt?: Date;
+    updatedAt?: string;
 }
 
 /**
@@ -224,7 +232,12 @@ export class BotsStore {
 
 			client.release();
 
-			const storedCustomer = result.rows[0] as Customer;
+			const dbRow = result.rows[0];
+			const storedCustomer: Customer = {
+				...dbRow,
+				createdAt: toSafeISOString(dbRow.created_at),
+				updatedAt: toSafeISOString(dbRow.updated_at),
+			};
 
 			// Cache in all storage layers
 			const cacheKey = `customer:discord:${user.id}`;
@@ -271,7 +284,12 @@ export class BotsStore {
 				return null;
 			}
 
-			const customer = result.rows[0] as Customer;
+			const dbRow = result.rows[0];
+			const customer: Customer = {
+				...dbRow,
+				createdAt: toSafeISOString(dbRow.created_at),
+				updatedAt: toSafeISOString(dbRow.updated_at),
+			};
 
 			// Warm cache
 			await this.storage.set(cacheKey, customer, this.config.defaultCacheTtl);
@@ -312,7 +330,12 @@ export class BotsStore {
 				return null;
 			}
 
-			const customer = result.rows[0] as Customer;
+			const dbRow = result.rows[0];
+			const customer: Customer = {
+				...dbRow,
+				createdAt: toSafeISOString(dbRow.created_at),
+				updatedAt: toSafeISOString(dbRow.updated_at),
+			};
 
 			// Warm both cache keys
 			await Promise.all([
@@ -361,7 +384,12 @@ export class BotsStore {
 
 			client.release();
 
-			const storedMapping = result.rows[0] as ExtendedThreadTicketMapping;
+			const dbRow = result.rows[0];
+			const storedMapping: ExtendedThreadTicketMapping = {
+				...dbRow,
+				createdAt: toSafeISOString(dbRow.created_at),
+				updatedAt: toSafeISOString(dbRow.updated_at),
+			};
 
 			// Cache with both thread and ticket as keys
 			const threadCacheKey = `mapping:thread:${mapping.discordThreadId}`;
@@ -408,7 +436,12 @@ export class BotsStore {
 				return null;
 			}
 
-			const mapping = result.rows[0] as ExtendedThreadTicketMapping;
+			const dbRow = result.rows[0];
+			const mapping: ExtendedThreadTicketMapping = {
+				...dbRow,
+				createdAt: toSafeISOString(dbRow.created_at),
+				updatedAt: toSafeISOString(dbRow.updated_at),
+			};
 
 			// Warm cache
 			await this.storage.set(cacheKey, mapping, this.config.defaultCacheTtl);
@@ -449,7 +482,12 @@ export class BotsStore {
 				return null;
 			}
 
-			const mapping = result.rows[0] as ExtendedThreadTicketMapping;
+			const dbRow = result.rows[0];
+			const mapping: ExtendedThreadTicketMapping = {
+				...dbRow,
+				createdAt: toSafeISOString(dbRow.created_at),
+				updatedAt: toSafeISOString(dbRow.updated_at),
+			};
 
 			// Warm both cache keys
 			await Promise.all([
