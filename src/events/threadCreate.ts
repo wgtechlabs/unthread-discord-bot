@@ -17,6 +17,22 @@ import { getBotFooter } from '../utils/botUtils';
 
 export const name = Events.ThreadCreate;
 
+/**
+ * Generate a fallback email for Discord users
+ *
+ * Uses Discord's stable user ID with the RFC 6761 compliant .invalid TLD.
+ * The .invalid domain is officially reserved for non-deliverable email addresses,
+ * ensuring these dummy emails will never accidentally reach real mailboxes.
+ *
+ * @param userId - Discord user ID (stable, permanent identifier that never changes)
+ * @returns RFC-safe non-deliverable email address (e.g., "123456789012345678@discord.invalid")
+ *
+ * @see https://tools.ietf.org/html/rfc6761#section-6.4 - RFC 6761 Special Use Domain Names
+ */
+function generateDiscordUserEmail(userId: string): string {
+	return `${userId}@discord.invalid`;
+}
+
 export async function execute(thread: ThreadChannel): Promise<void> {
 	try {
 		// Ignore threads created in channels that are not validated forum channels.
@@ -132,9 +148,12 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 		const title = thread.name;
 		const content = firstMessage.content;
 
+		// Generate fallback email once for consistency
+		const fallbackEmail = generateDiscordUserEmail(author.id);
+
 		// Retrieve or create customer using the new customerUtils module.
-		const customer = await getOrCreateCustomer(author, `${author.username}@discord.user`);
-		const email = customer.email;
+		const customer = await getOrCreateCustomer(author, fallbackEmail);
+		const email = customer.email ?? fallbackEmail;
 
 		// Create a support ticket in Unthread using the forum post details.
 		const ticket = await createTicket(author, title, content, email);
