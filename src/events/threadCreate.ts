@@ -148,9 +148,12 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 		const title = thread.name;
 		const content = firstMessage.content;
 
+		// Generate fallback email once for consistency
+		const fallbackEmail = generateDiscordUserEmail(author.id);
+
 		// Retrieve or create customer using the new customerUtils module.
-		const customer = await getOrCreateCustomer(author, generateDiscordUserEmail(author.id));
-		const email = customer.email || generateDiscordUserEmail(author.id);
+		const customer = await getOrCreateCustomer(author, fallbackEmail);
+		const email = customer.email ?? fallbackEmail;
 
 		// Create a support ticket in Unthread using the forum post details.
 		const ticket = await createTicket(author, title, content, email);
