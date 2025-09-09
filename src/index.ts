@@ -404,7 +404,6 @@ app.get('/', (_req: express.Request, res: express.Response) => {
 			health: '/health',
 			webhook_health: '/webhook/health',
 			webhook_metrics: '/webhook/metrics',
-			webhook_retry: '/webhook/retry',
 		},
 	});
 });
