@@ -70,6 +70,7 @@ interface CustomerDbRow {
 	avatar_url?: string;
 	created_at?: Date;
 	updated_at?: Date;
+	deleted_at?: Date;
 }
 
 /**
@@ -84,6 +85,7 @@ interface MappingDbRow {
 	status: 'active' | 'closed' | 'archived';
 	created_at?: Date;
 	updated_at?: Date;
+	deleted_at?: Date;
 }
 
 export interface Customer {
@@ -96,6 +98,7 @@ export interface Customer {
     avatarUrl?: string;
     createdAt?: string;
     updatedAt?: string;
+    deletedAt?: string;
 }
 
 /**
@@ -106,6 +109,7 @@ export interface ExtendedThreadTicketMapping extends ThreadTicketMapping {
     discordChannelId?: string;
     customerId?: number;
     status: 'active' | 'closed' | 'archived';
+    deletedAt?: string;
     updatedAt?: string;
 }
 
@@ -239,6 +243,7 @@ export class BotsStore {
 	/**
 	 * Maps database customer row (snake_case) to Customer interface (camelCase)
 	 * Provides type-safe conversion from database format to application format
+	 * Includes data integrity checks and soft delete support
 	 */
 	private mapCustomerRow(dbRow: CustomerDbRow): Customer {
 		const customer: Customer = {
@@ -253,11 +258,23 @@ export class BotsStore {
 		if (dbRow.display_name !== undefined) customer.displayName = dbRow.display_name;
 		if (dbRow.avatar_url !== undefined) customer.avatarUrl = dbRow.avatar_url;
 
+		// Data integrity check for created_at with logging
 		const createdAt = toSafeISOString(dbRow.created_at);
-		if (createdAt !== undefined) customer.createdAt = createdAt;
+		if (createdAt === undefined) {
+			LogEngine.warn(
+				`Missing created_at in customer row for discordId=${dbRow.discord_id}. This may indicate data corruption.`,
+			);
+		}
+		else {
+			customer.createdAt = createdAt;
+		}
 
 		const updatedAt = toSafeISOString(dbRow.updated_at);
 		if (updatedAt !== undefined) customer.updatedAt = updatedAt;
+
+		// Soft delete support
+		const deletedAt = toSafeISOString(dbRow.deleted_at);
+		if (deletedAt !== undefined) customer.deletedAt = deletedAt;
 
 		return customer;
 	}
@@ -265,16 +282,28 @@ export class BotsStore {
 	/**
 	 * Maps database mapping row (snake_case) to ExtendedThreadTicketMapping interface (camelCase)
 	 * Provides type-safe conversion from database format to application format
+	 * Includes data integrity checks and soft delete support
 	 */
 	private mapMappingRow(dbRow: MappingDbRow): ExtendedThreadTicketMapping {
-		// Ensure required createdAt field is present
-		const createdAt = toSafeISOString(dbRow.created_at) || new Date().toISOString();
+		// Data integrity check for created_at with logging and fallback
+		const createdAt = toSafeISOString(dbRow.created_at);
+		let finalCreatedAt: string;
+
+		if (createdAt === undefined) {
+			LogEngine.warn(
+				`Missing created_at in mapping row for discordThreadId=${dbRow.discord_thread_id}, unthreadTicketId=${dbRow.unthread_ticket_id}. This may indicate data corruption.`,
+			);
+			finalCreatedAt = new Date().toISOString();
+		}
+		else {
+			finalCreatedAt = createdAt;
+		}
 
 		const mapping: ExtendedThreadTicketMapping = {
 			discordThreadId: dbRow.discord_thread_id,
 			unthreadTicketId: dbRow.unthread_ticket_id,
 			status: dbRow.status,
-			createdAt,
+			createdAt: finalCreatedAt,
 		};
 
 		// Add optional fields only if they exist
@@ -284,6 +313,10 @@ export class BotsStore {
 
 		const updatedAt = toSafeISOString(dbRow.updated_at);
 		if (updatedAt !== undefined) mapping.updatedAt = updatedAt;
+
+		// Soft delete support
+		const deletedAt = toSafeISOString(dbRow.deleted_at);
+		if (deletedAt !== undefined) mapping.deletedAt = deletedAt;
 
 		return mapping;
 	}
@@ -367,11 +400,11 @@ export class BotsStore {
 			return cached.data;
 		}
 
-		// Query database
+		// Query database (excluding soft-deleted records)
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM customers WHERE discord_id = $1',
+					'SELECT * FROM customers WHERE discord_id = $1 AND deleted_at IS NULL',
 					[discordId],
 				);
 			});
@@ -409,11 +442,11 @@ export class BotsStore {
 			return cached.data;
 		}
 
-		// Query database
+		// Query database (excluding soft-deleted records)
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM customers WHERE unthread_customer_id = $1',
+					'SELECT * FROM customers WHERE unthread_customer_id = $1 AND deleted_at IS NULL',
 					[unthreadCustomerId],
 				);
 			});
@@ -505,11 +538,11 @@ export class BotsStore {
 			return cached.data;
 		}
 
-		// Query database
+		// Query database (excluding soft-deleted records)
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM thread_ticket_mappings WHERE discord_thread_id = $1',
+					'SELECT * FROM thread_ticket_mappings WHERE discord_thread_id = $1 AND deleted_at IS NULL',
 					[discordThreadId],
 				);
 			});
@@ -551,7 +584,7 @@ export class BotsStore {
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM thread_ticket_mappings WHERE unthread_ticket_id = $1',
+					'SELECT * FROM thread_ticket_mappings WHERE unthread_ticket_id = $1 AND deleted_at IS NULL',
 					[unthreadTicketId],
 				);
 			});
@@ -680,6 +713,141 @@ export class BotsStore {
 		}
 		catch (error) {
 			LogEngine.error('Cleanup failed:', error);
+		}
+	}
+
+	// ==================== SOFT DELETE OPERATIONS ====================
+
+	/**
+	 * Soft delete a customer by setting deleted_at timestamp
+	 * This preserves data for audit trails and recovery purposes
+	 */
+	async softDeleteCustomer(discordId: string): Promise<boolean> {
+		try {
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query(
+					`UPDATE customers 
+					 SET deleted_at = NOW(), updated_at = NOW() 
+					 WHERE discord_id = $1 AND deleted_at IS NULL
+					 RETURNING id`,
+					[discordId],
+				);
+			});
+
+			if (result.rows.length > 0) {
+				// Invalidate cache
+				const cacheKey = `customer:discord:${discordId}`;
+				await this.storage.delete(cacheKey);
+
+				LogEngine.info(`Customer soft deleted: ${discordId}`);
+				return true;
+			}
+
+			LogEngine.warn(`Customer not found or already deleted: ${discordId}`);
+			return false;
+		}
+		catch (error) {
+			LogEngine.error('Failed to soft delete customer:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Soft delete a thread-ticket mapping by setting deleted_at timestamp
+	 */
+	async softDeleteMapping(discordThreadId: string): Promise<boolean> {
+		try {
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query(
+					`UPDATE thread_ticket_mappings 
+					 SET deleted_at = NOW(), updated_at = NOW() 
+					 WHERE discord_thread_id = $1 AND deleted_at IS NULL
+					 RETURNING id`,
+					[discordThreadId],
+				);
+			});
+
+			if (result.rows.length > 0) {
+				// Invalidate cache
+				const threadCacheKey = `mapping:thread:${discordThreadId}`;
+				await this.storage.delete(threadCacheKey);
+
+				LogEngine.info(`Mapping soft deleted: ${discordThreadId}`);
+				return true;
+			}
+
+			LogEngine.warn(`Mapping not found or already deleted: ${discordThreadId}`);
+			return false;
+		}
+		catch (error) {
+			LogEngine.error('Failed to soft delete mapping:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Restore a soft-deleted customer by clearing deleted_at timestamp
+	 */
+	async restoreCustomer(discordId: string): Promise<boolean> {
+		try {
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query(
+					`UPDATE customers 
+					 SET deleted_at = NULL, updated_at = NOW() 
+					 WHERE discord_id = $1 AND deleted_at IS NOT NULL
+					 RETURNING id`,
+					[discordId],
+				);
+			});
+
+			if (result.rows.length > 0) {
+				// Invalidate cache to force fresh data
+				const cacheKey = `customer:discord:${discordId}`;
+				await this.storage.delete(cacheKey);
+
+				LogEngine.info(`Customer restored: ${discordId}`);
+				return true;
+			}
+
+			LogEngine.warn(`Customer not found in soft-deleted state: ${discordId}`);
+			return false;
+		}
+		catch (error) {
+			LogEngine.error('Failed to restore customer:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Restore a soft-deleted mapping by clearing deleted_at timestamp
+	 */
+	async restoreMapping(discordThreadId: string): Promise<boolean> {
+		try {
+			const result = await withDbClient(this.pool, async (client) => {
+				return await client.query(
+					`UPDATE thread_ticket_mappings 
+					 SET deleted_at = NULL, updated_at = NOW() 
+					 WHERE discord_thread_id = $1 AND deleted_at IS NOT NULL
+					 RETURNING id`,
+					[discordThreadId],
+				);
+			});
+
+			if (result.rows.length > 0) {
+				// Invalidate cache to force fresh data
+				const threadCacheKey = `mapping:thread:${discordThreadId}`;
+				await this.storage.delete(threadCacheKey);
+
+				LogEngine.info(`Mapping restored: ${discordThreadId}`);
+				return true;
+			}
+
+			LogEngine.warn(`Mapping not found in soft-deleted state: ${discordThreadId}`);
+			return false;
+		}
+		catch (error) {
+			LogEngine.error('Failed to restore mapping:', error);
+			throw error;
 		}
 	}
 }
