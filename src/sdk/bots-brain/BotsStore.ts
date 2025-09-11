@@ -28,11 +28,35 @@ import { LogEngine } from '../../config/logger';
 import { ThreadTicketMapping } from '../../types/discord';
 
 /**
- * Safely converts a Date object to ISO string
+ * Safely converts a Date object or ISO string to ISO string
  * Guards against null/undefined values from database
+ * Handles both Date objects and string timestamps from node-postgres
  */
-function toSafeISOString(date: Date | null | undefined): string | undefined {
-	return date ? date.toISOString() : undefined;
+function toSafeISOString(date: Date | string | null | undefined): string | undefined {
+	if (!date) return undefined;
+
+	// If already a string, validate it's a valid ISO string by constructing a Date
+	if (typeof date === 'string') {
+		try {
+			const parsedDate = new Date(date);
+			// Check if the date is valid
+			if (isNaN(parsedDate.getTime())) {
+				return undefined;
+			}
+			return parsedDate.toISOString();
+		}
+		catch {
+			return undefined;
+		}
+	}
+
+	// If it's a Date object, convert directly
+	try {
+		return date.toISOString();
+	}
+	catch {
+		return undefined;
+	}
 }
 
 /**
@@ -68,9 +92,9 @@ interface CustomerDbRow {
 	username: string;
 	display_name?: string;
 	avatar_url?: string;
-	created_at?: Date;
-	updated_at?: Date;
-	deleted_at?: Date;
+	created_at?: Date | string | null;
+	updated_at?: Date | string | null;
+	deleted_at?: Date | string | null;
 }
 
 /**
@@ -83,9 +107,9 @@ interface MappingDbRow {
 	discord_channel_id?: string;
 	customer_id?: number;
 	status: 'active' | 'closed' | 'archived';
-	created_at?: Date;
-	updated_at?: Date;
-	deleted_at?: Date;
+	created_at?: Date | string | null;
+	updated_at?: Date | string | null;
+	deleted_at?: Date | string | null;
 }
 
 export interface Customer {
