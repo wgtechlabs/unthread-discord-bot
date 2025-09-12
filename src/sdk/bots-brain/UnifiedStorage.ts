@@ -279,15 +279,19 @@ class PostgresStorage implements StorageLayer {
 	async get(key: string): Promise<unknown> {
 		if (!this.connected) return null;
 
+		let client;
 		try {
-			const client = await this.pool.connect();
-			const result = await client.query(
-				'SELECT data FROM storage_cache WHERE cache_key = $1 AND (expires_at IS NULL OR expires_at > NOW())',
-				[key],
-			);
-			client.release();
-
-			return result.rows.length > 0 ? result.rows[0].data : null;
+			client = await this.pool.connect();
+			try {
+				const result = await client.query(
+					'SELECT data FROM storage_cache WHERE cache_key = $1 AND (expires_at IS NULL OR expires_at > NOW())',
+					[key],
+				);
+				return result.rows.length > 0 ? result.rows[0].data : null;
+			}
+			finally {
+				client.release();
+			}
 		}
 		catch (error) {
 			LogEngine.error('PostgreSQL L3 get error:', error);
@@ -298,28 +302,32 @@ class PostgresStorage implements StorageLayer {
 	async set(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
 		if (!this.connected) return;
 
+		let client;
 		try {
-			const client = await this.pool.connect();
-			const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null;
+			client = await this.pool.connect();
+			try {
+				const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null;
 
-			if (expiresAt !== null) {
-				await client.query(`
-					INSERT INTO storage_cache (cache_key, data, expires_at) 
-					VALUES ($1, $2, $3)
-					ON CONFLICT (cache_key) 
-					DO UPDATE SET data = $2, expires_at = $3, updated_at = NOW()
-				`, [key, JSON.stringify(value), expiresAt]);
+				if (expiresAt !== null) {
+					await client.query(`
+						INSERT INTO storage_cache (cache_key, data, expires_at) 
+						VALUES ($1, $2, $3)
+						ON CONFLICT (cache_key) 
+						DO UPDATE SET data = $2, expires_at = $3, updated_at = NOW()
+					`, [key, JSON.stringify(value), expiresAt]);
+				}
+				else {
+					await client.query(`
+						INSERT INTO storage_cache (cache_key, data, expires_at) 
+						VALUES ($1, $2, NULL)
+						ON CONFLICT (cache_key) 
+						DO UPDATE SET data = $2, expires_at = NULL, updated_at = NOW()
+					`, [key, JSON.stringify(value)]);
+				}
 			}
-			else {
-				await client.query(`
-					INSERT INTO storage_cache (cache_key, data, expires_at) 
-					VALUES ($1, $2, NULL)
-					ON CONFLICT (cache_key) 
-					DO UPDATE SET data = $2, expires_at = NULL, updated_at = NOW()
-				`, [key, JSON.stringify(value)]);
+			finally {
+				client.release();
 			}
-
-			client.release();
 		}
 		catch (error) {
 			LogEngine.error('PostgreSQL L3 set error:', error);
@@ -329,10 +337,15 @@ class PostgresStorage implements StorageLayer {
 	async delete(key: string): Promise<void> {
 		if (!this.connected) return;
 
+		let client;
 		try {
-			const client = await this.pool.connect();
-			await client.query('DELETE FROM storage_cache WHERE cache_key = $1', [key]);
-			client.release();
+			client = await this.pool.connect();
+			try {
+				await client.query('DELETE FROM storage_cache WHERE cache_key = $1', [key]);
+			}
+			finally {
+				client.release();
+			}
 		}
 		catch (error) {
 			LogEngine.error('PostgreSQL L3 delete error:', error);
@@ -342,15 +355,19 @@ class PostgresStorage implements StorageLayer {
 	async exists(key: string): Promise<boolean> {
 		if (!this.connected) return false;
 
+		let client;
 		try {
-			const client = await this.pool.connect();
-			const result = await client.query(
-				'SELECT 1 FROM storage_cache WHERE cache_key = $1 AND (expires_at IS NULL OR expires_at > NOW())',
-				[key],
-			);
-			client.release();
-
-			return result.rows.length > 0;
+			client = await this.pool.connect();
+			try {
+				const result = await client.query(
+					'SELECT 1 FROM storage_cache WHERE cache_key = $1 AND (expires_at IS NULL OR expires_at > NOW())',
+					[key],
+				);
+				return result.rows.length > 0;
+			}
+			finally {
+				client.release();
+			}
 		}
 		catch (error) {
 			LogEngine.error('PostgreSQL L3 exists error:', error);
