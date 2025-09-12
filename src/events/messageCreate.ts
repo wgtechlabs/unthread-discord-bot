@@ -3,6 +3,9 @@ import { version } from '../../package.json';
 import { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } from '../services/unthread';
 import { isValidatedForumChannel } from '../utils/channelUtils';
 import { LogEngine } from '../config/logger';
+import { AttachmentHandler } from '../utils/attachmentHandler';
+import { AttachmentDetectionService } from '../services/attachmentDetection';
+import { DISCORD_ATTACHMENT_CONFIG } from '../config/attachmentConfig';
 
 /**
  * Message Creation Event Handler
@@ -89,46 +92,81 @@ export async function execute(message: Message): Promise<void> {
 					}
 				}
 
-				// Process and format attachments into markdown links
-				if (message.attachments.size > 0) {
-					const attachments = Array.from(message.attachments.values());
-					if (attachments.length > 0) {
-						// Dynamically determine attachment type for better presentation
-						const attachmentLinks = attachments.map((attachment, index) => {
-							const type = attachment.contentType?.startsWith('image/')
-								? 'image'
-								: attachment.contentType?.startsWith('video/')
-									? 'video'
-									: 'file';
-							return `[${type}_${index + 1}](${attachment.url})`;
-						});
-
-						// Add attachments list to the message with separator characters
-						messageToSend = messageToSend || '';
-						messageToSend += `\n\nAttachments: ${attachmentLinks.join(' | ')}`;
-						LogEngine.debug(`Added ${attachments.length} attachments to message`);
-					}
-				}
-
 				// Retrieve or create customer email for Unthread ticket association
 				const customer = await getCustomerById(message.author.id);
 				const email = customer?.email || `${message.author.username}@discord.user`;
 
-				LogEngine.debug(`Forwarding message to Unthread ticket ${ticketMapping.unthreadTicketId}`, {
-					threadId: message.channel.id,
-					authorId: message.author.id,
-					hasAttachments: message.attachments.size > 0,
-					messageLength: messageToSend.length,
-				});
+				// Process image attachments if present
+				if (message.attachments.size > 0) {
+					const imageAttachments = AttachmentDetectionService.filterSupportedImages(message.attachments);
 
-				// Forward the message to Unthread's API
-				const response = await sendMessageToUnthread(
-					ticketMapping.unthreadTicketId,
-					message.author,
-					messageToSend,
-					email,
-				);
-				LogEngine.info(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
+					if (imageAttachments.size > 0) {
+						LogEngine.debug(`Found ${imageAttachments.size} valid image attachments`);
+
+						const attachmentHandler = new AttachmentHandler();
+						const uploadSuccess = await attachmentHandler.uploadDiscordAttachmentsToUnthread(
+							ticketMapping.unthreadTicketId,
+							imageAttachments,
+							messageToSend || 'Files uploaded',
+							{ name: message.author.displayName || message.author.username, email },
+						);
+
+						if (uploadSuccess) {
+							LogEngine.info(`Successfully uploaded ${imageAttachments.size} attachments for ticket ${ticketMapping.unthreadTicketId}`);
+
+							// Send success feedback to user
+							try {
+								await message.react('📎');
+							}
+							catch (reactionError) {
+								LogEngine.debug('Could not add reaction to message:', reactionError);
+							}
+						}
+						else {
+							LogEngine.warn('Attachment upload failed, falling back to text message');
+
+							// Fallback to text message if upload fails
+							if (messageToSend) {
+								await sendMessageToUnthread(ticketMapping.unthreadTicketId, message.author, messageToSend, email);
+							}
+
+							// Send error feedback to user
+							try {
+								await message.react('❌');
+							}
+							catch (reactionError) {
+								LogEngine.debug('Could not add reaction to message:', reactionError);
+							}
+						}
+					}
+					else {
+						// Handle unsupported attachments
+						const unsupportedAttachments = message.attachments.filter(attachment =>
+							!AttachmentDetectionService.validateAttachment(attachment).isValid,
+						);
+
+						if (unsupportedAttachments.size > 0) {
+							LogEngine.debug(`Found ${unsupportedAttachments.size} unsupported attachments`);
+
+							// Send feedback about unsupported files
+							try {
+								await message.reply(DISCORD_ATTACHMENT_CONFIG.errorMessages.unsupportedFileType);
+							}
+							catch (replyError) {
+								LogEngine.debug('Could not reply to message:', replyError);
+							}
+						}
+
+						// Send text message if there's content
+						if (messageToSend) {
+							await sendMessageToUnthread(ticketMapping.unthreadTicketId, message.author, messageToSend, email);
+						}
+					}
+				}
+				else if (messageToSend) {
+					// Regular text message
+					await sendMessageToUnthread(ticketMapping.unthreadTicketId, message.author, messageToSend, email);
+				}
 			}
 			else {
 				LogEngine.debug(`Message in thread ${message.channel.id} has no Unthread ticket mapping, skipping`);
