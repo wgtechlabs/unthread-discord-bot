@@ -51,8 +51,6 @@ export interface BotConfig {
 	UNTHREAD_API_KEY: string;
 	/** Slack channel ID for ticket routing in Unthread */
 	UNTHREAD_SLACK_CHANNEL_ID: string;
-	/** Secret for verifying Unthread webhook signatures */
-	UNTHREAD_WEBHOOK_SECRET: string;
 	/** Redis connection URL for caching and data persistence (legacy support) */
 	REDIS_URL?: string;
 	/** PostgreSQL database URL for L3 storage (required) */

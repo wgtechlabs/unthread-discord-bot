@@ -1,10 +1,18 @@
 /**
- * Webhook Service - Queue-Based Processing
+ * Webhook Service - Queue-Based Processing (Aligned with Telegram Bot Architecture)
  *
- * This service handles incoming webhook requests from Unthread and routes them
- * to a queue-based processing system for reliable, scalable event handling.
+ * This service handles incoming webhook requests from the unthread-webhook-server
+ * and routes them to a queue-based processing system for reliable, scalable event handling.
+ *
+ * IMPORTANT: This service no longer performs signature verification as events
+ * now come through a trusted Redis queue from the unthread-webhook-server,
+ * matching the architecture used by the Telegram bot.
+ *
+ * Architecture Flow:
+ * Unthread → unthread-webhook-server → Redis Queue → Discord Bot
  *
  * Key Changes from Legacy System:
+ * - Removed direct webhook signature validation (handled by webhook server)
  * - Asynchronous processing via Redis queues
  * - Immediate HTTP response to prevent timeouts
  * - Automatic retry logic for failed events
@@ -12,16 +20,14 @@
  * - Comprehensive error handling and monitoring
  *
  * Request Flow:
- * 1. Verify webhook signature for security
- * 2. Handle URL verification events immediately
- * 3. Queue other events for async processing
- * 4. Return HTTP 200 status immediately
+ * 1. Handle URL verification events immediately
+ * 2. Queue other events for async processing
+ * 3. Return HTTP 200 status immediately
  *
  * @module services/webhook
  */
 
 import { Request, Response } from 'express';
-import crypto from 'crypto';
 import { LogEngine } from '../config/logger';
 import { WebhookPayload } from '../types/unthread';
 import { QueueProcessor } from './QueueProcessor';
@@ -65,69 +71,6 @@ export async function initializeWebhookService(): Promise<void> {
 }
 
 /**
- * Verifies webhook signature using HMAC-SHA256
- *
- * Uses the webhook signing secret to verify that the request comes from Unthread.
- * This prevents unauthorized webhook calls from malicious sources.
- * Uses constant-time comparison to prevent timing attacks.
- *
- * @param req - The Express request object containing headers and body
- * @returns True if signature is valid, false otherwise
- */
-function verifySignature(req: WebhookRequest): boolean {
-	const { UNTHREAD_WEBHOOK_SECRET } = process.env;
-
-	if (!UNTHREAD_WEBHOOK_SECRET) {
-		LogEngine.error('UNTHREAD_WEBHOOK_SECRET is not configured');
-		return false;
-	}
-
-	// Defensive handling for missing rawBody
-	if (!req.rawBody) {
-		LogEngine.error('Missing rawBody for signature verification. Ensure raw body capture middleware is properly configured.');
-		return false;
-	}
-
-	// Defensive header handling with proper type checking
-	const signatureHeader = req.headers['x-unthread-signature'];
-	if (!signatureHeader) {
-		LogEngine.error('Missing x-unthread-signature header');
-		return false;
-	}
-
-	// Handle both string and string[] header types
-	const signature = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader;
-	if (!signature || typeof signature !== 'string') {
-		LogEngine.error('Invalid x-unthread-signature header format');
-		return false;
-	}
-
-	try {
-		const expectedSignature = crypto
-			.createHmac('sha256', UNTHREAD_WEBHOOK_SECRET)
-			.update(req.rawBody)
-			.digest('hex');
-
-		const expected = `sha256=${expectedSignature}`;
-
-		// Use constant-time comparison to prevent timing attacks
-		const sigBuf = Buffer.from(signature);
-		const expBuf = Buffer.from(expected);
-
-		// Prevent crash by checking buffer lengths match
-		if (sigBuf.length !== expBuf.length) {
-			return false;
-		}
-
-		return crypto.timingSafeEqual(sigBuf, expBuf);
-	}
-	catch (error) {
-		LogEngine.error('Signature verification error:', error);
-		return false;
-	}
-}
-
-/**
  * Determines the priority of a webhook event for queue processing
  */
 function getEventPriority(payload: WebhookPayload): 'low' | 'normal' | 'high' {
@@ -160,26 +103,25 @@ function getEventPriority(payload: WebhookPayload): 'low' | 'normal' | 'high' {
  * Main webhook handler for Unthread events
  *
  * Processes incoming webhook requests with the following workflow:
- * 1. Verifies the signature for security
- * 2. Handles URL verification events immediately
- * 3. Queues other events for asynchronous processing
- * 4. Returns appropriate HTTP status codes immediately
+ * 1. Handles URL verification events immediately
+ * 2. Queues other events for asynchronous processing
+ * 3. Returns appropriate HTTP status codes immediately
+ *
+ * NOTE: Signature verification is DISABLED as events now come through
+ * the Redis queue from the unthread-webhook-server, not directly from Unthread.
+ * This aligns with the Telegram bot architecture.
  *
  * @param req - The Express request object
  * @param res - The Express response object
  */
 async function webhookHandler(req: Request, res: Response): Promise<void> {
-	// Cast to WebhookRequest for access to rawBody
+	// Cast to WebhookRequest for access to rawBody (kept for compatibility)
 	const webhookReq = req as WebhookRequest;
 
 	LogEngine.debug('Webhook received:', webhookReq.rawBody);
 
-	// Verify signature for security
-	if (!verifySignature(webhookReq)) {
-		LogEngine.error('Webhook signature verification failed');
-		res.status(403).json({ error: 'Invalid signature' });
-		return;
-	}
+	// NOTE: Signature verification removed - events come from trusted webhook server via Redis
+	// The unthread-webhook-server handles signature validation before queuing events
 
 	const body = req.body as AllWebhookPayloads;
 	const { event } = body;

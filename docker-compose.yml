@@ -70,7 +70,6 @@ services:
       # Unthread Configuration
       UNTHREAD_API_KEY: ${UNTHREAD_API_KEY}
       UNTHREAD_SLACK_CHANNEL_ID: ${UNTHREAD_SLACK_CHANNEL_ID}
-      UNTHREAD_WEBHOOK_SECRET: ${UNTHREAD_WEBHOOK_SECRET}
       
       # Storage Configuration
       POSTGRES_URL: postgres://postgres:postgres@postgres:5432/unthread_discord_bot

@@ -23,13 +23,15 @@
  * - GUILD_ID: Discord server ID where commands will be deployed
  * - UNTHREAD_API_KEY: API key for Unthread integration
  * - UNTHREAD_SLACK_CHANNEL_ID: Slack channel ID for ticket routing
- * - UNTHREAD_WEBHOOK_SECRET: Secret for webhook signature verification
  * - POSTGRES_URL: PostgreSQL connection URL for L3 persistent storage (required)
  * - PLATFORM_REDIS_URL: Redis connection URL for L2 cache layer (required)
  * - WEBHOOK_REDIS_URL: Redis connection URL for webhook queue processing (required)
  * - FORUM_CHANNEL_IDS: Comma-separated list of forum channel IDs for automatic ticket creation (optional)
  * - DEBUG_MODE: Enable verbose logging during development (optional, defaults to false)
  * - PORT: Port for webhook server (optional, defaults to 3000)
+ *
+ * NOTE: UNTHREAD_WEBHOOK_SECRET is no longer required as webhook events now come
+ * through the Redis queue from unthread-webhook-server, not directly from Unthread.
  *
  * @module index
  * @author Waren Gonzaga
@@ -161,7 +163,6 @@ async function main(): Promise<void> {
 			'GUILD_ID',
 			'UNTHREAD_API_KEY',
 			'UNTHREAD_SLACK_CHANNEL_ID',
-			'UNTHREAD_WEBHOOK_SECRET',
 			'POSTGRES_URL',
 			'PLATFORM_REDIS_URL',
 			'WEBHOOK_REDIS_URL',

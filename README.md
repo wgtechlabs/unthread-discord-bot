@@ -267,7 +267,6 @@ docker-compose up -d postgres redis-cache redis-queue
 **Unthread Configuration:**
    - `UNTHREAD_API_KEY`: Your Unthread API key.
    - `UNTHREAD_SLACK_CHANNEL_ID`: Your Unthread Slack channel ID for ticket routing.
-   - `UNTHREAD_WEBHOOK_SECRET`: Your Unthread webhook secret.
 
 **Storage Configuration (3-Layer Architecture):**
    - `POSTGRES_URL`: PostgreSQL connection string (e.g., `postgres://user:password@localhost:5432/database`)
@@ -391,10 +390,10 @@ For local development, you'll need to expose your webhook endpoint to receive ev
 3. Under "Webhook Configuration", enter the following URL: `https://<YOUR_PUBLIC_URL>/webhook/unthread`
    - Replace `<YOUR_PUBLIC_URL>` with the public URL from your port forwarding setup
    - For production: Use your actual server domain (e.g., `https://your-bot-server.com/webhook/unthread`)
-4. Set the webhook secret to match your `UNTHREAD_WEBHOOK_SECRET` environment variable.
+4. Configure the webhook to send events to the unthread-webhook-server, which will queue them for the bot.
 5. Save the settings.
 
-Your bot should now be able to receive events from Unthread and sync ticket updates in real-time.
+**Note:** The Discord bot now receives events through a Redis queue from the unthread-webhook-server, similar to the Telegram bot architecture. Direct webhook signature validation has been removed.
 
 ### Configure Forum Channels (Optional)
 
@@ -454,7 +453,8 @@ Need assistance with the bot? Here's how to get help:
 **Webhook issues:**
 
 - Verify the webhook URL is accessible from the internet
-- Check that the `UNTHREAD_WEBHOOK_SECRET` matches your Unthread configuration
+- Ensure events are being queued properly in the Redis webhook queue
+- Check the unthread-webhook-server is processing and queuing events correctly
 - Ensure the Express server is running on the correct port
 
 **Redis connection problems:**
