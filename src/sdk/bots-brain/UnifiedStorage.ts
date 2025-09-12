@@ -485,7 +485,7 @@ export class UnifiedStorage {
 
 		// 1) Persist to L3 (source of truth) first
 		await this.l3Postgres.set(key, value, ttl);
-		
+
 		// 2) Best-effort cache warm - tolerate cache failures
 		await Promise.allSettled([
 			this.l1Memory.set(key, value, ttl),
