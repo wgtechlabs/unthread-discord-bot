@@ -8,21 +8,10 @@
  * Features:
  * - Redis-backed job queue with BullMQ
  * - Automatic retry logic with exponential backoff
- * - Job priority and rate li		if (!ret			await this.sendToDLQ(job.data, errorMessage);
-			LogEngine.error(`Job moved to DLQ: ${eventType} - ${errorMessage}`);
-		}
-
-		// Always throw for BullMQ retry mechanism to work
-		// BullMQ will handle the retry logic based on job configuration
-		throw error;e || job.attemptsMade >= this.config.maxRetries) {
-			// Send to dead letter queue for non-retryable errors or max retries reached
-			await this.sendToDLQ(job.data, errorMessage);
-			LogEngine.error(`Job moved to DLQ: ${eventType} - ${errorMessage}`);
-		}
-
-		// Always throw for BullMQ retry mechanism to work
-		// BullMQ will handle the retry logic based on job configuration
-		throw error;
+ * - Job priority and rate limiting
+ * - Dead letter queue for failed jobs
+ * - Comprehensive metrics and monitoring
+ * - Graceful shutdown and cleanup
  * - Dead letter queue for failed jobs
  * - Comprehensive monitoring and metrics
  * - Graceful shutdown handling
@@ -35,7 +24,7 @@
  * @module services/QueueProcessor
  */
 
-import { Queue, Worker, Job, QueueEvents } from 'bullmq';
+import { Queue, Worker, Job, QueueEvents, UnrecoverableError } from 'bullmq';
 import Redis from 'ioredis';
 import { LogEngine } from '../config/logger';
 import { WebhookPayload } from '../types/unthread';
@@ -418,22 +407,27 @@ export class QueueProcessor {
 			/**
 		 * Check if job should be sent to Dead Letter Queue (DLQ)
 		 *
-		 * Note: BullMQ's `attemptsMade` starts at 1 for the first attempt, not 0.
-		 * For maxRetries=3: attempts 1, 2, 3 → send to DLQ when attemptsMade >= 3
-		 *
-		 * @example
-		 * - Attempt 1: attemptsMade=1, 1 >= 3 = false → retry
-		 * - Attempt 2: attemptsMade=2, 2 >= 3 = false → retry
-		 * - Attempt 3: attemptsMade=3, 3 >= 3 = true → send to DLQ
+		 * BullMQ's `attemptsMade` starts at 1 for the first attempt.
+		 * We compare against the job's configured attempts or fallback to maxRetries.
 		 */
-			if (!retryable || job.attemptsMade >= this.config.maxRetries) {
-			// Send to dead letter queue for non-retryable errors or max retries reached
+			const attempts = job.opts.attempts ?? this.config.maxRetries;
+			const isLastAttempt = job.attemptsMade >= attempts;
+
+			if (!retryable) {
+				// Non-retryable errors should not retry at all
 				await this.sendToDLQ(job.data, errorMessage);
-				LogEngine.error(`Job moved to DLQ: ${eventType} - ${errorMessage}`);
+				LogEngine.error(`Job moved to DLQ (non-retryable): ${eventType} - ${errorMessage}`);
+				throw new UnrecoverableError(errorMessage);
+			}
+			else if (isLastAttempt) {
+				// Retryable but max attempts reached
+				await this.sendToDLQ(job.data, errorMessage);
+				LogEngine.error(`Job moved to DLQ (max attempts): ${eventType} - ${errorMessage}`);
+				throw error;
 			}
 
-			// Always throw for BullMQ retry mechanism to work
-			// BullMQ will handle the retry logic based on job configuration
+			// Retryable and attempts remaining - let BullMQ retry
+			LogEngine.warn(`Job will retry (attempt ${job.attemptsMade}/${attempts}): ${eventType} - ${errorMessage}`);
 			throw error;
 		}
 	}

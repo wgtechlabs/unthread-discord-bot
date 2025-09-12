@@ -483,11 +483,13 @@ export class UnifiedStorage {
 	async set(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
 		const ttl = ttlSeconds || this.config.defaultTtlSeconds;
 
-		// Write to all layers simultaneously
-		await Promise.all([
+		// 1) Persist to L3 (source of truth) first
+		await this.l3Postgres.set(key, value, ttl);
+		
+		// 2) Best-effort cache warm - tolerate cache failures
+		await Promise.allSettled([
 			this.l1Memory.set(key, value, ttl),
 			this.l2Redis.set(key, value, ttl),
-			this.l3Postgres.set(key, value, ttl),
 		]);
 
 		this.updateMetrics('writes');
@@ -497,7 +499,8 @@ export class UnifiedStorage {
      * Delete data from all layers
      */
 	async delete(key: string): Promise<void> {
-		await Promise.all([
+		// Use allSettled to avoid bubbling cache errors during deletion
+		await Promise.allSettled([
 			this.l1Memory.delete(key),
 			this.l2Redis.delete(key),
 			this.l3Postgres.delete(key),
