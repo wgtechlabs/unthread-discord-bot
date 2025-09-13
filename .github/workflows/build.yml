@@ -1,3 +1,4 @@
+---
 name: Build
 
 on:
@@ -14,33 +15,33 @@ jobs:
   build-dev:
     name: Build Development Images
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-          
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Extract metadata
         id: meta
         run: |
           echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
-          
+
       - name: Build and push development images
         uses: docker/build-push-action@v5
         with:
@@ -54,7 +55,7 @@ jobs:
             ${{ env.REGISTRY_GHCR }}:dev-${{ steps.meta.outputs.short_sha }}
           labels: |
             org.opencontainers.image.title=Unthread Discord Bot
-            org.opencontainers.image.description=A simple official Discord bot integration for unthread.io ticketing system.
+            org.opencontainers.image.description=Discord bot integration for unthread.io ticketing system.
             org.opencontainers.image.version=dev-${{ steps.meta.outputs.short_sha }}
             org.opencontainers.image.created=${{ steps.meta.outputs.build_date }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -66,21 +67,22 @@ jobs:
           # Generate SBOM and attestations for supply chain security
           sbom: true
           provenance: mode=max
-          
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.28.0
         continue-on-error: true
         with:
-          image-ref: ${{ env.REGISTRY_DOCKERHUB }}:dev-${{ steps.meta.outputs.short_sha }}
+          image-ref: >-
+            ${{ env.REGISTRY_DOCKERHUB }}:dev-${{ steps.meta.outputs.short_sha }}
           format: 'sarif'
           output: 'trivy-results.sarif'
-          
+
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: 'trivy-results.sarif'
-          
+
       - name: Development build summary
         run: |
           echo "## 🔨 Development Build Complete" >> $GITHUB_STEP_SUMMARY

@@ -76,20 +76,20 @@ ENV NODE_ENV=production \
 
 # Create a dedicated user for the application
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001 -G nodejs
+    adduser -S nodejs -u 1001 -G nodejs
 
 # Enable corepack for the final image
 RUN corepack enable
 
 # Copy package.json for package manager commands
-COPY --chown=nextjs:nodejs package.json .yarnrc.yml ./
+COPY --chown=nodejs:nodejs package.json .yarnrc.yml ./
 
 # Copy production dependencies and built application
-COPY --from=deps --chown=nextjs:nodejs /usr/src/app/node_modules ./node_modules
-COPY --from=build --chown=nextjs:nodejs /usr/src/app/dist ./dist
+COPY --from=deps --chown=nodejs:nodejs /usr/src/app/node_modules ./node_modules
+COPY --from=build --chown=nodejs:nodejs /usr/src/app/dist ./dist
 
 # Switch to non-root user
-USER nextjs
+USER nodejs
 
 # Use Node.js built-in init process for proper signal handling
 CMD ["node", "dist/index.js"]
