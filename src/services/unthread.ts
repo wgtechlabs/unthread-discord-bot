@@ -733,7 +733,7 @@ export async function sendMessageWithAttachmentsToUnthread(
 
 	// Add file attachments
 	fileBuffers.forEach((fileBuffer, index) => {
-		// Convert Buffer to Uint8Array for Blob compatibility
+		// Convert Buffer to Uint8Array for proper Blob compatibility
 		const uint8Array = new Uint8Array(fileBuffer.buffer);
 		const blob = new Blob([uint8Array], { type: fileBuffer.mimeType });
 		formData.append('attachments', blob, fileBuffer.fileName);

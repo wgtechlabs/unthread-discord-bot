@@ -104,15 +104,15 @@ export async function execute(message: Message): Promise<void> {
 						LogEngine.debug(`Found ${imageAttachments.size} valid image attachments`);
 
 						const attachmentHandler = new AttachmentHandler();
-						const uploadSuccess = await attachmentHandler.uploadDiscordAttachmentsToUnthread(
+						const uploadResult = await attachmentHandler.uploadDiscordAttachmentsToUnthread(
 							ticketMapping.unthreadTicketId,
 							imageAttachments,
 							messageToSend || 'Files uploaded',
 							{ name: message.author.displayName || message.author.username, email },
 						);
 
-						if (uploadSuccess) {
-							LogEngine.info(`Successfully uploaded ${imageAttachments.size} attachments for ticket ${ticketMapping.unthreadTicketId}`);
+						if (uploadResult.success) {
+							LogEngine.info(`Successfully uploaded ${uploadResult.processedCount} attachments for ticket ${ticketMapping.unthreadTicketId} in ${uploadResult.processingTime}ms`);
 
 							// Send success feedback to user
 							try {
@@ -123,7 +123,7 @@ export async function execute(message: Message): Promise<void> {
 							}
 						}
 						else {
-							LogEngine.warn('Attachment upload failed, falling back to text message');
+							LogEngine.warn(`Attachment upload failed: ${uploadResult.errors.join(', ')}. Falling back to text message.`);
 
 							// Fallback to text message if upload fails
 							if (messageToSend) {
@@ -141,12 +141,10 @@ export async function execute(message: Message): Promise<void> {
 					}
 					else {
 						// Handle unsupported attachments
-						const unsupportedAttachments = message.attachments.filter(attachment =>
-							!AttachmentDetectionService.validateAttachment(attachment).isValid,
-						);
+						const { invalid: unsupportedAttachments } = AttachmentDetectionService.validateAttachments(message.attachments);
 
-						if (unsupportedAttachments.size > 0) {
-							LogEngine.debug(`Found ${unsupportedAttachments.size} unsupported attachments`);
+						if (unsupportedAttachments.length > 0) {
+							LogEngine.debug(`Found ${unsupportedAttachments.length} unsupported attachments`);
 
 							// Send feedback about unsupported files
 							try {

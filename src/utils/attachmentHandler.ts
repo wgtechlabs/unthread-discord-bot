@@ -9,7 +9,7 @@
  */
 
 import { Collection, Attachment } from 'discord.js';
-import { FileBuffer } from '../types/attachments';
+import { FileBuffer, AttachmentProcessingResult } from '../types/attachments';
 import { DISCORD_ATTACHMENT_CONFIG } from '../config/attachmentConfig';
 import { sendMessageWithAttachmentsToUnthread } from '../services/unthread';
 import { AttachmentDetectionService } from '../services/attachmentDetection';
@@ -24,8 +24,9 @@ export class AttachmentHandler {
 		discordAttachments: Collection<string, Attachment>,
 		message: string,
 		onBehalfOf: { name: string; email: string },
-	): Promise<boolean> {
+	): Promise<AttachmentProcessingResult> {
 		const startTime = Date.now();
+		const errors: string[] = [];
 
 		try {
 			LogEngine.info(`Starting attachment upload for conversation ${conversationId}`);
@@ -35,14 +36,19 @@ export class AttachmentHandler {
 			const validation = AttachmentDetectionService.validateAttachments(discordAttachments);
 
 			if (validation.invalid.length > 0) {
-				LogEngine.warn(`Found ${validation.invalid.length} invalid attachments:`,
-					validation.invalid.map(i => `${i.attachment.name}: ${i.error}`),
-				);
+				const validationErrors = validation.invalid.map(i => `${i.attachment.name}: ${i.error}`);
+				errors.push(...validationErrors);
+				LogEngine.warn(`Found ${validation.invalid.length} invalid attachments:`, validationErrors);
 			}
 
 			if (validation.valid.length === 0) {
 				LogEngine.warn('No valid attachments found after validation');
-				return false;
+				return {
+					success: false,
+					processedCount: 0,
+					errors: errors.length > 0 ? errors : ['No valid attachments found'],
+					processingTime: Date.now() - startTime,
+				};
 			}
 
 			// Download valid attachments to buffers
@@ -63,13 +69,20 @@ export class AttachmentHandler {
 					LogEngine.debug(`Successfully downloaded ${attachment.name} (${attachment.size} bytes)`);
 				}
 				else {
-					LogEngine.error(`Failed to download ${attachment.name}:`, result.reason);
+					const error = `Failed to download ${attachment.name}: ${result.reason}`;
+					errors.push(error);
+					LogEngine.error(error);
 				}
 			}
 
 			if (fileBuffers.length === 0) {
 				LogEngine.error('No attachments were successfully downloaded');
-				return false;
+				return {
+					success: false,
+					processedCount: 0,
+					errors: errors.length > 0 ? errors : ['No attachments could be downloaded'],
+					processingTime: Date.now() - startTime,
+				};
 			}
 
 			// Upload buffers to Unthread
@@ -83,13 +96,25 @@ export class AttachmentHandler {
 			const processingTime = Date.now() - startTime;
 			LogEngine.info(`Attachment processing completed in ${processingTime}ms. Success: ${uploadSuccess}`);
 
-			return uploadSuccess;
+			return {
+				success: uploadSuccess,
+				processedCount: fileBuffers.length,
+				errors,
+				processingTime,
+			};
 
 		}
 		catch (error) {
 			const processingTime = Date.now() - startTime;
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			errors.push(`Attachment upload failed: ${errorMessage}`);
 			LogEngine.error(`Attachment upload failed after ${processingTime}ms:`, error);
-			return false;
+			return {
+				success: false,
+				processedCount: 0,
+				errors,
+				processingTime,
+			};
 		}
 	}
 
@@ -134,7 +159,7 @@ export class AttachmentHandler {
 		}
 		catch (error: any) {
 			if (error.name === 'AbortError') {
-				throw new Error(`Download timeout for ${discordAttachment.name}`);
+				throw new Error(`Download timeout for ${discordAttachment.name} after ${DISCORD_ATTACHMENT_CONFIG.uploadTimeout}ms`);
 			}
 			throw new Error(`Failed to download ${discordAttachment.name}: ${error.message}`);
 		}
