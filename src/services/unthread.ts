@@ -20,10 +20,11 @@ import { BotsStore, ExtendedThreadTicketMapping } from '../sdk/bots-brain/BotsSt
 import { getBotFooter } from '../utils/botUtils';
 import { EmbedBuilder, User } from 'discord.js';
 import { LogEngine } from '../config/logger';
-import { isDuplicateMessage, containsDiscordAttachments } from '../utils/messageUtils';
+import { isDuplicateMessage } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
 import { UnthreadApiResponse, UnthreadTicket, WebhookPayload } from '../types/unthread';
+import { FileBuffer } from '../types/attachments';
 
 /**
  * ==================== ENVIRONMENT VALIDATION ====================
@@ -465,12 +466,6 @@ async function handleMessageCreated(data: any): Promise<void> {
 			}
 		}
 
-		// Skip messages that contain Discord attachments
-		if (containsDiscordAttachments(messageContent)) {
-			LogEngine.debug(`Skipping message with Discord attachments in thread ${discordThread.id}`);
-			return;
-		}
-
 		if (messageContent.trim()) {
 			// Send as a regular Discord bot message instead of embed
 			await discordThread.send(messageContent);
@@ -681,6 +676,111 @@ export async function sendMessageToUnthread(
 			LogEngine.error(`Request to Unthread conversation ${conversationId} timed out after 8 seconds`);
 			throw new Error('Request to Unthread timed out');
 		}
+		throw error;
+	}
+	finally {
+		clearTimeout(timeoutId);
+	}
+}
+
+/**
+ * Sends a message with file attachments to an Unthread conversation
+ *
+ * Uploads multiple file buffers to Unthread using FormData for multipart upload.
+ * This is the core function for Discord → Unthread attachment processing.
+ *
+ * @param conversationId - Unthread conversation ID
+ * @param onBehalfOf - User information for the message
+ * @param message - Text message content
+ * @param fileBuffers - Array of file buffers to upload
+ * @returns Unthread API response
+ * @throws {Error} When UNTHREAD_API_KEY is not set
+ * @throws {Error} When API request fails or times out
+ * @throws {Error} When file upload fails (4xx/5xx responses)
+ *
+ * @example
+ * ```typescript
+ * const response = await sendMessageWithAttachmentsToUnthread(
+ *   'conv123',
+ *   { name: 'John Doe', email: 'john@example.com' },
+ *   'Here are the images',
+ *   [fileBuffer1, fileBuffer2]
+ * );
+ * ```
+ */
+export async function sendMessageWithAttachmentsToUnthread(
+	conversationId: string,
+	onBehalfOf: { name: string; email: string },
+	message: string,
+	fileBuffers: FileBuffer[],
+): Promise<UnthreadApiResponse<any>> {
+	LogEngine.debug(`Sending message with ${fileBuffers.length} attachments to Unthread conversation ${conversationId}`);
+
+	const apiKey = process.env.UNTHREAD_API_KEY;
+	if (!apiKey) {
+		LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
+		throw new Error('UNTHREAD_API_KEY environment variable is required');
+	}
+
+	// Create FormData for multipart upload
+	const formData = new FormData();
+
+	// Add message data
+	formData.append('markdown', message);
+	formData.append('onBehalfOf[name]', onBehalfOf.name);
+	formData.append('onBehalfOf[email]', onBehalfOf.email);
+	formData.append('metadata[source]', 'discord');
+
+	// Add file attachments
+	fileBuffers.forEach((fileBuffer, index) => {
+		// Convert Buffer to Uint8Array for proper Blob compatibility
+		const uint8Array = new Uint8Array(fileBuffer.buffer);
+		const blob = new Blob([uint8Array], { type: fileBuffer.mimeType });
+		formData.append('attachments', blob, fileBuffer.fileName);
+		LogEngine.debug(`Added attachment ${index + 1}: ${fileBuffer.fileName} (${fileBuffer.size} bytes, ${fileBuffer.mimeType})`);
+	});
+
+	const abortController = new AbortController();
+	// 30 second timeout for file uploads
+	const timeoutId = setTimeout(() => abortController.abort(), 30000);
+
+	try {
+		const conversationUrl = `https://api.unthread.io/api/conversations/${conversationId}/messages`;
+		LogEngine.debug(`POST ${conversationUrl} with FormData upload`);
+
+		const response = await fetch(conversationUrl, {
+			method: 'POST',
+			headers: {
+				'X-API-KEY': apiKey,
+				// Don't set Content-Type - let fetch set it with boundary for FormData
+			},
+			body: formData,
+			signal: abortController.signal,
+		});
+
+		LogEngine.debug(`Upload response status: ${response.status}`);
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			LogEngine.error(`Failed to upload attachments to Unthread: ${response.status} - ${errorText}`);
+			throw new Error(`Failed to upload attachments to Unthread: ${response.status}`);
+		}
+
+		const responseData = await response.json();
+		LogEngine.info(`Successfully uploaded ${fileBuffers.length} attachments to Unthread:`, responseData);
+
+		return {
+			success: true,
+			data: responseData,
+		};
+
+	}
+	catch (error: any) {
+		if (error.name === 'AbortError') {
+			LogEngine.error(`File upload to Unthread conversation ${conversationId} timed out after 30 seconds`);
+			throw new Error('File upload to Unthread timed out');
+		}
+		LogEngine.error('Error uploading attachments to Unthread:', error);
 		throw error;
 	}
 	finally {

@@ -103,63 +103,6 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 }
 
 /**
- * Checks if a message contains Discord attachment links
- *
- * Discord attachments can be represented in various formats in messages:
- * - Markdown links with Discord CDN URLs
- * - Specially formatted attachment references with image/video/file prefixes
- * - Plain URLs to the Discord CDN
- *
- * This function detects these patterns to prevent duplicate attachments from
- * being synchronized between platforms.
- *
- * @param messageContent - Message content to check
- * @returns True if the message contains Discord attachments, false otherwise
- *
- * @example
- * ```typescript
- * const hasAttachments = containsDiscordAttachments(
- *   "Check this out: https://cdn.discordapp.com/attachments/123/456/image.png"
- * );
- * if (hasAttachments) {
- *   console.log("Message contains Discord attachments");
- * }
- * ```
- */
-function containsDiscordAttachments(messageContent: string): boolean {
-	if (!messageContent) return false;
-
-	// Enhanced Discord CDN attachment patterns - handles multiple formats globally
-	const patterns = [
-		// Pattern 1: <https://cdn.discordapp.com/attachments/...|file_name>
-		/<https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^>|]+\|(?:image|video|file)_\d+>/gi,
-		// Pattern 2: [file_name](https://cdn.discordapp.com/attachments/...)
-		/\[(?:image|video|file)_\d+\]\(https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^)]+\)/gi,
-		// Pattern 3: Direct CDN URLs
-		/https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^\s]+/gi,
-		// Pattern 4: Media CDN URLs
-		/https:\/\/media\.discordapp\.net\/attachments\/\d+\/\d+\/[^\s]+/gi,
-	];
-
-	// Check against all patterns
-	for (const pattern of patterns) {
-		if (pattern.test(messageContent)) {
-			return true;
-		}
-	}
-
-	// More comprehensive check for various formats
-	// These are the common markers for Discord attachments in synchronized messages
-	if (messageContent.includes('Attachments:') &&
-		(messageContent.includes('cdn.discordapp.com/attachments/') || messageContent.includes('media.discordapp.net/attachments/')) &&
-		(messageContent.includes('|image_') || messageContent.includes('|file_') || messageContent.includes('|video_'))) {
-		return true;
-	}
-
-	return false;
-}
-
-/**
  * Removes attachment sections from message content
  *
  * When messages are synchronized between platforms, attachments are often
@@ -305,7 +248,6 @@ function processQuotedContent(
  */
 const messageUtils = {
 	isDuplicateMessage,
-	containsDiscordAttachments,
 	removeAttachmentSection,
 	processQuotedContent,
 };
@@ -313,4 +255,4 @@ const messageUtils = {
 export default messageUtils;
 
 // Export individual functions for named imports
-export { isDuplicateMessage, containsDiscordAttachments, removeAttachmentSection, processQuotedContent };
+export { isDuplicateMessage, removeAttachmentSection, processQuotedContent };
