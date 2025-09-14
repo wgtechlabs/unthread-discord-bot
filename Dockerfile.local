@@ -18,8 +18,8 @@ ENV NODE_ENV=production \
     NODE_OPTIONS="--enable-source-maps --max-old-space-size=512" \
     NODE_TLS_REJECT_UNAUTHORIZED=0
 
-# Install dependencies for the package manager
-RUN apk add --no-cache git
+# Install dependencies for the package manager (git may be needed for some packages)
+# RUN apk add --no-cache git
 
 # Enable corepack and install Yarn v4
 RUN corepack enable && \

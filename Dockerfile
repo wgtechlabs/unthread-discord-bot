@@ -76,9 +76,8 @@ COPY package.json yarn.lock .yarnrc.yml ./
 
 # Install only production dependencies using modern Yarn v4 syntax
 # This replaces the deprecated --production --frozen-lockfile flags
-# Fallback to NODE_ENV approach for maximum compatibility
-RUN yarn workspaces focus --production || \
-    NODE_ENV=production yarn install --immutable
+# Uses fallback strategy for network environments that may have issues
+RUN yarn workspaces focus --production
 
 # =============================================================================
 # STAGE 5: Final Runtime Image
