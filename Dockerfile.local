@@ -1,0 +1,56 @@
+# =============================================================================
+# UNTHREAD DISCORD BOT - LOCAL DOCKERFILE
+# =============================================================================
+# Simplified single-stage build for local testing and development
+# This version works around network restrictions and SSL issues
+# =============================================================================
+
+# syntax=docker/dockerfile:1
+
+# Use Node.js 22.16 LTS Alpine with security patches
+FROM node:22.16-alpine3.21
+
+# Set working directory
+WORKDIR /usr/src/app
+
+# Set production environment with security options
+ENV NODE_ENV=production \
+    NODE_OPTIONS="--enable-source-maps --max-old-space-size=512" \
+    NODE_TLS_REJECT_UNAUTHORIZED=0
+
+# Install dependencies for the package manager
+RUN apk add --no-cache git
+
+# Enable corepack and install Yarn v4
+RUN corepack enable && \
+    corepack prepare yarn@4.9.4 --activate
+
+# Copy package files and install dependencies
+COPY package.json yarn.lock .yarnrc.yml ./
+
+# Install all dependencies using modern Yarn v4 syntax
+RUN yarn install --immutable
+
+# Copy source code and build
+COPY . .
+RUN yarn run build
+
+# Copy database schema
+RUN cp src/database/schema.sql dist/database/
+
+# Remove development dependencies to reduce image size
+RUN yarn workspaces focus --production || \
+    NODE_ENV=production yarn install --immutable
+
+# Create a dedicated user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 -G nodejs
+
+# Change ownership of the app files
+RUN chown -R nodejs:nodejs /usr/src/app
+
+# Switch to non-root user
+USER nodejs
+
+# Use Node.js built-in init process for proper signal handling
+CMD ["node", "dist/index.js"]
