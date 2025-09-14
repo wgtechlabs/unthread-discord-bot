@@ -7,7 +7,7 @@
  *
  * Usage:
  *   node dist/deploy_commands.js
- *   npm run deploycommand
+ *   yarn run deploycommand
  *
  * Environment Variables Required:
  *   - DISCORD_BOT_TOKEN: Bot token from Discord Developer Portal

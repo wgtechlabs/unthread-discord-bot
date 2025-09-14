@@ -10,7 +10,12 @@
     "dev": "nodemon --exec ts-node src/index.ts",
     "deploycommand": "yarn build && yarn node dist/deploy_commands.js",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "docker:build": "docker build -t unthread-discord-bot .",
+    "docker:build:secure": "docker build --no-cache -t unthread-discord-bot .",
+    "docker:build:sbom": "docker build --sbom=true --provenance=mode=max -t unthread-discord-bot .",
+    "docker:run": "docker run --env-file .env unthread-discord-bot",
+    "sbom:generate": "./scripts/generate-sbom.sh"
   },
   "keywords": [],
   "author": "Waren Gonzaga <opensource@warengonzaga.com> (https://warengonzaga.com)",
