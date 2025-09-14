@@ -43,11 +43,70 @@ Ready to transform your Discord support experience? Get started in minutes with 
 
 ## 📥 Easy Deployment
 
+### 🚀 One-Click Railway Deployment
+
 You can use Railway to deploy this bot with just one click. Railway offers a seamless deployment experience without any configuration hassles.
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/nVHIjj?referralCode=dTwT-i)
 > [!TIP]
 > When you deploy using the Railway button above, you're directly supporting the ongoing development and maintenance of this project. Your support helps keep this bot free and continuously improving with new features. Thank you for your contribution! 🙏✨
+
+### 🐳 Docker Deployment
+
+The bot is also available as pre-built Docker images with multi-architecture support (linux/amd64, linux/arm64):
+
+**Docker Hub Images:**
+```bash
+# Latest stable release
+docker pull wgtechlabs/unthread-discord-bot:latest
+
+# Specific version
+docker pull wgtechlabs/unthread-discord-bot:1.0.0
+
+# Development build (from dev branch)
+docker pull wgtechlabs/unthread-discord-bot:dev
+```
+
+**GitHub Container Registry:**
+```bash
+# Latest stable release
+docker pull ghcr.io/wgtechlabs/unthread-discord-bot:latest
+
+# Specific version (with v prefix)
+docker pull ghcr.io/wgtechlabs/unthread-discord-bot:v1.0.0
+
+# Development build
+docker pull ghcr.io/wgtechlabs/unthread-discord-bot:dev
+```
+
+**Quick start with Docker:**
+```bash
+# Create environment file
+cp .env.example .env
+# Edit .env with your configuration
+
+# Run with Docker
+docker run --env-file .env wgtechlabs/unthread-discord-bot:latest
+
+# Or with Docker Compose
+docker-compose up -d
+```
+
+### 🛡️ Security & Supply Chain
+
+All Docker images include comprehensive security features:
+
+- **SBOM Generation**: Software Bill of Materials for transparency
+- **Vulnerability Scanning**: Automated security scanning with Trivy
+- **Supply Chain Attestations**: Build provenance and authenticity verification
+- **Multi-stage Builds**: Minimal runtime images with security best practices
+- **Non-root Execution**: Containers run as unprivileged `nodejs` user
+
+**Generate SBOM locally:**
+```bash
+# For contributors and security analysis
+./scripts/generate-sbom.sh unthread-discord-bot:latest
+```
 
 <!-- ## 😎 Demo
 
@@ -147,6 +206,50 @@ yarn start
 yarn lint
 yarn lint:fix
 ```
+
+### 🐳 Docker Development Commands
+
+The project includes dedicated Docker scripts for local development and security testing:
+
+```bash
+# Build Docker image locally
+yarn docker:build
+
+# Build with enhanced security (no cache)
+yarn docker:build:secure
+
+# Build with SBOM and provenance generation
+yarn docker:build:sbom
+
+# Run the Docker container
+yarn docker:run
+
+# Generate SBOM for security analysis
+yarn sbom:generate
+```
+
+### 🚀 CI/CD Pipeline
+
+The project features a comprehensive CI/CD pipeline with GitHub Actions that automatically:
+
+**Development Builds (on `dev` branch):**
+- Builds multi-architecture Docker images (linux/amd64, linux/arm64)
+- Publishes to Docker Hub and GitHub Container Registry with `dev` tags
+- Generates Software Bill of Materials (SBOM)
+- Performs vulnerability scanning with Trivy
+- Creates build attestations for supply chain security
+
+**Production Releases (on release tags):**
+- Builds and publishes versioned Docker images with semantic versioning
+- Creates multiple tag variants (latest, major, minor, patch)
+- Enhanced security scanning and reporting
+- Comprehensive release summaries with deployment instructions
+
+**Security Features:**
+- SBOM generation for transparency
+- Supply chain attestations
+- Vulnerability scanning results in GitHub Security tab
+- Non-root container execution
 
 ### 🐳 Local Development with Docker
 
