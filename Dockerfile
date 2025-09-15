@@ -36,13 +36,11 @@ FROM base AS deps
 # Enable corepack for proper yarn version
 RUN corepack enable
 
-# Use bind mounts and cache for faster builds
-# Downloads dependencies without copying package files into the layer
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=yarn.lock,target=yarn.lock \
-    --mount=type=bind,source=.yarnrc.yml,target=.yarnrc.yml \
-    --mount=type=cache,target=/root/.yarn \
-    yarn install --production --frozen-lockfile
+# Copy package manager files first for better caching
+COPY package.json yarn.lock .yarnrc.yml ./
+
+# Install production dependencies only
+RUN yarn install --production --frozen-lockfile
 
 # =============================================================================
 # STAGE 3: Build Application  
@@ -50,12 +48,11 @@ RUN --mount=type=bind,source=package.json,target=package.json \
 # Install dev dependencies and build the TypeScript application
 FROM deps AS build
 
+# Copy package files for dev dependencies
+COPY package.json yarn.lock .yarnrc.yml ./
+
 # Install all dependencies (including devDependencies for building)
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=yarn.lock,target=yarn.lock \
-    --mount=type=bind,source=.yarnrc.yml,target=.yarnrc.yml \
-    --mount=type=cache,target=/root/.yarn \
-    yarn install --frozen-lockfile
+RUN yarn install --frozen-lockfile
 
 # Copy source code and build the application
 COPY . .
@@ -81,8 +78,8 @@ RUN addgroup -g 1001 -S nodejs && \
 # Enable corepack for the final image
 RUN corepack enable
 
-# Copy package.json for package manager commands
-COPY --chown=nodejs:nodejs package.json .yarnrc.yml ./
+# Copy package.json and yarn config for package manager commands
+COPY --chown=nodejs:nodejs package.json yarn.lock .yarnrc.yml ./
 
 # Copy production dependencies and built application
 COPY --from=deps --chown=nodejs:nodejs /usr/src/app/node_modules ./node_modules
