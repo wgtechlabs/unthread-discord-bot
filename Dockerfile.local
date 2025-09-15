@@ -40,7 +40,7 @@ RUN cp src/database/schema.sql dist/database/
 
 # Remove development dependencies to reduce image size
 RUN yarn workspaces focus --production || \
-    NODE_ENV=production yarn install --immutable
+    yarn install --immutable --production
 
 # Create a dedicated user for security
 RUN addgroup -g 1001 -S nodejs && \
