@@ -38,31 +38,31 @@ WORKDIR /usr/src/app
 # Install only production dependencies for runtime
 FROM base AS deps
 
-# Use bind mounts and cache for faster builds
-# Downloads dependencies without copying package files into the layer
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=yarn.lock,target=yarn.lock \
-    --mount=type=cache,target=/root/.yarn \
-    yarn install --production --frozen-lockfile
+# Copy package management files for dependency installation
+COPY package.json yarn.lock ./
+
+# Install only production dependencies
+RUN yarn install --production --frozen-lockfile && \
+    yarn cache clean
 
 # =============================================================================
 # STAGE 3: Build Application  
 # =============================================================================
 # Install dev dependencies and build the TypeScript application
-FROM deps AS build
+FROM base AS build
+
+# Copy package management files
+COPY package.json yarn.lock ./
 
 # Install all dependencies (including devDependencies for building)
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=yarn.lock,target=yarn.lock \
-    --mount=type=cache,target=/root/.yarn \
-    yarn install --frozen-lockfile
+RUN yarn install --frozen-lockfile
 
 # Copy source code and build the application
 COPY . .
 RUN yarn run build
 
 # Copy non-TypeScript files that need to be in the final build
-RUN cp src/database/schema.sql dist/database/
+RUN mkdir -p dist/database && cp src/database/schema.sql dist/database/schema.sql
 
 # =============================================================================
 # STAGE 4: Final Runtime Image

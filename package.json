@@ -5,7 +5,7 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
-    "build": ".yarn/sdks/typescript/bin/tsc",
+    "build": "tsc",
     "start": "yarn build && yarn node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
     "deploycommand": "yarn build && yarn node dist/deploy_commands.js",
@@ -33,7 +33,7 @@
   "engines": {
     "node": ">=22.16.0"
   },
-  "packageManager": "yarn@4.9.4",
+  "packageManager": "yarn@1.22.22",
   "dependencies": {
     "@keyv/redis": "^4.4.0",
     "@types/ioredis": "^5.0.0",
