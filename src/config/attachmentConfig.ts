@@ -45,12 +45,20 @@ export const DISCORD_ATTACHMENT_CONFIG = {
 		uploadError: '❌ Failed to upload attachments. Please try again.',
 		downloadFailed: '⬇️ Failed to download attachment from Discord.',
 		timeout: '⏱️ Upload timed out. Please try again with smaller files.',
+		// Unthread → Discord specific error messages
+		unthreadDownloadFailed: '⬇️ Failed to download attachment from Unthread.',
+		unthreadAuthError: '🔑 Authentication failed when downloading from Unthread.',
+		discordUploadFailed: '📤 Failed to upload attachment to Discord.',
+		attachmentProcessingFailed: '🔄 Attachment processing failed, please try again.',
 	},
 
 	/** Success messages */
 	successMessages: {
 		uploadComplete: '📎 Image(s) uploaded successfully to your support ticket!',
 		partialSuccess: '📎 {count} of {total} images uploaded successfully.',
+		// Unthread → Discord specific success messages
+		unthreadDownloadComplete: '📎 File(s) downloaded successfully from Unthread!',
+		discordUploadComplete: '📤 File(s) uploaded successfully to Discord!',
 	},
 } as const;
 

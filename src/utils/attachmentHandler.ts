@@ -486,4 +486,38 @@ export class AttachmentHandler {
 		LogEngine.error(`All ${maxAttempts} Discord upload attempts failed. Last error:`, lastError);
 		return false;
 	}
+
+	/**
+	 * Validates the attachment processing pipeline without actually downloading files
+	 * Useful for testing and verification
+	 */
+	async validateUnthreadAttachmentPipeline(
+		unthreadAttachments: MessageAttachment[],
+	): Promise<{ valid: boolean; errors: string[]; validAttachments: MessageAttachment[] }> {
+		LogEngine.debug(`Validating Unthread attachment pipeline for ${unthreadAttachments.length} attachments`);
+		
+		const errors: string[] = [];
+		
+		// Check API key availability
+		if (!process.env.UNTHREAD_API_KEY) {
+			errors.push('UNTHREAD_API_KEY environment variable is not set');
+		}
+		
+		// Validate attachments
+		const validationResult = this.validateUnthreadAttachments(unthreadAttachments);
+		
+		if (validationResult.invalid.length > 0) {
+			errors.push(...validationResult.invalid.map(i => `${i.attachment.filename}: ${i.error}`));
+		}
+		
+		const valid = errors.length === 0 && validationResult.valid.length > 0;
+		
+		LogEngine.debug(`Pipeline validation result: ${valid ? 'PASS' : 'FAIL'} (${validationResult.valid.length} valid, ${errors.length} errors)`);
+		
+		return {
+			valid,
+			errors,
+			validAttachments: validationResult.valid,
+		};
+	}
 }
