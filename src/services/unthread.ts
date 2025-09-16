@@ -23,6 +23,7 @@ import { LogEngine } from '../config/logger';
 import { isDuplicateMessage, containsDiscordAttachments } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
+import { AttachmentHandler } from './attachmentHandler';
 import { UnthreadApiResponse, UnthreadTicket, WebhookPayload } from '../types/unthread';
 import { ThreadTicketMapping } from '../types/discord';
 
@@ -367,9 +368,11 @@ async function handleMessageCreated(data: any): Promise<void> {
 
 	const conversationId = data.conversationId || data.id;
 	const messageText = data.text;
+	const attachments = data.attachments;
 
-	if (!conversationId || !messageText) {
-		LogEngine.warn('Message created event missing required data');
+	// Allow messages with either text content or attachments
+	if (!conversationId || (!messageText && !AttachmentHandler.hasValidAttachments(attachments))) {
+		LogEngine.warn('Message created event missing required data (no text or attachments)');
 		return;
 	}
 
@@ -459,10 +462,42 @@ async function handleMessageCreated(data: any): Promise<void> {
 			return;
 		}
 
-		if (messageContent.trim()) {
-			// Send as a regular Discord bot message instead of embed
-			await discordThread.send(messageContent);
-			LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id}`);
+		// Process attachments if present
+		let discordAttachments: any[] = [];
+		if (AttachmentHandler.hasValidAttachments(attachments)) {
+			try {
+				LogEngine.debug(`Processing ${attachments.length} attachments for Discord upload`);
+				discordAttachments = await AttachmentHandler.processAttachments(attachments);
+				LogEngine.info(`Successfully processed ${discordAttachments.length} attachments for upload`);
+			}
+			catch (error) {
+				LogEngine.error('Failed to process attachments, sending message without files:', error);
+				// Continue with text-only message if attachment processing fails
+			}
+		}
+
+		// Send message with text and/or attachments
+		const hasText = messageContent && messageContent.trim();
+		const hasAttachments = discordAttachments.length > 0;
+
+		if (hasText || hasAttachments) {
+			const messageOptions: any = {};
+
+			if (hasText) {
+				messageOptions.content = messageContent;
+			}
+
+			if (hasAttachments) {
+				messageOptions.files = discordAttachments;
+			}
+
+			// If no text but has attachments, add a minimal message
+			if (!hasText && hasAttachments) {
+				messageOptions.content = `📎 ${discordAttachments.length} file(s) shared`;
+			}
+
+			await discordThread.send(messageOptions);
+			LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id} (text: ${hasText}, attachments: ${hasAttachments})`);
 		}
 	}
 	catch (error: unknown) {
