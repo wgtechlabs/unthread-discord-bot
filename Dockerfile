@@ -24,6 +24,11 @@ ARG NODE_VERSION=22.16-alpine3.21
 # Alpine Linux 3.21 base for minimal image size with latest security updates
 FROM node:${NODE_VERSION} AS base
 
+# Install security updates for Alpine packages
+RUN apk update && apk upgrade && \
+    apk add --no-cache dumb-init && \
+    rm -rf /var/cache/apk/*
+
 # Set working directory for all subsequent stages
 WORKDIR /usr/src/app
 
@@ -33,14 +38,12 @@ WORKDIR /usr/src/app
 # Install only production dependencies for runtime
 FROM base AS deps
 
-# Enable corepack for proper yarn version
-RUN corepack enable
-
-# Copy package manager files first for better caching
-COPY package.json yarn.lock .yarnrc.yml ./
-
-# Install production dependencies only
-RUN yarn install --production --frozen-lockfile
+# Use bind mounts and cache for faster builds
+# Downloads dependencies without copying package files into the layer
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=yarn.lock,target=yarn.lock \
+    --mount=type=cache,target=/root/.yarn \
+    yarn install --production --frozen-lockfile
 
 # =============================================================================
 # STAGE 3: Build Application  
@@ -48,11 +51,11 @@ RUN yarn install --production --frozen-lockfile
 # Install dev dependencies and build the TypeScript application
 FROM deps AS build
 
-# Copy package files for dev dependencies
-COPY package.json yarn.lock .yarnrc.yml ./
-
 # Install all dependencies (including devDependencies for building)
-RUN yarn install --frozen-lockfile
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=yarn.lock,target=yarn.lock \
+    --mount=type=cache,target=/root/.yarn \
+    yarn install --frozen-lockfile
 
 # Copy source code and build the application
 COPY . .
@@ -75,11 +78,8 @@ ENV NODE_ENV=production \
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 -G nodejs
 
-# Enable corepack for the final image
-RUN corepack enable
-
-# Copy package.json and yarn config for package manager commands
-COPY --chown=nodejs:nodejs package.json yarn.lock .yarnrc.yml ./
+# Copy package.json for package manager commands
+COPY --chown=nodejs:nodejs package.json .
 
 # Copy production dependencies and built application
 COPY --from=deps --chown=nodejs:nodejs /usr/src/app/node_modules ./node_modules
@@ -88,5 +88,6 @@ COPY --from=build --chown=nodejs:nodejs /usr/src/app/dist ./dist
 # Switch to non-root user
 USER nodejs
 
-# Use Node.js built-in init process for proper signal handling
+# Use dumb-init for proper signal handling and start the application
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/index.js"]
