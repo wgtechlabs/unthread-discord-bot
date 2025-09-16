@@ -378,6 +378,7 @@ async function handleMessageCreated(data: any): Promise<void> {
 
 	const conversationId = data.conversationId || data.id;
 	const messageText = data.text;
+	const attachments = data.attachments || []; // Extract attachments from webhook data
 
 	if (!conversationId || !messageText) {
 		LogEngine.warn('Message created event missing required data');
@@ -466,9 +467,45 @@ async function handleMessageCreated(data: any): Promise<void> {
 			}
 		}
 
-		if (messageContent.trim()) {
-			// Send as a regular Discord bot message instead of embed
-			await discordThread.send(messageContent);
+		if (messageContent.trim() || attachments.length > 0) {
+			// Process attachments if present
+			if (attachments.length > 0) {
+				LogEngine.info(`Processing ${attachments.length} attachments from Unthread message`);
+				
+				// Import AttachmentHandler and process the attachments
+				const { AttachmentHandler } = await import('../utils/attachmentHandler');
+				const attachmentHandler = new AttachmentHandler();
+				
+				try {
+					const attachmentResult = await attachmentHandler.downloadUnthreadAttachmentsToDiscord(
+						discordThread,
+						attachments,
+						messageContent.trim() || undefined,
+					);
+
+					if (attachmentResult.success) {
+						LogEngine.info(`Successfully processed ${attachmentResult.processedCount} attachments from Unthread`);
+					} else {
+						LogEngine.warn(`Attachment processing partially failed: ${attachmentResult.errors.join(', ')}`);
+						
+						// Still send the text message if attachment processing failed
+						if (messageContent.trim()) {
+							await discordThread.send(messageContent);
+						}
+					}
+				} catch (error) {
+					LogEngine.error('Failed to process Unthread attachments:', error);
+					
+					// Send text message as fallback
+					if (messageContent.trim()) {
+						await discordThread.send(messageContent);
+					}
+				}
+			} else if (messageContent.trim()) {
+				// Send as a regular Discord bot message if no attachments
+				await discordThread.send(messageContent);
+			}
+			
 			LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id}`);
 		}
 	}
