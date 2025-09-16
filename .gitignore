@@ -135,6 +135,9 @@ dist
 # HTTP request files
 *.http
 
+# Test files
+test-*.js
+
 # Database
 *.sqlite
 
