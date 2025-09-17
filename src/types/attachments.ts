@@ -50,17 +50,3 @@ export interface AttachmentValidationResult {
 		size: number;
 	};
 }
-
-/**
- * Represents an Unthread file attachment for download processing
- */
-export interface UnthreadAttachment {
-	/** Original filename */
-	filename: string;
-	/** URL where the file can be accessed */
-	url: string;
-	/** MIME type of the file */
-	content_type: string;
-	/** File size in bytes */
-	size: number;
-}
