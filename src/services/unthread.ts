@@ -374,10 +374,11 @@ async function handleMessageCreated(data: any): Promise<void> {
 
 	const conversationId = data.conversationId || data.id;
 	const messageText = data.text;
-	const attachments = data.attachments || []; // Extract attachments from webhook data
+	// Extract attachments from webhook data
+	const attachments = data.attachments || [];
 
-	if (!conversationId || !messageText) {
-		LogEngine.warn('Message created event missing required data');
+	if (!conversationId || (!messageText && attachments.length === 0)) {
+		LogEngine.warn('Message created event missing required data (must have text or at least one attachment)');
 		return;
 	}
 
