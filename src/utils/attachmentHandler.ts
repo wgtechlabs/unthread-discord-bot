@@ -377,11 +377,8 @@ export class AttachmentHandler {
 		const timeoutId = setTimeout(() => controller.abort(), DISCORD_ATTACHMENT_CONFIG.uploadTimeout);
 
 		try {
-			// Get API key for authenticated download
-			const apiKey = process.env.UNTHREAD_API_KEY;
-			if (!apiKey) {
-				throw new Error('UNTHREAD_API_KEY environment variable is required for downloading attachments');
-			}
+			// Get API key (guaranteed to exist due to startup validation)
+			const apiKey = process.env.UNTHREAD_API_KEY!;
 
 			const response = await fetch(unthreadAttachment.url, {
 				method: 'GET',
@@ -497,11 +494,6 @@ export class AttachmentHandler {
 		LogEngine.debug(`Validating Unthread attachment pipeline for ${unthreadAttachments.length} attachments`);
 		
 		const errors: string[] = [];
-		
-		// Check API key availability
-		if (!process.env.UNTHREAD_API_KEY) {
-			errors.push('UNTHREAD_API_KEY environment variable is not set');
-		}
 		
 		// Validate attachments
 		const validationResult = this.validateUnthreadAttachments(unthreadAttachments);

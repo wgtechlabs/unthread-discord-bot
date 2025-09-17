@@ -107,12 +107,8 @@ export async function createTicket(user: User, title: string, issue: string, ema
 	LogEngine.info(`Creating ticket for user: ${user.displayName || user.username} (${user.id})`);
 	LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? 'SET' : 'NOT_SET'}, SLACK_CHANNEL_ID=${process.env.UNTHREAD_SLACK_CHANNEL_ID ? 'SET' : 'NOT_SET'}`);
 
-	// Validate API key before making request
-	const apiKey = process.env.UNTHREAD_API_KEY;
-	if (!apiKey) {
-		LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
-		throw new Error('UNTHREAD_API_KEY environment variable is required');
-	}
+	// Get API key (guaranteed to exist due to startup validation)
+	const apiKey = process.env.UNTHREAD_API_KEY!;
 
 	const customer = await getOrCreateCustomer(user, email);
 	LogEngine.debug(`Customer: ${customer?.unthreadCustomerId || 'unknown'} (${customer?.email || email})`);
@@ -661,12 +657,8 @@ export async function sendMessageToUnthread(
 	const timeoutId = setTimeout(() => abortController.abort(), 8000);
 
 	try {
-		// Validate API key before making requests
-		const apiKey = process.env.UNTHREAD_API_KEY;
-		if (!apiKey) {
-			LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
-			throw new Error('UNTHREAD_API_KEY environment variable is required');
-		}
+		// Get API key (guaranteed to exist due to startup validation)
+		const apiKey = process.env.UNTHREAD_API_KEY!;
 
 		// Perform preflight check to verify conversation exists
 		LogEngine.debug(`Performing preflight check for conversation ${conversationId}`);
@@ -753,11 +745,8 @@ export async function sendMessageWithAttachmentsToUnthread(
 ): Promise<UnthreadApiResponse<any>> {
 	LogEngine.debug(`Sending message with ${fileBuffers.length} attachments to Unthread conversation ${conversationId}`);
 
-	const apiKey = process.env.UNTHREAD_API_KEY;
-	if (!apiKey) {
-		LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
-		throw new Error('UNTHREAD_API_KEY environment variable is required');
-	}
+	// Get API key (guaranteed to exist due to startup validation)
+	const apiKey = process.env.UNTHREAD_API_KEY!;
 
 	// Create FormData for multipart upload
 	const formData = new FormData();
