@@ -467,11 +467,11 @@ async function handleMessageCreated(data: any): Promise<void> {
 			// Process attachments if present
 			if (attachments.length > 0) {
 				LogEngine.info(`Processing ${attachments.length} attachments from Unthread message`);
-				
+
 				// Import AttachmentHandler and process the attachments
 				const { AttachmentHandler } = await import('../utils/attachmentHandler');
 				const attachmentHandler = new AttachmentHandler();
-				
+
 				try {
 					const attachmentResult = await attachmentHandler.downloadUnthreadAttachmentsToDiscord(
 						discordThread,
@@ -481,27 +481,30 @@ async function handleMessageCreated(data: any): Promise<void> {
 
 					if (attachmentResult.success) {
 						LogEngine.info(`Successfully processed ${attachmentResult.processedCount} attachments from Unthread`);
-					} else {
+					}
+					else {
 						LogEngine.warn(`Attachment processing partially failed: ${attachmentResult.errors.join(', ')}`);
-						
+
 						// Still send the text message if attachment processing failed
 						if (messageContent.trim()) {
 							await discordThread.send(messageContent);
 						}
 					}
-				} catch (error) {
+				}
+				catch (error) {
 					LogEngine.error('Failed to process Unthread attachments:', error);
-					
+
 					// Send text message as fallback
 					if (messageContent.trim()) {
 						await discordThread.send(messageContent);
 					}
 				}
-			} else if (messageContent.trim()) {
+			}
+			else if (messageContent.trim()) {
 				// Send as a regular Discord bot message if no attachments
 				await discordThread.send(messageContent);
 			}
-			
+
 			LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id}`);
 		}
 	}

@@ -18,6 +18,13 @@ import { LogEngine } from '../config/logger';
 
 export class AttachmentHandler {
 	/**
+	 * Type guard to check if content type is supported
+	 */
+	private isSupportedImageType(contentType: string): boolean {
+		return (DISCORD_ATTACHMENT_CONFIG.supportedImageTypes as readonly string[]).includes(contentType);
+	}
+
+	/**
 	 * Main method to upload Discord attachments to Unthread
 	 */
 	async uploadDiscordAttachmentsToUnthread(
@@ -225,7 +232,7 @@ export class AttachmentHandler {
 
 	/**
 	 * Main method to download Unthread attachments and upload to Discord
-	 * 
+	 *
 	 * Downloads files from Unthread API and uploads them to Discord thread/channel.
 	 * Based on existing Discord → Unthread flow patterns for consistency.
 	 */
@@ -243,7 +250,7 @@ export class AttachmentHandler {
 
 			// Validate attachments before processing
 			const validAttachments = this.validateUnthreadAttachments(unthreadAttachments);
-			
+
 			if (validAttachments.invalid.length > 0) {
 				const validationErrors = validAttachments.invalid.map(i => `${i.attachment.filename}: ${i.error}`);
 				errors.push(...validationErrors);
@@ -338,16 +345,19 @@ export class AttachmentHandler {
 			if (attachment.size > DISCORD_ATTACHMENT_CONFIG.maxFileSize) {
 				invalid.push({
 					attachment,
-					error: `File too large: ${attachment.size} bytes (max: ${DISCORD_ATTACHMENT_CONFIG.maxFileSize})`
+					error: `File too large: ${attachment.size} bytes (max: ${DISCORD_ATTACHMENT_CONFIG.maxFileSize})`,
 				});
 				continue;
 			}
 
 			// Check if supported file type (initially images only, as per issue requirements)
-			if (!DISCORD_ATTACHMENT_CONFIG.supportedImageTypes.includes(attachment.content_type as any)) {
+			if (
+				typeof attachment.content_type !== 'string' ||
+				!this.isSupportedImageType(attachment.content_type)
+			) {
 				invalid.push({
 					attachment,
-					error: `Unsupported file type: ${attachment.content_type}`
+					error: `Unsupported file type: ${attachment.content_type}`,
 				});
 				continue;
 			}
@@ -356,7 +366,7 @@ export class AttachmentHandler {
 			if (!attachment.url || !attachment.url.startsWith('http')) {
 				invalid.push({
 					attachment,
-					error: 'Invalid or missing download URL'
+					error: 'Invalid or missing download URL',
 				});
 				continue;
 			}
@@ -441,18 +451,18 @@ export class AttachmentHandler {
 
 				// Convert FileBuffers to Discord AttachmentBuilder format
 				const { AttachmentBuilder } = await import('discord.js');
-				const attachments = fileBuffers.map(fileBuffer => 
-					new AttachmentBuilder(fileBuffer.buffer, { 
+				const attachments = fileBuffers.map(fileBuffer =>
+					new AttachmentBuilder(fileBuffer.buffer, {
 						name: fileBuffer.fileName,
-						description: `File from Unthread (${fileBuffer.size} bytes)`
-					})
+						description: `File from Unthread (${fileBuffer.size} bytes)`,
+					}),
 				);
 
 				// Send to Discord with optional message content
 				const sendOptions: any = {
 					files: attachments,
 				};
-				
+
 				if (messageContent) {
 					sendOptions.content = messageContent;
 				}
@@ -492,20 +502,20 @@ export class AttachmentHandler {
 		unthreadAttachments: MessageAttachment[],
 	): Promise<{ valid: boolean; errors: string[]; validAttachments: MessageAttachment[] }> {
 		LogEngine.debug(`Validating Unthread attachment pipeline for ${unthreadAttachments.length} attachments`);
-		
+
 		const errors: string[] = [];
-		
+
 		// Validate attachments
 		const validationResult = this.validateUnthreadAttachments(unthreadAttachments);
-		
+
 		if (validationResult.invalid.length > 0) {
 			errors.push(...validationResult.invalid.map(i => `${i.attachment.filename}: ${i.error}`));
 		}
-		
+
 		const valid = errors.length === 0 && validationResult.valid.length > 0;
-		
+
 		LogEngine.debug(`Pipeline validation result: ${valid ? 'PASS' : 'FAIL'} (${validationResult.valid.length} valid, ${errors.length} errors)`);
-		
+
 		return {
 			valid,
 			errors,
