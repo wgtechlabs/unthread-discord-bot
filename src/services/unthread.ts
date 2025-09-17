@@ -107,12 +107,8 @@ export async function createTicket(user: User, title: string, issue: string, ema
 	LogEngine.info(`Creating ticket for user: ${user.displayName || user.username} (${user.id})`);
 	LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? 'SET' : 'NOT_SET'}, SLACK_CHANNEL_ID=${process.env.UNTHREAD_SLACK_CHANNEL_ID ? 'SET' : 'NOT_SET'}`);
 
-	// Validate API key before making request
-	const apiKey = process.env.UNTHREAD_API_KEY;
-	if (!apiKey) {
-		LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
-		throw new Error('UNTHREAD_API_KEY environment variable is required');
-	}
+	// Get API key (guaranteed to exist due to startup validation)
+	const apiKey = process.env.UNTHREAD_API_KEY!;
 
 	const customer = await getOrCreateCustomer(user, email);
 	LogEngine.debug(`Customer: ${customer?.unthreadCustomerId || 'unknown'} (${customer?.email || email})`);
@@ -378,9 +374,11 @@ async function handleMessageCreated(data: any): Promise<void> {
 
 	const conversationId = data.conversationId || data.id;
 	const messageText = data.text;
+	// Extract attachments from webhook data
+	const attachments = data.attachments || [];
 
-	if (!conversationId || !messageText) {
-		LogEngine.warn('Message created event missing required data');
+	if (!conversationId || (!messageText && attachments.length === 0)) {
+		LogEngine.warn('Message created event missing required data (must have text or at least one attachment)');
 		return;
 	}
 
@@ -466,9 +464,48 @@ async function handleMessageCreated(data: any): Promise<void> {
 			}
 		}
 
-		if (messageContent.trim()) {
-			// Send as a regular Discord bot message instead of embed
-			await discordThread.send(messageContent);
+		if (messageContent.trim() || attachments.length > 0) {
+			// Process attachments if present
+			if (attachments.length > 0) {
+				LogEngine.info(`Processing ${attachments.length} attachments from Unthread message`);
+
+				// Import AttachmentHandler and process the attachments
+				const { AttachmentHandler } = await import('../utils/attachmentHandler');
+				const attachmentHandler = new AttachmentHandler();
+
+				try {
+					const attachmentResult = await attachmentHandler.downloadUnthreadAttachmentsToDiscord(
+						discordThread,
+						attachments,
+						messageContent.trim() || undefined,
+					);
+
+					if (attachmentResult.success) {
+						LogEngine.info(`Successfully processed ${attachmentResult.processedCount} attachments from Unthread`);
+					}
+					else {
+						LogEngine.warn(`Attachment processing partially failed: ${attachmentResult.errors.join(', ')}`);
+
+						// Still send the text message if attachment processing failed
+						if (messageContent.trim()) {
+							await discordThread.send(messageContent);
+						}
+					}
+				}
+				catch (error) {
+					LogEngine.error('Failed to process Unthread attachments:', error);
+
+					// Send text message as fallback
+					if (messageContent.trim()) {
+						await discordThread.send(messageContent);
+					}
+				}
+			}
+			else if (messageContent.trim()) {
+				// Send as a regular Discord bot message if no attachments
+				await discordThread.send(messageContent);
+			}
+
 			LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id}`);
 		}
 	}
@@ -624,12 +661,8 @@ export async function sendMessageToUnthread(
 	const timeoutId = setTimeout(() => abortController.abort(), 8000);
 
 	try {
-		// Validate API key before making requests
-		const apiKey = process.env.UNTHREAD_API_KEY;
-		if (!apiKey) {
-			LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
-			throw new Error('UNTHREAD_API_KEY environment variable is required');
-		}
+		// Get API key (guaranteed to exist due to startup validation)
+		const apiKey = process.env.UNTHREAD_API_KEY!;
 
 		// Perform preflight check to verify conversation exists
 		LogEngine.debug(`Performing preflight check for conversation ${conversationId}`);
@@ -716,11 +749,8 @@ export async function sendMessageWithAttachmentsToUnthread(
 ): Promise<UnthreadApiResponse<any>> {
 	LogEngine.debug(`Sending message with ${fileBuffers.length} attachments to Unthread conversation ${conversationId}`);
 
-	const apiKey = process.env.UNTHREAD_API_KEY;
-	if (!apiKey) {
-		LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
-		throw new Error('UNTHREAD_API_KEY environment variable is required');
-	}
+	// Get API key (guaranteed to exist due to startup validation)
+	const apiKey = process.env.UNTHREAD_API_KEY!;
 
 	// Create FormData for multipart upload
 	const formData = new FormData();

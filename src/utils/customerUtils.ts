@@ -30,11 +30,8 @@ export { Customer } from '../sdk/bots-brain/BotsStore';
  * @private
  */
 async function createCustomerInUnthread(user: User): Promise<string> {
-	// Validate API key exists
-	const apiKey = process.env.UNTHREAD_API_KEY;
-	if (!apiKey) {
-		throw new Error('UNTHREAD_API_KEY environment variable is required but not set');
-	}
+	// Get API key (guaranteed to exist due to startup validation)
+	const apiKey = process.env.UNTHREAD_API_KEY!;
 
 	// Construct the API request to create a customer in Unthread
 	const response = await fetch('https://api.unthread.io/api/customers', {
