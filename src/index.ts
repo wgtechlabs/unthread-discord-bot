@@ -58,7 +58,7 @@ import * as path from 'node:path';
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import express from 'express';
 import { BotConfig } from './types/discord';
-import { webhookHandler, webhookHealthCheck, webhookMetrics, initializeWebhookService } from './services/webhook';
+import { webhookHandler, webhookHealthCheck, webhookMetrics } from './services/webhook';
 import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
 import { version } from '../package.json';
@@ -67,6 +67,9 @@ import { getConfig, DEFAULT_CONFIG } from './config/defaults';
 
 // Import new storage architecture
 import { BotsStore } from './sdk/bots-brain/BotsStore';
+
+// Import clean webhook consumer
+import { WebhookConsumer } from './sdk/webhook-consumer';
 
 /**
  * Startup Validation Function
@@ -99,11 +102,6 @@ async function validateStartupRequirements(): Promise<void> {
 		}
 
 		LogEngine.info('3-layer storage architecture validated successfully');
-
-		// Initialize webhook service with queue processing
-		await initializeWebhookService();
-		LogEngine.info('Queue-based webhook processing initialized');
-
 		LogEngine.info('All startup requirements validated successfully');
 	}
 	catch (error) {
@@ -549,3 +547,57 @@ catch (error) {
 
 // Kick off startup after all modules are wired
 main();
+
+/**
+ * Initialize WebhookConsumer for Redis-based event processing
+ * 
+ * This replaces the complex BullMQ implementation with a simple Redis consumer
+ * that polls the queue and processes events directly.
+ */
+let webhookConsumer: WebhookConsumer | null = null;
+
+// Initialize WebhookConsumer after main startup completes
+(async () => {
+	try {
+		// Wait for main startup to complete first
+		await new Promise(resolve => setTimeout(resolve, 2000));
+
+		// Check if webhook Redis URL is configured
+		if (process.env.WEBHOOK_REDIS_URL) {
+			LogEngine.info('Initializing clean Redis-based webhook consumer...');
+			
+			webhookConsumer = new WebhookConsumer({
+				redisUrl: process.env.WEBHOOK_REDIS_URL,
+				queueName: 'unthread-events',
+				pollInterval: 1000 // Poll every second
+			});
+
+			await webhookConsumer.start();
+			LogEngine.info('✅ Webhook consumer started successfully - polling Redis queue for events');
+		} else {
+			LogEngine.warn('WEBHOOK_REDIS_URL not configured - webhook consumer disabled');
+		}
+	} catch (error) {
+		LogEngine.error('Failed to initialize webhook consumer:', error);
+		LogEngine.warn('Bot will continue without Redis-based webhook processing');
+	}
+})();
+
+/**
+ * Graceful shutdown handler for WebhookConsumer
+ */
+process.on('SIGINT', async () => {
+	LogEngine.info('Received SIGINT - shutting down webhook consumer...');
+	if (webhookConsumer) {
+		await webhookConsumer.stop();
+		LogEngine.info('Webhook consumer stopped');
+	}
+});
+
+process.on('SIGTERM', async () => {
+	LogEngine.info('Received SIGTERM - shutting down webhook consumer...');
+	if (webhookConsumer) {
+		await webhookConsumer.stop();
+		LogEngine.info('Webhook consumer stopped');
+	}
+});
