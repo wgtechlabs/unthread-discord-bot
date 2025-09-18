@@ -6,6 +6,7 @@ import { LogEngine } from '../config/logger';
 import { AttachmentHandler } from '../utils/attachmentHandler';
 import { AttachmentDetectionService } from '../services/attachmentDetection';
 import { DISCORD_ATTACHMENT_CONFIG } from '../config/attachmentConfig';
+import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
 
 /**
  * Message Creation Event Handler
@@ -94,7 +95,8 @@ export async function execute(message: Message): Promise<void> {
 
 				// Retrieve or create customer email for Unthread ticket association
 				const customer = await getCustomerById(message.author.id);
-				const email = customer?.email || `${message.author.username}@discord.user`;
+				const dummyEmailDomain = getConfig('DUMMY_EMAIL_DOMAIN', DEFAULT_CONFIG.DUMMY_EMAIL_DOMAIN);
+				const email = customer?.email || `${message.author.username}@${dummyEmailDomain}`;
 
 				// Process image attachments if present
 				if (message.attachments.size > 0) {

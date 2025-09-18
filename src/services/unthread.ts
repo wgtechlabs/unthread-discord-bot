@@ -25,6 +25,7 @@ import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } fro
 import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
 import { UnthreadApiResponse, UnthreadTicket, WebhookPayload } from '../types/unthread';
 import { FileBuffer } from '../types/attachments';
+import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
 
 /**
  * ==================== ENVIRONMENT VALIDATION ====================
@@ -131,7 +132,7 @@ export async function createTicket(user: User, title: string, issue: string, ema
 
 	// Setup timeout handling for request resilience
 	const abortController = new AbortController();
-	const timeoutMs = Number(process.env.UNTHREAD_HTTP_TIMEOUT_MS) || 15000;
+	const timeoutMs = getConfig('UNTHREAD_HTTP_TIMEOUT_MS', DEFAULT_CONFIG.UNTHREAD_HTTP_TIMEOUT_MS);
 	const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
 
 	try {

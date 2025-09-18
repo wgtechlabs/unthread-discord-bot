@@ -117,7 +117,7 @@ services:
   redis-webhook:
     image: redis:7-alpine
     ports:
-      - "6380:6379"  # Different external port to avoid conflicts
+      - "6380:6379"  # Different external port to avoid conflicts with platform Redis
     volumes:
       - redis_webhook_data:/data  # Separate data storage
     restart: unless-stopped

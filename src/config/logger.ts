@@ -5,7 +5,7 @@
  * This replaces the custom logger wrapper with direct log-engine usage.
  *
  * Configuration:
- * - Uses LogMode.DEBUG when DEBUG_MODE=true, otherwise LogMode.INFO
+ * - Uses LogMode.DEBUG when NODE_ENV=development or undefined, otherwise LogMode.INFO
  * - Excludes ISO timestamps (includeIsoTimestamp: false)
  * - Includes local time formatting (includeLocalTime: true)
  * - No custom output handlers - uses log-engine defaults
@@ -14,13 +14,11 @@
  */
 
 import { LogEngine, LogMode } from '@wgtechlabs/log-engine';
+import { DEFAULT_CONFIG } from './defaults';
 
-// Configure LogEngine based on environment variables
-const debugMode: boolean = process.env.DEBUG_MODE === 'true';
-
-// Set the log mode based on DEBUG_MODE environment variable
-// In debug mode, show all logs; otherwise show info and above
-const logMode = debugMode ? LogMode.DEBUG : LogMode.INFO;
+// Set the log mode based on NODE_ENV environment variable
+// In development mode (or undefined NODE_ENV), show all logs; otherwise show info and above
+const logMode = DEFAULT_CONFIG.isDevelopment() ? LogMode.DEBUG : LogMode.INFO;
 
 // Configure LogEngine with the required format settings
 LogEngine.configure({

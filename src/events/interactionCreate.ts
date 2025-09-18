@@ -19,6 +19,7 @@ import { LogEngine } from '../config/logger';
 import { BotsStore } from '../sdk/bots-brain/BotsStore';
 import { getOrCreateCustomer, getCustomerByDiscordId } from '../utils/customerUtils';
 import { getBotFooter } from '../utils/botUtils';
+import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
 
 /**
  * Simple type for ticket objects from external API
@@ -84,7 +85,8 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 	if (!email || email.trim() === '') {
 		// If no email provided, try to get existing customer record
 		const existingCustomer = await getCustomerByDiscordId(interaction.user.id);
-		email = existingCustomer?.email || `${interaction.user.username}@discord.user`;
+		const dummyEmailDomain = getConfig('DUMMY_EMAIL_DOMAIN', DEFAULT_CONFIG.DUMMY_EMAIL_DOMAIN);
+		email = existingCustomer?.email || `${interaction.user.username}@${dummyEmailDomain}`;
 		LogEngine.debug(`Using fallback email for user ${interaction.user.id}: ${email}`);
 	}
 	else {

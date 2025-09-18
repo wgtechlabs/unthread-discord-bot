@@ -29,6 +29,7 @@ import Redis from 'ioredis';
 import { LogEngine } from '../config/logger';
 import { WebhookPayload } from '../types/unthread';
 import { handleWebhookEvent as unthreadWebhookHandler } from './unthread';
+import { DEFAULT_CONFIG } from '../config/defaults';
 
 /**
  * Job data structure for webhook processing
@@ -168,7 +169,7 @@ export class QueueProcessor {
 			retryDelayMs: 5000,
 			rateLimitMax: 100,
 			rateLimitDuration: 60000,
-			enableMetrics: process.env.DEBUG_MODE === 'true',
+			enableMetrics: DEFAULT_CONFIG.isDevelopment(),
 		};
 	}
 

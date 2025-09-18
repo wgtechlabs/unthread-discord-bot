@@ -61,8 +61,6 @@ export interface BotConfig {
 	WEBHOOK_REDIS_URL: string;
 	/** Comma-separated list of forum channel IDs for auto-ticket creation (optional) */
 	FORUM_CHANNEL_IDS?: string;
-	/** Enable verbose logging for development (optional) */
-	DEBUG_MODE?: string;
 	/** Port for webhook server (optional, defaults to 3000) */
 	PORT?: string;
 }

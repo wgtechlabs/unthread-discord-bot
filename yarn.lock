@@ -393,16 +393,16 @@
   integrity sha512-/pyBZWSLD2n0dcHE3hq8s8ZvcETHtEuF+3E7XVt0Ig2nvsVQXdghHVcEkIWjy9A0wKfTn97a/PSDYohKIlnP/w==
 
 "@types/node@*":
-  version "24.5.0"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-24.5.0.tgz#70a482e6b1d50e603729d74e62a9a43705ddc9d7"
-  integrity sha512-y1dMvuvJspJiPSDZUQ+WMBvF7dpnEqN4x9DDC9ie5Fs/HUZJA3wFp7EhHoVaKX/iI0cRoECV8X2jL8zi0xrHCg==
+  version "24.5.2"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-24.5.2.tgz#52ceb83f50fe0fcfdfbd2a9fab6db2e9e7ef6446"
+  integrity sha512-FYxk1I7wPv3K2XBaoyH2cTnocQEu8AOZ60hPbsyukMPLv5/5qr7V1i8PLHdl6Zf87I+xZXFvPCXYjiTFq+YSDQ==
   dependencies:
     undici-types "~7.12.0"
 
 "@types/node@^18.19.0":
-  version "18.19.125"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-18.19.125.tgz#179a577373347f29560cc4dfef9ee36229a09647"
-  integrity sha512-4TWNu0IxTQcszliYdW2mxrVvhHeERUeDCUwVuvQFn9JCU02kxrUDs8v52yOazPo7wLHKgqEd2FKxlSN6m8Deqg==
+  version "18.19.127"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-18.19.127.tgz#7c2e47fa79ad7486134700514d4a975c4607f09d"
+  integrity sha512-gSjxjrnKXML/yo0BO099uPixMqfpJU0TKYjpfLU7TrtA2WWDki412Np/RSTPRil1saKBhvVVKzVx/p/6p94nVA==
   dependencies:
     undici-types "~5.26.4"
 
@@ -852,9 +852,9 @@ diff@^4.0.1:
   integrity sha512-58lmxKSA4BNyLz+HHMUzlOEpg09FV+ev6ZMe3vJihgdxzgcwZ8VoEEPmALCZG9LmqfVoNMMKpttIYTVG6uDY7A==
 
 discord-api-types@^0.38.1, discord-api-types@^0.38.16:
-  version "0.38.25"
-  resolved "https://registry.yarnpkg.com/discord-api-types/-/discord-api-types-0.38.25.tgz#dbee94ae84284bba1538fad1295f9df8aa8a194b"
-  integrity sha512-3edaLHuCdzzfTL1OCpl98G3mrlf+45FpxY+8f+5dRLnZD8R6QzIhapoCefqz6mhaygD+iqTVLtD4u6j57PRiFw==
+  version "0.38.26"
+  resolved "https://registry.yarnpkg.com/discord-api-types/-/discord-api-types-0.38.26.tgz#d30f6bf0a4725b0a5ea46e0a12cef0b8880bbc9a"
+  integrity sha512-xpmPviHjIJ6dFu1eNwNDIGQ3N6qmPUUYFVAx/YZ64h7ZgPkTcKjnciD8bZe8Vbeji7yS5uYljyciunpq0J5NSw==
 
 discord.js@^14.20.0:
   version "14.22.1"
@@ -1254,9 +1254,9 @@ hasown@^2.0.2:
     function-bind "^1.1.2"
 
 hookified@^1.10.0, hookified@^1.11.0:
-  version "1.12.0"
-  resolved "https://registry.yarnpkg.com/hookified/-/hookified-1.12.0.tgz#eb4097ed1459211eef47fe85a8b3382c5f633996"
-  integrity sha512-hMr1Y9TCLshScrBbV2QxJ9BROddxZ12MX9KsCtuGGy/3SmmN5H1PllKerrVlSotur9dlE8hmUKAOSa3WDzsZmQ==
+  version "1.12.1"
+  resolved "https://registry.yarnpkg.com/hookified/-/hookified-1.12.1.tgz#b0de0116ca346fd6c4e55db901f52d5cd728ef00"
+  integrity sha512-xnKGl+iMIlhrZmGHB729MqlmPoWBznctSQTYCpFKqNsCgimJQmithcW0xSQMMFzYnV2iKUh25alswn6epgxS0Q==
 
 http-errors@2.0.0:
   version "2.0.0"
@@ -1388,9 +1388,9 @@ keyv@^4.5.4:
     json-buffer "3.0.1"
 
 keyv@^5.3.4, keyv@^5.5.0:
-  version "5.5.1"
-  resolved "https://registry.yarnpkg.com/keyv/-/keyv-5.5.1.tgz#80099d3fab2662079fa9eed374d94388f429dc16"
-  integrity sha512-eF3cHZ40bVsjdlRi/RvKAuB0+B61Q1xWvohnrJrnaQslM3h1n79IV+mc9EGag4nrA9ZOlNyr3TUzW5c8uy8vNA==
+  version "5.5.2"
+  resolved "https://registry.yarnpkg.com/keyv/-/keyv-5.5.2.tgz#942348b882e08a27429688897eec4f735f75a978"
+  integrity sha512-TXcFHbmm/z7MGd1u9ASiCSfTS+ei6Z8B3a5JHzx3oPa/o7QzWVtPRpc4KGER5RR469IC+/nfg4U5YLIuDUua2g==
   dependencies:
     "@keyv/serialize" "^1.1.1"
 

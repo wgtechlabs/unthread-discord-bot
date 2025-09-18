@@ -27,7 +27,7 @@
  * - PLATFORM_REDIS_URL: Redis connection URL for L2 cache layer (required)
  * - WEBHOOK_REDIS_URL: Redis connection URL for webhook queue processing (required)
  * - FORUM_CHANNEL_IDS: Comma-separated list of forum channel IDs for automatic ticket creation (optional)
- * - DEBUG_MODE: Enable verbose logging during development (optional, defaults to false)
+ * - NODE_ENV: Environment mode (development enables debug logging, production uses info level)
  * - PORT: Port for webhook server (optional, defaults to 3000)
  *
  * NOTE: UNTHREAD_WEBHOOK_SECRET is no longer required as webhook events now come
@@ -63,6 +63,7 @@ import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
 import { version } from '../package.json';
 import './types/global';
+import { getConfig, DEFAULT_CONFIG } from './config/defaults';
 
 // Import new storage architecture
 import { BotsStore } from './sdk/bots-brain/BotsStore';
@@ -229,18 +230,8 @@ async function main(): Promise<void> {
 }
 
 
-// Parse port with proper fallback and validation
-const { PORT } = process.env as Partial<BotConfig>;
-let port = 3000;
-if (PORT) {
-	const parsedPort = parseInt(PORT, 10);
-	if (!Number.isNaN(parsedPort) && parsedPort > 0 && parsedPort <= 65535) {
-		port = parsedPort;
-	}
-	else {
-		LogEngine.warn(`Invalid PORT value "${PORT}", defaulting to 3000`);
-	}
-}
+// Parse port with proper fallback and validation using defaults system
+const port = getConfig('PORT', DEFAULT_CONFIG.PORT);
 
 /**
  * Extended Discord client with commands collection
