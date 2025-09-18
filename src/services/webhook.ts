@@ -65,7 +65,12 @@ export async function initializeWebhookService(): Promise<void> {
 		LogEngine.info('Webhook service initialized with queue-based processing');
 	}
 	catch (error) {
-		LogEngine.error('Failed to initialize webhook service:', error);
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		const errorStack = error instanceof Error ? error.stack : undefined;
+		LogEngine.error('Failed to initialize webhook service:', errorMessage);
+		if (errorStack) {
+			LogEngine.debug('Error stack:', errorStack);
+		}
 		throw error;
 	}
 }

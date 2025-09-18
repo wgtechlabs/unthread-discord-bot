@@ -84,11 +84,15 @@ async function validateStartupRequirements(): Promise<void> {
 		const botsStore = await BotsStore.initialize();
 		const health = await botsStore.healthCheck();
 
+		// Log detailed health status for debugging
+		LogEngine.info('Storage health check results:', health);
+
 		// Check storage health with specific error details
 		const failedLayers = [];
 		if (!health.memory) failedLayers.push('memory');
 		if (!health.redis) failedLayers.push('redis');
 		if (!health.postgres) failedLayers.push('postgres');
+		if (!health.database_pool) failedLayers.push('database_pool');
 
 		if (failedLayers.length > 0) {
 			throw new Error(`Storage layer health check failed: ${failedLayers.join(', ')} layer(s) unhealthy`);
@@ -103,7 +107,12 @@ async function validateStartupRequirements(): Promise<void> {
 		LogEngine.info('All startup requirements validated successfully');
 	}
 	catch (error) {
-		LogEngine.error('Startup validation failed:', error);
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		const errorStack = error instanceof Error ? error.stack : undefined;
+		LogEngine.error('Startup validation failed:', errorMessage);
+		if (errorStack) {
+			LogEngine.debug('Error stack:', errorStack);
+		}
 		process.exit(1);
 	}
 }

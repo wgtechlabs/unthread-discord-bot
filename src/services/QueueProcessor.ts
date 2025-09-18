@@ -104,7 +104,10 @@ export class QueueProcessor {
 
 	private constructor(config: QueueConfig) {
 		this.config = config;
-		this.redis = new Redis(config.redisUrl);
+		// Configure Redis with BullMQ-compatible settings
+		this.redis = new Redis(config.redisUrl, {
+			maxRetriesPerRequest: null,
+		});
 		this.initializeQueues();
 		this.initializeWorkers();
 		this.initializeEvents();

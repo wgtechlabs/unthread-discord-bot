@@ -376,13 +376,12 @@ class PostgresStorage implements StorageLayer {
 	}
 
 	async ping(): Promise<boolean> {
-		if (!this.connected) return false;
-
 		let client;
 		try {
 			client = await this.pool.connect();
 			try {
 				await client.query('SELECT 1');
+				LogEngine.debug('PostgreSQL L3 ping successful');
 				return true;
 			}
 			finally {
@@ -390,7 +389,7 @@ class PostgresStorage implements StorageLayer {
 			}
 		}
 		catch (error) {
-			LogEngine.error('PostgreSQL L3 ping error:', error);
+			LogEngine.error('PostgreSQL L3 ping error:', error instanceof Error ? error.message : String(error));
 			return false;
 		}
 	}

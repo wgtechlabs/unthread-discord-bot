@@ -4,15 +4,24 @@
 # Complete application stack for the Unthread Discord Bot integration
 #
 # Services:
-# ┌─ unthread-discord-bot        → Main Discord bot application  
+# ┌─ server                      → Main Discord bot application  
 # ├─ unthread-webhook-server    → Handles incoming Unthread webhooks
 # ├─ postgres-platform          → PostgreSQL database for bot data
 # ├─ redis-platform             → Redis for bot operations & caching
 # └─ redis-webhook              → Redis for webhook message queuing
 #
+# Docker Container Naming:
+#   - server                    → unthread-discord-bot-server-1
+#   - unthread-webhook-server   → unthread-discord-bot-unthread-webhook-server-1
+#   - postgres-platform        → unthread-discord-bot-postgres-platform-1
+#   - redis-platform            → unthread-discord-bot-redis-platform-1
+#   - redis-webhook             → unthread-discord-bot-redis-webhook-1
+#
+# This naming follows wgtechlabs/unthread-telegram-bot convention for consistency.
+#
 # Usage:
 #   docker-compose up -d                    # Start all services (network created automatically)
-#   docker-compose logs -f unthread-discord-bot           # View bot logs
+#   docker-compose logs -f server           # View bot logs
 #   docker-compose exec postgres-platform psql -U postgres -d unthread_discord_bot
 #
 # Prerequisites: 
@@ -25,16 +34,32 @@ services:
   # DISCORD BOT APPLICATION
   # =============================================================================
   # Main Node.js application that handles Discord bot interactions
-  unthread-discord-bot:
+  #
+  # SERVICE NAMING CONVENTION:
+  # We use "server" to match the unthread-telegram-bot naming convention for consistency.
+  # This creates Docker containers named: unthread-discord-bot-server-1
+  # (vs unthread-discord-bot-unthread-discord-bot-1 if we used the full name)
+  #
+  # Docker Process Examples:
+  #   docker ps              → unthread-discord-bot-server-1
+  #   docker logs server     → View bot logs
+  #   docker exec server     → Access bot container
+  #
+  # This follows the same pattern as wgtechlabs/unthread-telegram-bot for easier
+  # cross-repository management and standardized tooling.
+  server:
     build: .  # Build from local Dockerfile instead of pulling from Docker Hub
     environment:
       NODE_ENV: production
     env_file:
       - .env  # Contains bot tokens, API keys, and database URLs
     depends_on:
-      - postgres-platform    # Requires database to be ready
-      - redis-platform       # Requires Redis for caching
-      - redis-webhook        # Requires Redis for webhook communication
+      postgres-platform:
+        condition: service_healthy  # Wait for database to be ready
+      redis-platform:
+        condition: service_healthy  # Wait for Redis to be ready
+      redis-webhook:
+        condition: service_healthy  # Wait for webhook Redis to be ready
     networks:
       - unthread-integration-network
 
