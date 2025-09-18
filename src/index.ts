@@ -63,6 +63,7 @@ import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
 import { version } from '../package.json';
 import './types/global';
+import { getConfig, DEFAULT_CONFIG } from './config/defaults';
 
 // Import new storage architecture
 import { BotsStore } from './sdk/bots-brain/BotsStore';
@@ -229,18 +230,8 @@ async function main(): Promise<void> {
 }
 
 
-// Parse port with proper fallback and validation
-const { PORT } = process.env as Partial<BotConfig>;
-let port = 3000;
-if (PORT) {
-	const parsedPort = parseInt(PORT, 10);
-	if (!Number.isNaN(parsedPort) && parsedPort > 0 && parsedPort <= 65535) {
-		port = parsedPort;
-	}
-	else {
-		LogEngine.warn(`Invalid PORT value "${PORT}", defaulting to 3000`);
-	}
-}
+// Parse port with proper fallback and validation using defaults system
+const port = getConfig('PORT', DEFAULT_CONFIG.PORT);
 
 /**
  * Extended Discord client with commands collection
