@@ -27,7 +27,7 @@
  * - PLATFORM_REDIS_URL: Redis connection URL for L2 cache layer (required)
  * - WEBHOOK_REDIS_URL: Redis connection URL for webhook queue processing (required)
  * - FORUM_CHANNEL_IDS: Comma-separated list of forum channel IDs for automatic ticket creation (optional)
- * - DEBUG_MODE: Enable verbose logging during development (optional, defaults to false)
+ * - NODE_ENV: Environment mode (development enables debug logging, production uses info level)
  * - PORT: Port for webhook server (optional, defaults to 3000)
  *
  * NOTE: UNTHREAD_WEBHOOK_SECRET is no longer required as webhook events now come

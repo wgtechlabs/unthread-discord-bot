@@ -378,7 +378,7 @@ docker-compose up -d postgres redis-cache redis-queue
 
 **Optional Configuration:**
    - `FORUM_CHANNEL_IDS`: Comma-separated list of forum channel IDs for automatic ticket creation.
-   - `DEBUG_MODE`: Set to `true` for verbose logging during development (default: `false`).
+   - `NODE_ENV`: Set to `development` for verbose debug logging, or `production` for info-level logging (default: `production`).
    - `PORT`: Port for the webhook server (default: `3000`).
 
 ### 6. Install and Run the Project Locally
@@ -550,7 +550,7 @@ Need assistance with the bot? Here's how to get help:
 **Forum channel tickets not creating:**
 
 - Confirm the channel IDs in `FORUM_CHANNEL_IDS` are actual forum channels (not text channels)
-- Enable Debug Mode (`DEBUG_MODE=true`) to see detailed logs
+- Set development environment (`NODE_ENV=development`) to see detailed logs
 - Check bot permissions in the specific forum channels
 
 **Webhook issues:**
