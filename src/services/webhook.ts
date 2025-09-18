@@ -4,9 +4,11 @@
  * This service handles incoming webhook requests from the unthread-webhook-server
  * and routes them to a queue-based processing system for reliable, scalable event handling.
  *
- * IMPORTANT: This service no longer performs signature verification as events
- * now come through a trusted Redis queue from the unthread-webhook-server,
- * matching the architecture used by the Telegram bot.
+ * 🏗️ ARCHITECTURE FOR CONTRIBUTORS:
+ * =================================
+ * This service no longer performs signature verification as events now come through
+ * a trusted Redis queue from the unthread-webhook-server, matching the architecture
+ * used by the Telegram bot.
  *
  * Architecture Flow:
  * Unthread → unthread-webhook-server → Redis Queue → Discord Bot
@@ -19,10 +21,18 @@
  * - Rate limiting and priority handling
  * - Comprehensive error handling and monitoring
  *
- * Request Flow:
+ * 🔄 REQUEST FLOW:
+ * ===============
  * 1. Handle URL verification events immediately
  * 2. Queue other events for async processing
  * 3. Return HTTP 200 status immediately
+ *
+ * 🛠️ FOR MAINTAINERS:
+ * ===================
+ * - Monitor queue health via QueueProcessor logs
+ * - Check Redis connection if events aren't processing
+ * - URL verification should always respond immediately
+ * - Failed events automatically retry with exponential backoff
  *
  * @module services/webhook
  */

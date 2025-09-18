@@ -4,6 +4,32 @@
  * This module provides utility functions for validating Discord channel types
  * and ensuring proper channel handling throughout the application.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * Channel validation is critical for preventing runtime errors and ensuring
+ * the bot only operates in appropriate channel types. These utilities help
+ * maintain type safety and provide clear error messages.
+ *
+ * 🔧 KEY FUNCTIONS:
+ * ================
+ * - isForumChannel: Validates forum channel types for ticket creation
+ * - isValidatedForumChannel: Checks against configured allowed forums
+ * - getValidatedForumChannelIds: Returns list of allowed forum channels
+ *
+ * 🐛 DEBUGGING CHANNEL ISSUES:
+ * ===========================
+ * - Bot not working in forum? Check channel type validation
+ * - Permission errors? Verify bot has access to read channel info
+ * - Configuration issues? Review FORUM_CHANNEL_IDS environment variable
+ * - Type errors? Ensure Discord client is properly initialized
+ *
+ * 🚨 COMMON PITFALLS:
+ * ==================
+ * - Forum channels vs text channels: Different APIs and permissions
+ * - Cached channel data: May be outdated, consider fetching fresh data
+ * - Permission inheritance: Forum threads inherit parent permissions
+ * - Guild availability: Channels may not be accessible during outages
+ *
  * @module utils/channelUtils
  */
 

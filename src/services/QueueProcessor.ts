@@ -5,6 +5,11 @@
  * from Unthread, replacing the direct synchronous processing approach with an
  * asynchronous, scalable, and fault-tolerant solution.
  *
+ * 🎯 FOR NEW CONTRIBUTORS:
+ * =======================
+ * This is the heart of webhook processing. Understanding this module is crucial
+ * for maintaining webhook reliability and debugging event processing issues.
+ *
  * Features:
  * - Redis-backed job queue with BullMQ
  * - Automatic retry logic with exponential backoff
@@ -16,10 +21,26 @@
  * - Comprehensive monitoring and metrics
  * - Graceful shutdown handling
  *
- * Queue Types:
+ * 📊 QUEUE TYPES:
+ * ==============
  * - webhook-events: Primary queue for incoming webhook events
  * - webhook-dlq: Dead letter queue for permanently failed jobs
  * - webhook-priority: High-priority events (urgent tickets, etc.)
+ *
+ * 🔧 DEBUGGING WEBHOOK ISSUES:
+ * ============================
+ * 1. Check Redis connection: Are queues accessible?
+ * 2. Monitor job processing: Are jobs being consumed?
+ * 3. Review DLQ: What events are failing permanently?
+ * 4. Check rate limits: Are we being throttled?
+ * 5. Verify Unthread API connectivity and credentials
+ *
+ * 🚨 COMMON ISSUES:
+ * ================
+ * - Redis connection lost: Jobs will queue but not process
+ * - Unthread API errors: Check API key and endpoint availability
+ * - Discord rate limits: Jobs will retry automatically
+ * - Memory leaks: Monitor worker processes and restart if needed
  *
  * @module services/QueueProcessor
  */

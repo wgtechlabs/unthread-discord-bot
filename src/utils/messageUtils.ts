@@ -4,8 +4,34 @@
  * This module provides utility functions for processing messages between Discord and Unthread,
  * including duplicate detection, attachment handling, and message formatting.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * These utilities are critical for message synchronization quality. They prevent
+ * duplicate messages, handle attachments properly, and maintain message context
+ * during bidirectional sync between Discord and Unthread.
+ *
  * These utilities help ensure consistent message handling and prevent duplicate messages
  * from being synchronized between platforms, which can happen due to bidirectional sync.
+ *
+ * 🔄 KEY FUNCTIONS:
+ * ================
+ * - isDuplicateMessage: Prevents message loops and redundant syncing
+ * - containsDiscordAttachments: Detects attachments for special handling
+ * - removeAttachmentSection: Cleans attachment metadata for content comparison
+ * - processQuotedContent: Handles reply chains and quoted messages
+ *
+ * 🐛 DEBUGGING MESSAGE SYNC:
+ * =========================
+ * - Duplicate detection not working? Check content normalization logic
+ * - Attachments not processing? Verify URL patterns and content detection
+ * - Quote handling broken? Review reply chain parsing and formatting
+ * - Performance issues? Monitor message processing time and optimize patterns
+ *
+ * 🚨 SYNC LOOP PREVENTION:
+ * =======================
+ * The duplicate detection algorithms are crucial for preventing infinite loops
+ * when messages sync between Discord and Unthread. Always test changes carefully
+ * to ensure loops don't occur.
  *
  * @module utils/messageUtils
  */

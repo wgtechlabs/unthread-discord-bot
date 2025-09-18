@@ -5,17 +5,40 @@
  * The bot connects to Discord and handles slash commands, while the Express server
  * receives webhooks from Unthread to sync ticket updates.
  *
+ * 🏗️ ARCHITECTURE OVERVIEW FOR CONTRIBUTORS:
+ * ==========================================
+ * This bot follows a modular, queue-based architecture:
+ * 
+ * 1. Discord Client: Handles real-time Discord events (messages, interactions)
+ * 2. Express Server: Receives webhook events from unthread-webhook-server
+ * 3. Redis Queues: Asynchronous processing of webhook events (BullMQ)
+ * 4. 3-Layer Storage: PostgreSQL (L3) + Redis (L2) + Memory (L1) via BotsStore
+ * 
+ * Data Flow:
+ * Discord → Bot → Unthread API → Webhook → Queue → Processing → Discord
+ *
  * Key Components:
  * - Discord.js Client with required intents and partials
  * - Express server for webhook handling
  * - Command and event loader system
  * - Global client reference for webhook integration
+ * - BullMQ queue processor for reliable event handling
+ * - BotsStore SDK for unified data persistence
  *
- * Architecture:
- * - Built with TypeScript for type safety and maintainability
- * - Follows KISS (Keep It Simple, Stupid) principle
- * - Clean code approach with comprehensive documentation
- * - Modular design with clear separation of concerns
+ * 🔧 DEVELOPMENT SETUP:
+ * =====================
+ * 1. Copy .env.example to .env and fill required variables
+ * 2. Run `yarn install` to install dependencies
+ * 3. Run `yarn dev` for development with auto-reload
+ * 4. Use `yarn deploycommand` to register slash commands
+ * 5. Check logs for connection status and errors
+ *
+ * 🐛 TROUBLESHOOTING:
+ * ==================
+ * - Bot not responding? Check DISCORD_BOT_TOKEN and permissions
+ * - Webhook issues? Verify Redis connections and queue processing
+ * - Commands not working? Redeploy with `yarn deploycommand`
+ * - Database errors? Check PostgreSQL connection and migrations
  *
  * Environment Variables Required:
  * - DISCORD_BOT_TOKEN: Bot token from Discord Developer Portal

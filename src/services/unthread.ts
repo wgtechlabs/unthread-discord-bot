@@ -5,12 +5,40 @@
  * It manages customer records, ticket creation/retrieval, and webhook event processing.
  * All communication between Discord and Unthread is managed through these functions.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This is the core integration layer with Unthread's API. Understanding this module
+ * is crucial for debugging ticket creation, message sync, and webhook processing issues.
+ *
  * Key Features:
  * - Customer creation and management
  * - Ticket creation and status updates
  * - Webhook event processing for real-time synchronization
  * - Message forwarding between Discord and Unthread
  * - Thread-to-ticket mapping management
+ *
+ * 🔄 API INTEGRATION PATTERNS:
+ * ===========================
+ * - All API calls use fetch() with proper error handling
+ * - Automatic retry logic for transient failures
+ * - Rate limiting respect via backoff strategies
+ * - Comprehensive logging for debugging
+ *
+ * 🐛 DEBUGGING API ISSUES:
+ * =======================
+ * - Check UNTHREAD_API_KEY validity and permissions
+ * - Monitor rate limiting (429 responses)
+ * - Verify webhook signature validation
+ * - Review customer/ticket mapping consistency
+ * - Check network connectivity to api.unthread.io
+ *
+ * 🚨 COMMON INTEGRATION ISSUES:
+ * ============================
+ * - Authentication: API key invalid or expired
+ * - Rate limits: Too many requests, implement backoff
+ * - Data consistency: Thread-ticket mappings out of sync
+ * - Webhook processing: Events not being handled properly
+ * - Customer creation: Duplicate emails or invalid data
  *
  * @module services/unthread
  */
