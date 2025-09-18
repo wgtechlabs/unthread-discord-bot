@@ -6,6 +6,26 @@ import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from '
  * Provides detailed information about the Discord user who triggered the command.
  * Displays key user information including username, server join date, and account creation date.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This is a utility command that helps users and administrators get user information.
+ * It demonstrates basic Discord.js interaction patterns and embed creation.
+ *
+ * 🔧 COMMAND FEATURES:
+ * ===================
+ * - Shows user's Discord account creation date
+ * - Displays server join date (if available)
+ * - Formats timestamps using Discord's native formatting
+ * - Provides user avatar and basic profile information
+ *
+ * 💡 EDUCATIONAL VALUE:
+ * ====================
+ * This command is a great example for new contributors to understand:
+ * - Basic slash command structure
+ * - Interaction handling and response patterns
+ * - Discord embed creation and formatting
+ * - Error handling for edge cases (DMs vs server usage)
+ *
  * @module commands/utilities/user
  */
 export const data = new SlashCommandBuilder()

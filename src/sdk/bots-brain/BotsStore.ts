@@ -4,6 +4,12 @@
  * This module provides high-level storage operations specifically designed for
  * Discord bot functionality, built on top of the UnifiedStorage engine.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This is the primary data access layer for the Discord bot. All customer data,
+ * thread mappings, and bot configuration should go through this module to ensure
+ * consistency and proper caching across the 3-layer storage system.
+ *
  * Features:
  * - Customer management with Discord integration
  * - Thread-ticket mapping persistence
@@ -11,12 +17,27 @@
  * - Type-safe operations with full TypeScript support
  * - Automatic cache warming and invalidation
  *
- * Storage Keys Pattern:
+ * 🗝️ STORAGE KEYS PATTERN:
+ * =======================
  * - customer:discord:{discordId} - Customer data by Discord ID
  * - customer:unthread:{unthreadId} - Customer data by Unthread ID
  * - mapping:thread:{threadId} - Thread-ticket mapping by Discord thread ID
  * - mapping:ticket:{ticketId} - Thread-ticket mapping by Unthread ticket ID
  * - bot:config:{key} - Bot configuration data
+ *
+ * 🔧 USAGE PATTERNS:
+ * =================
+ * - Always use this layer instead of direct UnifiedStorage calls
+ * - Customer operations handle Discord ↔ Unthread user mapping
+ * - Thread mappings maintain bidirectional ticket relationships
+ * - Configuration data is cached across application restarts
+ *
+ * 🐛 DEBUGGING DATA ISSUES:
+ * ========================
+ * - Check all 3 storage layers (memory, Redis, PostgreSQL)
+ * - Verify key patterns match expected format
+ * - Monitor cache hit rates for performance optimization
+ * - Review TTL settings for data freshness requirements
  *
  * @module sdk/bots-brain/BotsStore
  */

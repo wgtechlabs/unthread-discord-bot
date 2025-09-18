@@ -4,11 +4,14 @@
  * This module implements a sophisticated 3-layer storage system that provides
  * high-performance data access with automatic fallback capabilities:
  *
+ * 🏗️ ARCHITECTURE FOR CONTRIBUTORS:
+ * =================================
  * Layer 1 (L1): In-Memory Cache - Ultra-fast access for frequently used data
  * Layer 2 (L2): Redis Cache - Persistent cache across application restarts
  * Layer 3 (L3): PostgreSQL Database - Permanent storage and source of truth
  *
- * Data Flow:
+ * 🔄 DATA FLOW:
+ * ============
  * READ:  Memory → Redis → PostgreSQL (first available wins)
  * WRITE: Memory ← Redis ← PostgreSQL (write-through to all layers)
  *
@@ -18,6 +21,26 @@
  * - Fallback mechanisms for high availability
  * - Performance metrics and monitoring
  * - Type-safe operations with TypeScript
+ *
+ * 🛠️ FOR MAINTAINERS:
+ * ===================
+ * This is the core data persistence layer. Understanding this system is crucial
+ * for debugging performance issues, data consistency problems, and cache behavior.
+ *
+ * 🐛 TROUBLESHOOTING:
+ * ==================
+ * - Slow reads? Check cache hit rates and layer performance
+ * - Data inconsistency? Verify write-through operations
+ * - Memory leaks? Monitor L1 cache size and TTL behavior
+ * - Connection issues? Check Redis and PostgreSQL connectivity
+ * - Performance degradation? Review TTL settings and cache strategies
+ *
+ * 🚨 CRITICAL OPERATIONS:
+ * ======================
+ * - Always maintain data consistency across all layers
+ * - Handle connection failures gracefully with fallbacks
+ * - Monitor cache hit rates for performance optimization
+ * - Implement proper TTL strategies to prevent stale data
  *
  * @module sdk/bots-brain/UnifiedStorage
  */
