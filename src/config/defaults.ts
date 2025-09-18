@@ -36,12 +36,12 @@ export const DEFAULT_CONFIG = {
 
 /**
  * Get configuration value with environment override support
- * @param key - Configuration key
+ * @param key - Configuration key (environment variable name)
  * @param defaultValue - Default value if environment variable is not set
  * @returns Configuration value with type safety
  */
-export function getConfig<T>(key: keyof typeof DEFAULT_CONFIG, defaultValue: T): T {
-	const envValue = process.env[key as string];
+export function getConfig<T>(key: string, defaultValue: T): T {
+	const envValue = process.env[key];
 
 	if (envValue !== undefined) {
 		// Try to parse numeric values
@@ -52,7 +52,7 @@ export function getConfig<T>(key: keyof typeof DEFAULT_CONFIG, defaultValue: T):
 
 		// Try to parse boolean values
 		if (typeof defaultValue === 'boolean') {
-			return (envValue.toLowerCase() === 'true') as T;
+			return (typeof envValue === 'string' && envValue.toLowerCase() === 'true') as T;
 		}
 
 		// Return string values as-is
