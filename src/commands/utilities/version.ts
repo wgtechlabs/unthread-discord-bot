@@ -8,6 +8,23 @@ import { getBotFooter } from '../../utils/botUtils';
  * Provides information about the current bot version to users.
  * Fetches version information from the package.json file and displays it in an embedded message.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This command demonstrates how to import and use package.json data in commands.
+ * It's useful for support and debugging scenarios where version information is needed.
+ *
+ * 🔧 IMPLEMENTATION NOTES:
+ * =======================
+ * - Version is imported directly from package.json at compile time
+ * - Uses the bot's footer utility for consistent branding
+ * - Simple embed structure for clean presentation
+ *
+ * 💡 MAINTENANCE TIPS:
+ * ===================
+ * - Version updates automatically when package.json version changes
+ * - No manual version string updates needed
+ * - Command is useful for verifying deployments and troubleshooting
+ *
  * @module commands/utilities/version
  */
 export const data = new SlashCommandBuilder()

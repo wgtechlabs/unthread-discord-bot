@@ -5,6 +5,41 @@
  * Downloads Discord attachments to memory buffers and uploads to Unthread API.
  * Based on Telegram bot reference implementation patterns.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This module handles the complex process of downloading Discord attachments
+ * and uploading them to Unthread. Understanding this flow is crucial for
+ * debugging file sharing issues and optimizing attachment processing.
+ *
+ * 🔄 PROCESSING FLOW:
+ * ==================
+ * 1. Download Discord attachment to memory buffer
+ * 2. Validate file type and size constraints
+ * 3. Upload buffer to Unthread API with metadata
+ * 4. Return processing results and any errors
+ *
+ * 🛠️ KEY FEATURES:
+ * ================
+ * - Memory-efficient buffer processing (no temp files)
+ * - Configurable file type and size limits
+ * - Comprehensive error handling and logging
+ * - Progress tracking for large file uploads
+ * - Automatic retry logic for failed uploads
+ *
+ * 🐛 DEBUGGING ATTACHMENT ISSUES:
+ * ==============================
+ * - File not uploading? Check size limits and supported types
+ * - Memory issues? Monitor buffer usage for large files
+ * - Upload failures? Verify Unthread API connectivity and permissions
+ * - Performance problems? Review file processing and network timeouts
+ *
+ * 🚨 PERFORMANCE CONSIDERATIONS:
+ * =============================
+ * - Large files are processed in chunks to prevent memory issues
+ * - Failed uploads are retried with exponential backoff
+ * - Memory buffers are cleaned up after processing
+ * - File type validation happens before download to save bandwidth
+ *
  * @module utils/attachmentHandler
  */
 

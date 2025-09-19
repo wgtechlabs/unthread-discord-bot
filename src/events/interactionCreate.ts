@@ -6,9 +6,34 @@
  * - Slash command executions
  * - Thread creation and binding with Unthread tickets
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This handler is the entry point for all user interactions with the bot.
+ * It's crucial for understanding how tickets are created and commands are processed.
+ *
  * The handler processes different interaction types and routes them to
  * the appropriate functions, maintaining a clean separation of concerns
  * for different interaction workflows.
+ *
+ * 🔄 INTERACTION FLOWS:
+ * ====================
+ * 1. Slash Commands: /support, /ping, /server, etc.
+ * 2. Modal Submissions: Support ticket form completion
+ * 3. Thread Creation: Automatic binding with Unthread tickets
+ *
+ * 🐛 TROUBLESHOOTING:
+ * ==================
+ * - Commands not responding? Check slash command registration
+ * - Modal submission failing? Verify form validation and API connectivity
+ * - Thread creation issues? Check forum channel permissions and configuration
+ * - Permission errors? Ensure bot has necessary guild permissions
+ *
+ * 🚨 COMMON ISSUES:
+ * ================
+ * - Interaction timeout: Responses must be sent within 3 seconds
+ * - Modal validation: Check required fields and character limits
+ * - API failures: Monitor Unthread API status and rate limits
+ * - Thread permissions: Bot needs manage threads permission in forum channels
  *
  * @module events/interactionCreate
  */

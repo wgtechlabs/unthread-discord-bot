@@ -8,11 +8,41 @@ import { LogEngine } from '../config/logger';
  * These are typically lower-level errors like network issues, API problems,
  * or WebSocket connection failures that occur outside normal command execution.
  *
- * For debugging:
- * - Check network connectivity issues
- * - Verify Discord API status: https://discordstatus.com/
- * - Examine Discord developer portal for rate limits or token issues
- * - Review bot permissions in problematic servers
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This error handler is your first line of defense for debugging bot issues.
+ * Most runtime problems will surface here, making it crucial for monitoring
+ * bot health and identifying systemic issues.
+ *
+ * 🔍 COMMON ERROR TYPES:
+ * =====================
+ * - WebSocket errors: Connection issues with Discord Gateway
+ * - Rate limit errors: Too many API requests, need backoff
+ * - Permission errors: Bot lacks necessary permissions
+ * - Network errors: Internet connectivity or DNS issues
+ * - API errors: Discord service problems or invalid requests
+ *
+ * 🐛 DEBUGGING STEPS:
+ * ==================
+ * 1. Check network connectivity issues
+ * 2. Verify Discord API status: https://discordstatus.com/
+ * 3. Examine Discord developer portal for rate limits or token issues
+ * 4. Review bot permissions in problematic servers
+ * 5. Monitor error frequency for patterns
+ *
+ * 🚨 CRITICAL ERRORS TO WATCH:
+ * ===========================
+ * - Token authentication failures (requires immediate attention)
+ * - Persistent connection errors (may indicate network issues)
+ * - Rate limit violations (need to implement better throttling)
+ * - Permission errors in key channels (affects functionality)
+ *
+ * 💡 MONITORING TIPS:
+ * ==================
+ * - Set up alerts for high error rates
+ * - Track error patterns over time
+ * - Correlate errors with deployment or configuration changes
+ * - Use error data to improve error handling in other modules
  */
 export const name = Events.Error;
 export const once = false;

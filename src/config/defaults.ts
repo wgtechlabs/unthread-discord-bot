@@ -5,10 +5,29 @@
  * This follows Node.js best practices by using NODE_ENV for environment detection
  * and hardcoding sensible defaults that don't require user configuration.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This module centralizes all default values to ensure consistency across
+ * the application. When adding new configurable features, add defaults here
+ * rather than hardcoding values throughout the codebase.
+ *
  * Configuration Philosophy:
  * - Required vars: Only those that MUST be set by users (tokens, URLs, IDs)
  * - Default configs: Hardcoded sensible defaults in this file
  * - Optional overrides: Environment can override defaults when needed
+ *
+ * 🔧 ADDING NEW CONFIG:
+ * ====================
+ * 1. Add the default value to DEFAULT_CONFIG object
+ * 2. Add environment variable parsing in getConfig() if needed
+ * 3. Update .env.example with the new variable
+ * 4. Document the new configuration option
+ *
+ * 🛠️ ENVIRONMENT DETECTION:
+ * =========================
+ * - NODE_ENV=development: Enables debug logging, relaxed validation
+ * - NODE_ENV=production: Info-level logging, strict validation
+ * - NODE_ENV=test: Special handling for test scenarios
  *
  * @module config/defaults
  */

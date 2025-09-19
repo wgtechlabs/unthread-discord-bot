@@ -5,9 +5,37 @@
  * It scans the commands directory structure, loads all command definitions,
  * and deploys them to Discord for use in the bot.
  *
- * Usage:
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * Run this script whenever you add, modify, or remove slash commands.
+ * Commands won't appear in Discord until they're deployed via this script.
+ *
+ * 🔧 USAGE:
+ * ========
  *   node dist/deploy_commands.js
  *   yarn run deploycommand
+ *
+ * 🛠️ DEVELOPMENT WORKFLOW:
+ * ========================
+ * 1. Create/modify command files in src/commands/
+ * 2. Ensure commands export 'data' and 'execute' properties
+ * 3. Run build: `yarn build`
+ * 4. Deploy commands: `yarn deploycommand`
+ * 5. Test commands in Discord
+ *
+ * 🐛 TROUBLESHOOTING:
+ * ==================
+ * - Commands not appearing? Check Discord Developer Portal for errors
+ * - Permission denied? Verify bot has applications.commands scope
+ * - Build errors? Ensure all command files have proper exports
+ * - Rate limited? Wait and retry (Discord has strict rate limits)
+ *
+ * 🚨 IMPORTANT NOTES:
+ * ==================
+ * - Guild commands update instantly but are server-specific
+ * - Global commands take up to 1 hour to propagate
+ * - Test with guild commands first, then deploy globally if needed
+ * - Command changes require redeployment to take effect
  *
  * Environment Variables Required:
  *   - DISCORD_BOT_TOKEN: Bot token from Discord Developer Portal

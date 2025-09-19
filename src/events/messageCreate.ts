@@ -14,11 +14,35 @@ import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
  * This module processes all incoming messages to the bot and handles integration
  * between Discord threads and Unthread tickets.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This is one of the most critical event handlers - it handles bidirectional
+ * message sync between Discord and Unthread. Understanding this flow is
+ * essential for debugging communication issues.
+ *
  * Key responsibilities:
  * 1. Forwards messages from support threads to corresponding Unthread tickets
  * 2. Preserves message context by formatting quotes/replies properly
  * 3. Handles attachments and converts them to markdown links
  * 4. Implements legacy command handling (!!ping, !!version)
+ *
+ * 🔄 MESSAGE FLOW:
+ * ===============
+ * Discord Thread Message → Bot Event → Ticket Lookup → Unthread API
+ *
+ * 🐛 TROUBLESHOOTING:
+ * ==================
+ * - Messages not syncing? Check thread-ticket mapping in database
+ * - Attachments not working? Verify Discord permissions and file size limits
+ * - Legacy commands failing? Check bot permissions in channel
+ * - Duplicate messages? Review bot ignore logic and message filtering
+ *
+ * 🚨 COMMON ISSUES:
+ * ================
+ * - Bot loops: Ensure bot messages are properly filtered
+ * - Permission errors: Bot needs read/write access in threads
+ * - API failures: Check Unthread API connectivity and rate limits
+ * - Memory leaks: Monitor attachment processing for large files
  *
  * @module events/messageCreate
  * @requires discord.js

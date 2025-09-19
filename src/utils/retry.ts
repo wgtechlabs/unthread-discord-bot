@@ -4,6 +4,27 @@
  * This module provides a simple retry mechanism for operations that may fail temporarily.
  * It uses a linear backoff strategy with configurable attempts and delay.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This utility is used throughout the codebase for API calls, database operations,
+ * and other potentially flaky operations. Understanding retry patterns helps
+ * with debugging intermittent failures.
+ *
+ * 💡 BEST PRACTICES:
+ * =================
+ * - Use for network operations (API calls, database queries)
+ * - Avoid for user-facing operations that need immediate response
+ * - Set reasonable maxAttempts (3-5 for most cases)
+ * - Use descriptive operationName for better logging
+ * - Consider exponential backoff for high-load scenarios
+ *
+ * 🔧 DEBUGGING TIPS:
+ * =================
+ * - Check logs for retry attempt patterns
+ * - Monitor failure rates to identify systemic issues
+ * - Adjust retry parameters based on operation type
+ * - Use operation names to track specific failure points
+ *
  * @module utils/retry
  */
 
