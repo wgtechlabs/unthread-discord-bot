@@ -60,7 +60,7 @@ export const DEFAULT_CONFIG = {
  * @returns Configuration value with type safety
  */
 export function getConfig<T>(key: string, defaultValue: T): T {
-	const envValue = process.env[key];
+	const envValue = process.env[key as keyof NodeJS.ProcessEnv];
 
 	if (envValue !== undefined) {
 		// Try to parse numeric values
@@ -95,4 +95,140 @@ export function getAllConfig() {
 		DATABASE_SSL_VALIDATE: getConfig('DATABASE_SSL_VALIDATE', DEFAULT_CONFIG.DATABASE_SSL_VALIDATE),
 		isDevelopment: DEFAULT_CONFIG.isDevelopment,
 	};
+}
+
+/**
+ * Check if running on Railway platform by examining service URLs
+ */
+export function isRailwayEnvironment(): boolean {
+	const platformRedis = process.env.PLATFORM_REDIS_URL;
+	const webhookRedis = process.env.WEBHOOK_REDIS_URL;
+	const postgresUrl = process.env.POSTGRES_URL;
+
+	const isRailwayHost = (url: string | undefined): boolean => {
+		if (!url || url.trim() === '') {
+			return false;
+		}
+		try {
+			const parsedUrl = new URL(url);
+			return parsedUrl.hostname.toLowerCase().includes('railway.internal');
+		}
+		catch {
+			return false;
+		}
+	};
+
+	return (
+		isRailwayHost(platformRedis) ||
+		isRailwayHost(webhookRedis) ||
+		isRailwayHost(postgresUrl)
+	);
+}
+
+/**
+ * SSL configuration interface for PostgreSQL connections
+ */
+interface SSLConfig {
+	rejectUnauthorized: boolean;
+	ca?: string;
+}
+
+/**
+ * Configure SSL settings for PostgreSQL connections based on environment
+ * Follows the same pattern as the Telegram bot for consistency
+ *
+ * @param isProduction - Whether running in production environment
+ * @returns SSL configuration object, or false to disable SSL entirely
+ */
+export function getSSLConfig(isProduction: boolean): SSLConfig | false {
+	// Check SSL validation setting first (applies to all environments)
+	const sslValidate = process.env.DATABASE_SSL_VALIDATE;
+
+	// If set to 'full', disable SSL entirely (useful for local Docker with sslmode=disable)
+	if (sslValidate === 'full') {
+		return false;
+	}
+
+	// Check if we're on Railway first - they use self-signed certificates
+	if (isRailwayEnvironment()) {
+		const config: SSLConfig = {
+			rejectUnauthorized: false,
+		};
+		if (process.env.DATABASE_SSL_CA) {
+			config.ca = process.env.DATABASE_SSL_CA;
+		}
+		return config;
+	}
+
+	// In production, validate SSL certificates for security (unless overridden above)
+	if (isProduction) {
+		const config: SSLConfig = {
+			rejectUnauthorized: true,
+		};
+		if (process.env.DATABASE_SSL_CA) {
+			config.ca = process.env.DATABASE_SSL_CA;
+		}
+		return config;
+	}
+
+	// In development, check remaining SSL validation settings
+	// If set to 'true', enable SSL but disable certificate validation (common for dev)
+	if (sslValidate === 'true') {
+		const config: SSLConfig = {
+			rejectUnauthorized: false,
+		};
+		if (process.env.DATABASE_SSL_CA) {
+			config.ca = process.env.DATABASE_SSL_CA;
+		}
+		return config;
+	}
+
+	// If explicitly set to 'false', enable SSL with validation
+	if (sslValidate === 'false') {
+		const config: SSLConfig = {
+			rejectUnauthorized: true,
+		};
+		if (process.env.DATABASE_SSL_CA) {
+			config.ca = process.env.DATABASE_SSL_CA;
+		}
+		return config;
+	}
+
+	// Default for all environments: SSL enabled WITH certificate validation for security
+	const config: SSLConfig = {
+		rejectUnauthorized: true,
+	};
+	if (process.env.DATABASE_SSL_CA) {
+		config.ca = process.env.DATABASE_SSL_CA;
+	}
+	return config;
+}
+
+/**
+ * Process PostgreSQL connection string with SSL configuration
+ * Automatically adds sslmode=disable when SSL is completely disabled
+ *
+ * @param connectionString - Base PostgreSQL connection string
+ * @param sslConfig - SSL configuration from getSSLConfig()
+ * @returns Processed connection string with SSL parameters if needed
+ */
+export function processConnectionString(connectionString: string, sslConfig: SSLConfig | false): string {
+	// Auto-append sslmode=disable only when completely disabling SSL
+	if (sslConfig === false && !connectionString.includes('sslmode=')) {
+		const separator = connectionString.includes('?') ? '&' : '?';
+		const processedString = `${connectionString}${separator}sslmode=disable`;
+
+		// Log SSL configuration change (mask credentials for security)
+		const maskedUrl = connectionString.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
+		const maskedProcessedUrl = processedString.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
+
+		console.log('SSL disabled - added sslmode=disable to connection string', {
+			originalUrl: maskedUrl,
+			modifiedUrl: maskedProcessedUrl,
+		});
+
+		return processedString;
+	}
+
+	return connectionString;
 }

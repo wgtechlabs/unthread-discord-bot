@@ -48,6 +48,7 @@
 import { createClient, RedisClientType } from 'redis';
 import { Pool } from 'pg';
 import { LogEngine } from '../../config/logger';
+import { getSSLConfig, processConnectionString } from '../../config/defaults';
 
 /**
  * Storage layer interface for consistent operations across all layers
@@ -276,11 +277,16 @@ class PostgresStorage implements StorageLayer {
 	private connected: boolean = false;
 
 	constructor(postgresUrl: string) {
+		const isProduction = process.env.NODE_ENV === 'production';
+		const sslConfig = getSSLConfig(isProduction);
+		const processedPostgresUrl = processConnectionString(postgresUrl, sslConfig);
+		
 		this.pool = new Pool({
-			connectionString: postgresUrl,
+			connectionString: processedPostgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
 			connectionTimeoutMillis: 2000,
+			ssl: sslConfig,
 		});
 		this.initializeConnection();
 	}
