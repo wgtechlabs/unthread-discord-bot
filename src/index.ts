@@ -1,15 +1,15 @@
 /**
  * Unthread Discord Bot - Main Entry Point
  *
- * This is the primary server file that initializes the Discord bot and Express webhook server.
- * The bot connects to Discord and handles slash commands, while the Express server
- * receives webhooks from Unthread to sync ticket updates.
+ * This is the primary server file that initializes the Discord bot as a Redis consumer.
+ * The bot connects to Discord and handles slash commands, while consuming events
+ * from Redis queue populated by the unthread-webhook-server.
  *
  * Key Components:
  * - Discord.js Client with required intents and partials
- * - Express server for webhook handling
  * - Command and event loader system
- * - Global client reference for webhook integration
+ * - Global client reference for integration
+ * - Redis-based event consumption
  *
  * Architecture:
  * - Built with TypeScript for type safety and maintainability
@@ -28,10 +28,10 @@
  * - WEBHOOK_REDIS_URL: Redis connection URL for webhook queue processing (required)
  * - FORUM_CHANNEL_IDS: Comma-separated list of forum channel IDs for automatic ticket creation (optional)
  * - NODE_ENV: Environment mode (development enables debug logging, production uses info level)
- * - PORT: Port for webhook server (optional, defaults to 3000)
  *
- * NOTE: UNTHREAD_WEBHOOK_SECRET is no longer required as webhook events now come
- * through the Redis queue from unthread-webhook-server, not directly from Unthread.
+ * NOTE: The bot now operates as a pure Redis consumer, processing events from
+ * the unthread-webhook-server via Redis queue, eliminating the need for direct
+ * webhook endpoints.
  *
  * @module index
  * @author Waren Gonzaga
@@ -55,18 +55,17 @@ dotenv.config();
 
 import * as fs from 'fs';
 import * as path from 'node:path';
-import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
-import express from 'express';
+import { Client, Collection, GatewayIntentBits, Partials, Events } from 'discord.js';
 import { BotConfig } from './types/discord';
-import { webhookHandler, webhookHealthCheck, webhookMetrics, initializeWebhookService } from './services/webhook';
 import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
-import { version } from '../package.json';
 import './types/global';
-import { getConfig, DEFAULT_CONFIG } from './config/defaults';
 
 // Import new storage architecture
 import { BotsStore } from './sdk/bots-brain/BotsStore';
+
+// Import clean webhook consumer
+import { WebhookConsumer } from './sdk/webhook-consumer';
 
 /**
  * Startup Validation Function
@@ -99,11 +98,6 @@ async function validateStartupRequirements(): Promise<void> {
 		}
 
 		LogEngine.info('3-layer storage architecture validated successfully');
-
-		// Initialize webhook service with queue processing
-		await initializeWebhookService();
-		LogEngine.info('Queue-based webhook processing initialized');
-
 		LogEngine.info('All startup requirements validated successfully');
 	}
 	catch (error) {
@@ -118,47 +112,10 @@ async function validateStartupRequirements(): Promise<void> {
 }
 
 /**
- * Storage Health Check
- *
- * Safely probes all storage layers without throwing errors.
- * Returns status and error information for health monitoring.
- */
-async function checkStorageHealth(): Promise<{ status: 'healthy' | 'degraded' | 'unhealthy'; layers: Record<string, boolean>; error?: string }> {
-	try {
-		const botsStore = BotsStore.getInstance();
-		const health = await botsStore.healthCheck();
-
-		const healthyLayers = Object.values(health).filter(h => h).length;
-		const totalLayers = Object.keys(health).length;
-
-		let status: 'healthy' | 'degraded' | 'unhealthy';
-		if (healthyLayers === totalLayers) {
-			status = 'healthy';
-		}
-		else if (healthyLayers > 0) {
-			status = 'degraded';
-		}
-		else {
-			status = 'unhealthy';
-		}
-
-		return { status, layers: health };
-	}
-	catch (error) {
-		const errorMessage = error instanceof Error ? error.message : 'Unknown storage error';
-		return {
-			status: 'unhealthy',
-			layers: { memory: false, redis: false, postgres: false },
-			error: errorMessage,
-		};
-	}
-}
-
-/**
  * Main startup function
  *
- * Initializes the Discord bot and Express webhook server with comprehensive
- * environment validation and error handling.
+ * Initializes the Discord bot with comprehensive environment validation
+ * and error handling. Now operates as a pure Redis consumer.
  *
  * @throws {Error} When required environment variables are missing or invalid
  * @throws {Error} When Discord client login fails
@@ -224,13 +181,7 @@ async function main(): Promise<void> {
 		global.discordClient = client;
 		LogEngine.info('Discord client is ready and set globally.');
 
-		// Step 5: Start Express server after all validation and setup completes
-		app.listen(port, () => {
-			LogEngine.info(`🚀 Unthread Discord Bot server listening on port ${port}`);
-			LogEngine.info(`📊 Health check available at: http://localhost:${port}/health`);
-			LogEngine.info(`🔗 Webhook endpoint at: http://localhost:${port}/webhook/unthread`);
-			LogEngine.info(`📈 Webhook metrics at: http://localhost:${port}/webhook/metrics`);
-		});
+		LogEngine.info('🚀 Unthread Discord Bot started successfully as Redis consumer');
 	}
 	catch (error) {
 		LogEngine.error('Failed to start bot:', error);
@@ -238,9 +189,6 @@ async function main(): Promise<void> {
 	}
 }
 
-
-// Parse port with proper fallback and validation using defaults system
-const port = getConfig('PORT', DEFAULT_CONFIG.PORT);
 
 /**
  * Extended Discord client with commands collection
@@ -270,13 +218,6 @@ interface EventModule {
 }
 
 /**
- * Express request with raw body for webhook verification
- */
-interface WebhookRequest extends express.Request {
-	rawBody: string;
-}
-
-/**
  * Discord Client Configuration
  *
  * Configures the Discord client with necessary intents and partials:
@@ -303,111 +244,6 @@ const client = new Client({
 		Partials.ThreadMember,
 	],
 }) as ExtendedClient;
-
-/**
- * Express Application Setup
- */
-const app = express();
-
-/**
- * Raw Body JSON Middleware for Webhook Signature Verification
- *
- * This middleware is specifically designed for webhook routes that require
- * raw body access for HMAC signature verification. It captures the raw body
- * while still parsing JSON for convenient access. Includes a 1MB body size
- * limit for security protection against DoS attacks.
- */
-const rawBodyJsonMiddleware = express.json({
-	limit: '1mb',
-	verify: (req: express.Request, _res: express.Response, buf: Buffer, encoding: string) => {
-		const webhookReq = req as WebhookRequest;
-		webhookReq.rawBody = buf.toString(encoding as BufferEncoding);
-	},
-});
-
-/**
- * Webhook Route Handler
- *
- * Handles incoming webhooks from Unthread for ticket updates and synchronization.
- * Uses dedicated JSON middleware with raw body capture for signature verification.
- * All webhook processing is delegated to the queue-based webhookHandler service.
- */
-app.post('/webhook/unthread', rawBodyJsonMiddleware, webhookHandler);
-
-/**
- * Webhook Management Endpoints
- */
-app.get('/webhook/health', webhookHealthCheck);
-app.get('/webhook/metrics', webhookMetrics);
-
-/**
- * Health Check Endpoint
- *
- * Provides a comprehensive health check endpoint for monitoring and load balancers.
- * Returns application status and all storage layer health information.
- */
-app.get('/health', async (_req: express.Request, res: express.Response) => {
-	try {
-		// Perform comprehensive storage health check
-		const storageHealth = await checkStorageHealth();
-
-		// Check Discord client status
-		const discordStatus = client.isReady() ? 'connected' : 'disconnected';
-
-		// Overall status logic
-		let overallStatus: 'healthy' | 'degraded' | 'unhealthy';
-		if (storageHealth.status === 'healthy' && discordStatus === 'connected') {
-			overallStatus = 'healthy';
-		}
-		else if (storageHealth.status === 'unhealthy' || discordStatus === 'disconnected') {
-			overallStatus = 'unhealthy';
-		}
-		else {
-			overallStatus = 'degraded';
-		}
-
-		const statusCode = overallStatus === 'unhealthy' ? 503 : 200;
-
-		res.status(statusCode).json({
-			status: overallStatus,
-			timestamp: new Date().toISOString(),
-			version,
-			services: {
-				discord: discordStatus,
-				storage: storageHealth.status,
-				storage_layers: storageHealth.layers,
-			},
-			error: storageHealth.error,
-		});
-	}
-	catch (error) {
-		LogEngine.error('Health check endpoint error:', error);
-		res.status(503).json({
-			status: 'unhealthy',
-			timestamp: new Date().toISOString(),
-			version,
-			error: 'Health check failed',
-		});
-	}
-});
-
-/**
- * Basic Application Info Endpoint
- */
-app.get('/', (_req: express.Request, res: express.Response) => {
-	res.json({
-		name: 'Unthread Discord Bot',
-		version,
-		description: 'Official Discord bot integration for Unthread.io ticketing system',
-		architecture: '3-layer storage with queue-based processing',
-		endpoints: {
-			webhook: '/webhook/unthread',
-			health: '/health',
-			webhook_health: '/webhook/health',
-			webhook_metrics: '/webhook/metrics',
-		},
-	});
-});
 
 /**
  * Command Loading System
@@ -549,3 +385,69 @@ catch (error) {
 
 // Kick off startup after all modules are wired
 main();
+
+/**
+ * Initialize WebhookConsumer for Redis-based event processing
+ *
+ * This replaces the complex BullMQ implementation with a simple Redis consumer
+ * that polls the queue and processes events directly.
+ */
+let webhookConsumer: WebhookConsumer | null = null;
+
+/**
+ * Initialize WebhookConsumer after Discord client is ready
+ * 
+ * Uses proper event-driven startup coordination instead of arbitrary timeouts.
+ * Waits for the ClientReady event to ensure Discord client is fully initialized.
+ */
+async function initializeWebhookConsumer(): Promise<void> {
+	try {
+		// Check if webhook Redis URL is configured
+		if (process.env.WEBHOOK_REDIS_URL) {
+			LogEngine.info('Initializing clean Redis-based webhook consumer...');
+
+			webhookConsumer = new WebhookConsumer({
+				redisUrl: process.env.WEBHOOK_REDIS_URL,
+				queueName: 'unthread-events',
+				// Poll every second
+				pollInterval: 1000,
+			});
+
+			await webhookConsumer.start();
+			LogEngine.info('✅ Webhook consumer started successfully - polling Redis queue for events');
+		}
+		else {
+			LogEngine.warn('WEBHOOK_REDIS_URL not configured - webhook consumer disabled');
+		}
+	}
+	catch (error) {
+		LogEngine.error('Failed to initialize webhook consumer:', error);
+		LogEngine.warn('Bot will continue without Redis-based webhook processing');
+	}
+}
+
+// Initialize WebhookConsumer after Discord client is ready
+client.once(Events.ClientReady, async () => {
+	// Add small delay to ensure ready event handler completes
+	await new Promise(resolve => setTimeout(resolve, 100));
+	await initializeWebhookConsumer();
+});
+
+/**
+ * Graceful shutdown handler for WebhookConsumer
+ */
+process.on('SIGINT', async () => {
+	LogEngine.info('Received SIGINT - shutting down webhook consumer...');
+	if (webhookConsumer) {
+		await webhookConsumer.stop();
+		LogEngine.info('Webhook consumer stopped');
+	}
+});
+
+process.on('SIGTERM', async () => {
+	LogEngine.info('Received SIGTERM - shutting down webhook consumer...');
+	if (webhookConsumer) {
+		await webhookConsumer.stop();
+		LogEngine.info('Webhook consumer stopped');
+	}
+});
