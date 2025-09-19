@@ -55,7 +55,7 @@ dotenv.config();
 
 import * as fs from 'fs';
 import * as path from 'node:path';
-import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
+import { Client, Collection, GatewayIntentBits, Partials, Events } from 'discord.js';
 import { BotConfig } from './types/discord';
 import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
@@ -394,12 +394,14 @@ main();
  */
 let webhookConsumer: WebhookConsumer | null = null;
 
-// Initialize WebhookConsumer after main startup completes
-(async () => {
+/**
+ * Initialize WebhookConsumer after Discord client is ready
+ * 
+ * Uses proper event-driven startup coordination instead of arbitrary timeouts.
+ * Waits for the ClientReady event to ensure Discord client is fully initialized.
+ */
+async function initializeWebhookConsumer(): Promise<void> {
 	try {
-		// Wait for main startup to complete first
-		await new Promise(resolve => setTimeout(resolve, 2000));
-
 		// Check if webhook Redis URL is configured
 		if (process.env.WEBHOOK_REDIS_URL) {
 			LogEngine.info('Initializing clean Redis-based webhook consumer...');
@@ -422,7 +424,14 @@ let webhookConsumer: WebhookConsumer | null = null;
 		LogEngine.error('Failed to initialize webhook consumer:', error);
 		LogEngine.warn('Bot will continue without Redis-based webhook processing');
 	}
-})();
+}
+
+// Initialize WebhookConsumer after Discord client is ready
+client.once(Events.ClientReady, async () => {
+	// Add small delay to ensure ready event handler completes
+	await new Promise(resolve => setTimeout(resolve, 100));
+	await initializeWebhookConsumer();
+});
 
 /**
  * Graceful shutdown handler for WebhookConsumer
