@@ -344,7 +344,7 @@ export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Pro
  * ```
  */
 export async function handleWebhookEvent(payload: WebhookPayload): Promise<void> {
-	const { type, data } = payload;
+	const { type, data, sourcePlatform } = payload;
 
 	LogEngine.info(`Processing webhook event: ${type}`);
 	LogEngine.debug('Event data:', data);
@@ -352,7 +352,7 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
 	try {
 		switch (type) {
 		case 'message_created':
-			await handleMessageCreated(data);
+			await handleMessageCreated(data, sourcePlatform);
 			break;
 		case 'conversation_updated':
 			await handleStatusUpdated(data);
@@ -375,12 +375,17 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
  * Handles message creation webhook events
  *
  * @param {any} data - Webhook event data
+ * @param {string} sourcePlatform - Source platform from webhook server (dashboard, discord, etc.)
  * @returns {Promise<void>}
  */
-async function handleMessageCreated(data: any): Promise<void> {
+async function handleMessageCreated(data: any, sourcePlatform: string): Promise<void> {
 	// Check if message originated from Discord to avoid duplication
-	if (data.metadata && data.metadata.source === 'discord') {
-		LogEngine.debug('Message originated from Discord, skipping to avoid duplication');
+	// The webhook server provides sourcePlatform for reliable source detection
+	if (sourcePlatform === 'discord') {
+		LogEngine.debug('Message originated from Discord, skipping to avoid duplication', {
+			sourcePlatform,
+			conversationId: data.conversationId || data.id,
+		});
 		return;
 	}
 
@@ -413,7 +418,7 @@ async function handleMessageCreated(data: any): Promise<void> {
 		hasFiles,
 		fileCount,
 		hasText: !!messageText?.trim(),
-		sourcePlatform: data.sourcePlatform || 'dashboard',
+		sourcePlatform,
 	});
 
 	if (!conversationId || (!messageText?.trim() && !hasFiles)) {
@@ -741,9 +746,6 @@ export async function sendMessageToUnthread(
 		onBehalfOf: {
 			name: user.displayName || user.username,
 			email: email,
-		},
-		metadata: {
-			source: 'discord',
 		},
 	};
 
