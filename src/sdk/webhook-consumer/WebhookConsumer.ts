@@ -223,8 +223,21 @@ export class WebhookConsumer {
 			let event: unknown;
 			if (rawEvent && typeof rawEvent === 'object' && 'completeTransformedData' in rawEvent) {
 				// Extract the actual event from webhook server wrapping
-				const eventWrapper = rawEvent as { completeTransformedData: unknown };
+				const eventWrapper = rawEvent as {
+					completeTransformedData: unknown;
+					attachments?: Record<string, unknown>;
+				};
 				event = eventWrapper.completeTransformedData;
+				
+				// CRITICAL FIX: Preserve attachment metadata from webhook server root level
+				if (eventWrapper.attachments && typeof event === 'object' && event !== null) {
+					(event as Record<string, unknown>).attachments = eventWrapper.attachments;
+					LogEngine.debug('✅ Preserved attachment metadata from webhook server root level', {
+						hasAttachments: !!eventWrapper.attachments,
+						attachmentSummary: eventWrapper.attachments,
+					});
+				}
+				
 				LogEngine.debug('Extracted event from webhook server wrapper');
 			}
 			else {

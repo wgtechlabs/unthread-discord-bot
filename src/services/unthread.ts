@@ -51,7 +51,7 @@ import { LogEngine } from '../config/logger';
 import { isDuplicateMessage } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
-import { UnthreadApiResponse, UnthreadTicket, WebhookPayload } from '../types/unthread';
+import { UnthreadApiResponse, UnthreadTicket, WebhookPayload, MessageAttachment } from '../types/unthread';
 import { FileBuffer } from '../types/attachments';
 import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
 
@@ -348,14 +348,37 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
 
 	LogEngine.info(`Processing webhook event: ${type}`);
 	LogEngine.debug('Event data:', data);
+	
+	// DIAGNOSTIC: Log the complete payload structure to understand what we're receiving
+	LogEngine.debug('DIAGNOSTIC: Complete payload structure', {
+		payloadType: typeof payload,
+		payloadKeys: Object.keys(payload as unknown as Record<string, unknown>),
+		payloadHasAttachments: !!(payload as unknown as Record<string, unknown>).attachments,
+		completePayload: JSON.stringify(payload, null, 2),
+	});
 
 	try {
 		switch (type) {
 		case 'message_created':
-			await handleMessageCreated(data);
+			// Extract attachment metadata from webhook payload root level (not from data)
+			// The webhook consumer should have preserved the attachment metadata from the webhook server
+			const webhookAttachments = (payload as unknown as Record<string, unknown>).attachments as WebhookAttachments | undefined;
+			
+			LogEngine.debug('🔍 DEBUGGING: Webhook payload attachment extraction', {
+				hasAttachmentsInPayload: !!webhookAttachments,
+				payloadHasAttachments: !!(payload as unknown as Record<string, unknown>).attachments,
+				attachmentSummary: webhookAttachments ? `${webhookAttachments.fileCount} files (${Math.round(webhookAttachments.totalSize / 1024)}KB)` : 'none',
+				payloadKeys: Object.keys(payload as unknown as Record<string, unknown>),
+				// NEW: Look for actual attachment objects in the payload
+				rawAttachments: (payload as unknown as Record<string, unknown>).attachments,
+				dataHasFiles: !!(data as Record<string, unknown>).files,
+				dataHasAttachments: !!(data as Record<string, unknown>).attachments,
+			});
+			
+			await handleMessageCreated(data as Record<string, unknown>, webhookAttachments);
 			break;
 		case 'conversation_updated':
-			await handleStatusUpdated(data);
+			await handleStatusUpdated(data as Record<string, unknown>);
 			break;
 		case 'conversation_created':
 			LogEngine.debug('Conversation created event received - no action needed for Discord integration');
@@ -372,14 +395,261 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
 }
 
 /**
- * Handles message creation webhook events
- *
- * @param {any} data - Webhook event data
- * @returns {Promise<void>}
+ * Webhook attachment metadata structure for Discord bot
+ * Based on proven Telegram bot implementation
  */
-async function handleMessageCreated(data: any): Promise<void> {
+interface WebhookAttachments {
+	hasFiles: boolean;
+	fileCount: number;
+	totalSize: number;
+	types: string[];
+	names: string[];
+}
+
+/**
+ * Enhanced webhook event structure with attachment metadata
+ */
+interface WebhookEvent {
+	type: string;
+	data: Record<string, unknown>;
+	attachments?: WebhookAttachments;
+}
+
+/**
+ * Attachment Detection Service for Discord Bot
+ * Implements metadata-driven attachment detection using proven Telegram bot patterns
+ */
+class AttachmentDetectionService {
+	/**
+	 * Primary event validation - only process dashboard → discord events
+	 * Replaces complex multi-source event routing
+	 */
+	static shouldProcessEvent(_event: WebhookEvent): boolean {
+		// For Discord bot, we process all events since we only receive dashboard events
+		return true;
+	}
+
+	/**
+	 * Primary attachment detection using webhook metadata
+	 * Replaces complex array checking and location detection
+	 */
+	static hasAttachments(event: WebhookEvent): boolean {
+		return this.shouldProcessEvent(event) &&
+			   event.attachments?.hasFiles === true;
+	}
+
+	/**
+	 * Image-specific detection for enhanced attachment processing
+	 * Uses metadata types array for instant categorization
+	 */
+	static hasImageAttachments(event: WebhookEvent): boolean {
+		if (!this.hasAttachments(event)) {
+			return false;
+		}
+
+		return event.attachments?.types?.some(type =>
+			type.startsWith('image/'),
+		) ?? false;
+	}
+
+	/**
+	 * Supported image type validation with configuration
+	 * Only processes image types we can handle reliably
+	 */
+	static hasSupportedImages(event: WebhookEvent): boolean {
+		if (!this.hasImageAttachments(event)) {
+			return false;
+		}
+
+		const supportedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+
+		return event.attachments?.types?.some(type =>
+			supportedTypes.includes(type.toLowerCase()),
+		) ?? false;
+	}
+
+	/**
+	 * Check for unsupported file types (non-images)
+	 * Enables clear user communication about what we can't process yet
+	 */
+	static hasUnsupportedAttachments(event: WebhookEvent): boolean {
+		if (!this.hasAttachments(event)) {
+			return false;
+		}
+
+		// If we have attachments but no supported images, they're unsupported
+		return !this.hasSupportedImages(event);
+	}
+
+	/**
+	 * Size validation using pre-calculated metadata
+	 * No need to iterate through files for size calculation
+	 */
+	static isWithinSizeLimit(event: WebhookEvent, maxSizeBytes: number): boolean {
+		if (!this.hasAttachments(event)) {
+			return true;
+		}
+		return (event.attachments?.totalSize ?? 0) <= maxSizeBytes;
+	}
+
+	/**
+	 * Check if files exceed size limits
+	 * Enables specific messaging for oversized files
+	 */
+	static isOversized(event: WebhookEvent, maxSizeBytes: number): boolean {
+		if (!this.hasAttachments(event)) {
+			return false;
+		}
+		return (event.attachments?.totalSize ?? 0) > maxSizeBytes;
+	}
+
+	/**
+	 * Get attachment summary for logging/UI
+	 * Ready-to-use summary without manual calculation
+	 */
+	static getAttachmentSummary(event: WebhookEvent): string {
+		if (!this.hasAttachments(event)) {
+			return 'No attachments';
+		}
+		
+		const attachments = event.attachments;
+		if (!attachments) {
+			return 'No attachments';
+		}
+		
+		const { fileCount, totalSize, types } = attachments;
+		const sizeMB = Math.round(totalSize / 1024 / 1024 * 100) / 100;
+		const typeList = types.join(', ');
+		
+		return `${fileCount} files (${sizeMB}MB) - ${typeList}`;
+	}
+
+	/**
+	 * Get file count without array access
+	 * Instant count from metadata
+	 */
+	static getFileCount(event: WebhookEvent): number {
+		return event.attachments?.fileCount || 0;
+	}
+
+	/**
+	 * Get total size without calculation
+	 * Pre-calculated size from metadata
+	 */
+	static getTotalSize(event: WebhookEvent): number {
+		return event.attachments?.totalSize || 0;
+	}
+
+	/**
+	 * Get unique file types without iteration
+	 * Deduplicated types from metadata
+	 */
+	static getFileTypes(event: WebhookEvent): string[] {
+		return event.attachments?.types || [];
+	}
+
+	/**
+	 * Get file names with guaranteed correlation to data.files
+	 * names[i] corresponds to data.files[i]
+	 */
+	static getFileNames(event: WebhookEvent): string[] {
+		return event.attachments?.names || [];
+	}
+
+	/**
+	 * Validate metadata consistency (trust but verify)
+	 * Ensures webhook metadata matches actual file data
+	 */
+	static validateConsistency(event: WebhookEvent): boolean {
+		if (!this.shouldProcessEvent(event)) {
+			return false;
+		}
+		
+		const metadata = event.attachments;
+		const files = event.data.files as unknown[] | undefined;
+		
+		// No files scenario - both should be empty/false
+		if (!metadata?.hasFiles && (!files || files.length === 0)) {
+			return true;
+		}
+		
+		// Has files scenario - counts should match
+		if (metadata?.hasFiles && files && files.length === metadata.fileCount) {
+			return true;
+		}
+		
+		// Inconsistency detected
+		LogEngine.warn('Attachment metadata inconsistency detected', {
+			metadataHasFiles: metadata?.hasFiles,
+			metadataCount: metadata?.fileCount,
+			actualFilesCount: files?.length || 0,
+			conversationId: event.data.conversationId
+		});
+		
+		return false;
+	}
+
+	/**
+	 * Generate processing decision summary
+	 * Helpful for logging and debugging
+	 */
+	static getProcessingDecision(event: WebhookEvent, maxSizeBytes: number = 10 * 1024 * 1024): {
+		shouldProcess: boolean;
+		hasAttachments: boolean;
+		hasImages: boolean;
+		hasSupportedImages: boolean;
+		hasUnsupported: boolean;
+		isOversized: boolean;
+		summary: string;
+		reason: string;
+	} {
+		const shouldProcess = this.shouldProcessEvent(event);
+		const hasAttachments = this.hasAttachments(event);
+		const hasImages = this.hasImageAttachments(event);
+		const hasSupportedImages = this.hasSupportedImages(event);
+		const hasUnsupported = this.hasUnsupportedAttachments(event);
+		const isOversized = this.isOversized(event, maxSizeBytes);
+		const summary = this.getAttachmentSummary(event);
+		
+		let reason = '';
+		if (!shouldProcess) {
+			reason = 'Non-dashboard event';
+		} else if (!hasAttachments) {
+			reason = 'No attachments';
+		} else if (isOversized) {
+			reason = 'Files too large';
+		} else if (hasUnsupported) {
+			reason = 'Unsupported file types';
+		} else if (hasSupportedImages) {
+			reason = 'Ready for image processing';
+		} else {
+			reason = 'Unknown state';
+		}
+		
+		return {
+			shouldProcess,
+			hasAttachments,
+			hasImages,
+			hasSupportedImages,
+			hasUnsupported,
+			isOversized,
+			summary,
+			reason
+		};
+	}
+}
+
+/**
+ * Handles message creation webhook events
+ * Enhanced with metadata-driven attachment detection from Telegram bot patterns
+ *
+ * @param data - Webhook event data
+ * @param attachments - Optional attachment metadata from webhook
+ * @returns Promise<void>
+ */
+async function handleMessageCreated(data: Record<string, unknown>, attachments?: WebhookAttachments): Promise<void> {
 	// Check if message originated from Discord to avoid duplication
-	if (data.metadata && data.metadata.source === 'discord') {
+	if (data.metadata && (data.metadata as Record<string, unknown>).source === 'discord') {
 		LogEngine.debug('Message originated from Discord, skipping to avoid duplication');
 		return;
 	}
@@ -395,25 +665,102 @@ async function handleMessageCreated(data: any): Promise<void> {
 	 *
 	 * By skipping messages without a `userId`, we ensure that only genuine user-generated messages are processed for ticket creation and message forwarding,
 	 * preventing duplicate tickets and unnecessary message loops between Discord and Unthread.
+	 *
+	 * EXCEPTION: Allow dashboard file attachment events (they have files but no userId due to Slack file upload behavior)
 	 */
-	if (!data.userId) {
+	const fileArray = (data.files as unknown[]) || (data.attachments as unknown[]) || [];
+	const isDashboardFileAttachment = !data.userId && fileArray.length > 0 && data.text === 'File attached';
+
+	if (!data.userId && !isDashboardFileAttachment) {
 		LogEngine.debug(`Message has no userId (likely from bot/system), skipping to prevent duplication loops. ConversationId: ${data.conversationId || data.id}`);
 		return;
 	}
 
 	const conversationId = data.conversationId || data.id;
 	const messageText = data.text;
-	// Extract attachments from webhook data - check both files and attachments fields
-	const attachments = data.files || data.attachments || [];
 
-	if (!conversationId || (!messageText && attachments.length === 0)) {
+	// Enhanced attachment detection using metadata-driven approach from Telegram bot
+	const webhookEvent: WebhookEvent = {
+		type: 'message_created',
+		data,
+		...(attachments && { attachments }),
+	};
+
+	// Use the proven Telegram bot processing decision pattern
+	const maxSizeBytes = 10 * 1024 * 1024; // 10MB like Telegram bot
+	const processingDecision = AttachmentDetectionService.getProcessingDecision(webhookEvent, maxSizeBytes);
+
+	LogEngine.info('� Attachment processing decision (using Telegram bot pattern)', {
+		conversationId,
+		shouldProcess: processingDecision.shouldProcess,
+		reason: processingDecision.reason,
+		hasAttachments: processingDecision.hasAttachments,
+		hasImages: processingDecision.hasImages,
+		hasSupportedImages: processingDecision.hasSupportedImages,
+		summary: processingDecision.summary,
+		metadataConsistent: AttachmentDetectionService.validateConsistency(webhookEvent),
+		messageText: data.text,
+	});
+
+	// COMPATIBILITY: Maintain existing fileArray for backward compatibility during transition
+	const fileArray = (data.files as unknown[]) || (data.attachments as unknown[]) || [];
+
+	// Skip "File attached" messages that are just attachment notifications like in Telegram bot
+	const isFileAttachedNotification = messageText &&
+		messageText.trim().toLowerCase() === 'file attached' &&
+		processingDecision.hasAttachments;
+
+	if (isFileAttachedNotification) {
+		LogEngine.info('� Processing file-only message (skipping "File attached" text)', {
+			conversationId,
+			hasAttachments: processingDecision.hasAttachments,
+			attachmentSummary: processingDecision.summary,
+		});
+
+		// Process attachments only, skip the text like Telegram bot
+		if (processingDecision.hasSupportedImages) {
+			await processImageAttachments(webhookEvent, conversationId);
+		}
+		return;
+	}
+
+	// Message must have either meaningful text content OR attachments
+	if ((!messageText || messageText.trim().length === 0) && !processingDecision.hasAttachments) {
+		LogEngine.warn('❌ Empty message with no attachments in webhook event', {
+			conversationId,
+			hasContent: !!data.content,
+			hasText: !!data.text,
+			hasAttachments: processingDecision.hasAttachments,
+		});
+		return;
+	}
+
+	// Handle different processing decisions like Telegram bot
+	if (processingDecision.hasUnsupported) {
+		LogEngine.warn('📎 Unsupported attachment types detected', {
+			conversationId,
+			attachmentSummary: processingDecision.summary,
+		});
+		// For now, continue processing the text - future enhancement: send notification about unsupported files
+	}
+
+	if (processingDecision.isOversized) {
+		LogEngine.warn('📎 Oversized attachments detected', {
+			conversationId,
+			attachmentSummary: processingDecision.summary,
+			maxSizeMB: Math.round(maxSizeBytes / (1024 * 1024)),
+		});
+		// For now, continue processing the text - future enhancement: send notification about size limits
+	}
+
+	if (!conversationId || (!messageText && !processingDecision.hasAttachments)) {
 		LogEngine.warn('Message created event missing required data (must have text or at least one attachment)');
 		return;
 	}
 
 	// Extract timestamp from Slack-formatted message ID for duplicate detection
 	const messageId = data.id;
-	const slackTimestamp = messageId ? messageId.split('-').pop()?.split('.')[0] : null;
+	const slackTimestamp = messageId && typeof messageId === 'string' ? messageId.split('-').pop()?.split('.')[0] : null;
 
 	if (slackTimestamp) {
 		// Check if we have any records of a message deleted within a short window
@@ -425,11 +772,11 @@ async function handleMessageCreated(data: any): Promise<void> {
 		// Within 10 seconds
 		if (currentTime - messageTimestamp < 10000) {
 			// Check recent deleted messages in this channel
-			const ticketMapping = await getTicketByUnthreadTicketId(conversationId);
+			const ticketMapping = await getTicketByUnthreadTicketId(conversationId as string);
 
 			// If we can't find the thread mapping, proceed with sending the message
 			if (!ticketMapping) {
-				LogEngine.debug(`No Discord thread found for Unthread ticket ${conversationId}, proceeding with message`);
+				LogEngine.debug(`No Discord thread found for Unthread ticket ${conversationId as string}, proceeding with message`);
 			}
 			else {
 				const botsStore = BotsStore.getInstance();
@@ -457,17 +804,17 @@ async function handleMessageCreated(data: any): Promise<void> {
 		};
 
 		const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
-			conversationId,
+			conversationId as string,
 			retryOptions,
 		);
 
 		if (!discordThread) {
-			LogEngine.warn(`No Discord thread found for conversation ${conversationId}`);
+			LogEngine.warn(`No Discord thread found for conversation ${conversationId as string}`);
 			return;
 		}
 
 		// Process and clean the message content
-		const messageContent = decodeHtmlEntities(messageText);
+		const messageContent = decodeHtmlEntities(messageText as string);
 
 		// Fetch recent messages to check for duplicates
 		const messages = await discordThread.messages.fetch({ limit: 10 });
@@ -493,10 +840,10 @@ async function handleMessageCreated(data: any): Promise<void> {
 			}
 		}
 
-		if (messageContent.trim() || attachments.length > 0) {
+		if (messageContent.trim() || effectiveAttachments.length > 0) {
 			// Process attachments if present
-			if (attachments.length > 0) {
-				LogEngine.info(`Processing ${attachments.length} attachments from Unthread message`);
+			if (effectiveAttachments.length > 0) {
+				LogEngine.info(`Processing ${effectiveAttachments.length} attachments from Unthread message`);
 
 				// Import AttachmentHandler and process the attachments
 				const { AttachmentHandler } = await import('../utils/attachmentHandler');
@@ -505,7 +852,7 @@ async function handleMessageCreated(data: any): Promise<void> {
 				try {
 					const attachmentResult = await attachmentHandler.downloadUnthreadAttachmentsToDiscord(
 						discordThread,
-						attachments,
+						effectiveAttachments as MessageAttachment[],
 						messageContent.trim() || undefined,
 					);
 
@@ -781,23 +1128,39 @@ export async function sendMessageWithAttachmentsToUnthread(
 	// Get API key (guaranteed to exist due to startup validation)
 	const apiKey = process.env.UNTHREAD_API_KEY!;
 
-	// Create FormData for multipart upload
+	// Create FormData for multipart upload using the proven Telegram bot pattern
 	const formData = new FormData();
 
-	// Add message data
-	formData.append('markdown', message);
-	formData.append('onBehalfOf[name]', onBehalfOf.name);
-	formData.append('onBehalfOf[email]', onBehalfOf.email);
-	formData.append('metadata[source]', 'discord');
+	// Create message payload as JSON (single field approach like Telegram bot)
+	const messagePayload = {
+		body: {
+			type: 'markdown',
+			value: message,
+		},
+		onBehalfOf: {
+			name: onBehalfOf.name,
+			email: onBehalfOf.email,
+		},
+	};
 
-	// Add file attachments
+	// Use the proven field structure from Telegram bot: 'json' field for message payload
+	formData.append('json', JSON.stringify(messagePayload));
+
+	LogEngine.info('FormData structure: Using proven Telegram bot pattern (json + attachments fields)');
+	LogEngine.info(`Number of file buffers to upload: ${fileBuffers.length}`);
+
+	// Add file attachments using 'attachments' field (consistent with Telegram bot)
 	fileBuffers.forEach((fileBuffer, index) => {
 		// Convert Buffer to Uint8Array for proper Blob compatibility
 		const uint8Array = new Uint8Array(fileBuffer.buffer);
 		const blob = new Blob([uint8Array], { type: fileBuffer.mimeType });
 		formData.append('attachments', blob, fileBuffer.fileName);
-		LogEngine.debug(`Added attachment ${index + 1}: ${fileBuffer.fileName} (${fileBuffer.size} bytes, ${fileBuffer.mimeType})`);
+		LogEngine.info(`Added attachment ${index + 1}: ${fileBuffer.fileName} (${fileBuffer.size} bytes, ${fileBuffer.mimeType})`);
 	});
+
+	// Calculate total fields: 1 json field + attachment files (much fewer fields)
+	const totalFields = 1 + fileBuffers.length;
+	LogEngine.info(`Total FormData fields being sent: ${totalFields} (1 json + ${fileBuffers.length} attachments)`);
 
 	const abortController = new AbortController();
 	// 30 second timeout for file uploads

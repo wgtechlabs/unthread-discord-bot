@@ -269,7 +269,10 @@ export class AttachmentHandler {
 	 * Main method to download Unthread attachments and upload to Discord
 	 *
 	 * Downloads files from Unthread API and uploads them to Discord thread/channel.
-	 * Based on existing Discord → Unthread flow patterns for consistency.
+	 * Based on proven Telegram bot implementation patterns for consistency.
+	 *
+	 * This method processes Unthread webhook attachments and forwards them to Discord,
+	 * implementing the same proven patterns used in the Telegram bot for reliable operation.
 	 */
 	async downloadUnthreadAttachmentsToDiscord(
 		discordThread: ThreadChannel,
@@ -280,75 +283,162 @@ export class AttachmentHandler {
 		const errors: string[] = [];
 
 		try {
-			LogEngine.info(`Starting Unthread attachment download for Discord thread ${discordThread.id}`);
-			LogEngine.debug(`Processing ${unthreadAttachments.length} Unthread attachments`);
+			LogEngine.info(`Starting Unthread → Discord attachment processing for thread ${discordThread.id}`);
+			LogEngine.debug(`Processing ${unthreadAttachments.length} Unthread attachments using proven patterns`);
 
-			// Validate attachments before processing
-			const validAttachments = this.validateUnthreadAttachments(unthreadAttachments);
+			// Debug: Log actual attachment structure
+			unthreadAttachments.forEach((attachment, index) => {
+				LogEngine.info(`Attachment ${index} structure:`, {
+					id: attachment.id,
+					name: attachment.name,
+					filename: attachment.filename,
+					mimetype: attachment.mimetype,
+					content_type: attachment.content_type,
+					urlPrivate: attachment.urlPrivate,
+					urlPrivateDownload: attachment.urlPrivateDownload,
+					url: attachment.url,
+					keys: Object.keys(attachment),
+				});
+			});
 
-			if (validAttachments.invalid.length > 0) {
-				const validationErrors = validAttachments.invalid.map(i => `${i.attachment.filename}: ${i.error}`);
-				errors.push(...validationErrors);
-				LogEngine.warn(`Found ${validAttachments.invalid.length} invalid Unthread attachments:`, validationErrors);
-			}
+			// Filter supported attachments (images only, following Discord bot's current scope)
+			const supportedAttachments = unthreadAttachments.filter(attachment => {
+				// Validate attachment structure
+				if (!attachment || typeof attachment !== 'object') {
+					LogEngine.warn('Skipping invalid attachment object', { attachment });
+					return false;
+				}
 
-			if (validAttachments.valid.length === 0) {
-				LogEngine.warn('No valid Unthread attachments found after validation');
+				// Check if it's a Slack file (Unthread uses Slack for file storage)
+				const isSlackFile = attachment.id &&
+					typeof attachment.id === 'string' &&
+					attachment.id.startsWith('F') &&
+					attachment.id.length >= 10;
+
+				if (!isSlackFile) {
+					LogEngine.debug('Skipping non-Slack file attachment', {
+						id: attachment.id,
+						filename: attachment.name || attachment.filename,
+					});
+					return false;
+				}
+
+				// Check MIME type for supported images - use correct Slack API field names
+				const mimeType = attachment.mimetype || attachment.content_type || '';
+				const isImage = mimeType.startsWith('image/') && this.isSupportedImageType(mimeType);
+
+				if (!isImage) {
+					LogEngine.debug('Skipping non-image attachment', {
+						filename: attachment.name || attachment.filename,
+						mimeType,
+					});
+					return false;
+				}
+
+				// Check file size
+				if (attachment.size > DISCORD_ATTACHMENT_CONFIG.maxFileSize) {
+					LogEngine.warn('Skipping oversized attachment', {
+						filename: attachment.name || attachment.filename,
+						size: attachment.size,
+						maxSize: DISCORD_ATTACHMENT_CONFIG.maxFileSize,
+					});
+					return false;
+				}
+
+				return true;
+			});
+
+			if (supportedAttachments.length === 0) {
+				LogEngine.info('No supported image attachments found in Unthread message');
+
+				// Send text-only message if available
+				if (messageContent && messageContent.trim()) {
+					await discordThread.send(messageContent);
+				}
+
 				return {
-					success: false,
+					success: true,
 					processedCount: 0,
-					errors: errors.length > 0 ? errors : ['No valid attachments found'],
+					errors: [],
 					processingTime: Date.now() - startTime,
 				};
 			}
 
-			// Download valid attachments to buffers
-			const fileBuffers: FileBuffer[] = [];
-			const downloadPromises = validAttachments.valid.map(attachment =>
-				this.downloadUnthreadAttachmentToBuffer(attachment),
-			);
+			LogEngine.info(`Found ${supportedAttachments.length} supported image attachments to process`);
 
-			const downloadResults = await Promise.allSettled(downloadPromises);
+			// Download and process each supported attachment
+			const processedAttachments: AttachmentBuilder[] = [];
+			let processedCount = 0;
 
-			// Process download results
-			for (let i = 0; i < downloadResults.length; i++) {
-				const result = downloadResults[i];
-				const attachment = validAttachments.valid[i];
+			for (let i = 0; i < supportedAttachments.length; i++) {
+				const attachment = supportedAttachments[i];
 
-				if (result.status === 'fulfilled') {
-					fileBuffers.push(result.value);
-					LogEngine.debug(`Successfully downloaded ${attachment.filename} (${attachment.size} bytes)`);
+				try {
+					LogEngine.info(`Processing image attachment ${i + 1}/${supportedAttachments.length}`, {
+						fileId: attachment.id,
+						filename: attachment.name || attachment.filename,
+						size: attachment.size,
+						mimeType: attachment.mimetype || attachment.content_type,
+					});
+
+					// Download using the proven Slack thumbnail endpoint pattern
+					const fileBuffer = await this.downloadUnthreadImageFile(
+						attachment.id!,
+						attachment.name || attachment.filename || 'unknown',
+						attachment.size,
+						attachment.mimetype || attachment.content_type || 'image/jpeg',
+					);
+					
+					// Create Discord AttachmentBuilder
+					const discordAttachment = new AttachmentBuilder(fileBuffer.buffer, {
+						name: fileBuffer.fileName,
+						description: `Image from Unthread (${this.formatFileSize(fileBuffer.size)})`,
+					});
+
+					processedAttachments.push(discordAttachment);
+					processedCount++;
+
+					LogEngine.info(`Successfully processed attachment ${attachment.filename}`);
+
 				}
-				else {
-					const error = `Failed to download ${attachment.filename}: ${result.reason}`;
-					errors.push(error);
-					LogEngine.error(error);
+				catch (error) {
+					const errorMessage = error instanceof Error ? error.message : String(error);
+					const attachmentError = `Failed to process ${attachment.filename}: ${errorMessage}`;
+					errors.push(attachmentError);
+					LogEngine.error(attachmentError, { error: errorMessage });
 				}
 			}
 
-			if (fileBuffers.length === 0) {
-				LogEngine.error('No Unthread attachments were successfully downloaded');
-				return {
-					success: false,
-					processedCount: 0,
-					errors: errors.length > 0 ? errors : ['No attachments could be downloaded'],
-					processingTime: Date.now() - startTime,
-				};
-			}
+			// Send message with attachments to Discord
+			if (processedAttachments.length > 0) {
+				const messagePayload: { files: AttachmentBuilder[]; content?: string } = { files: processedAttachments };
 
-			// Upload buffers to Discord
-			const uploadSuccess = await this.uploadBuffersToDiscord(
-				discordThread,
-				fileBuffers,
-				messageContent,
-			);
+				if (messageContent && messageContent.trim()) {
+					messagePayload.content = messageContent;
+				}
+
+				await discordThread.send(messagePayload);
+				LogEngine.info(`Successfully sent ${processedAttachments.length} attachments to Discord thread`);
+			}
+			else if (messageContent && messageContent.trim()) {
+				// Send text-only message if no attachments were processed
+				await discordThread.send(messageContent);
+			}
 
 			const processingTime = Date.now() - startTime;
-			LogEngine.info(`Unthread attachment processing completed in ${processingTime}ms. Success: ${uploadSuccess}`);
+			const success = processedCount > 0 || (processedAttachments.length === 0 && Boolean(messageContent));
+
+			LogEngine.info(`Unthread → Discord attachment processing completed in ${processingTime}ms`, {
+				totalAttachments: unthreadAttachments.length,
+				supportedAttachments: supportedAttachments.length,
+				processedCount,
+				success,
+				errors: errors.length,
+			});
 
 			return {
-				success: uploadSuccess,
-				processedCount: fileBuffers.length,
+				success,
+				processedCount,
 				errors,
 				processingTime,
 			};
@@ -357,8 +447,19 @@ export class AttachmentHandler {
 		catch (error) {
 			const processingTime = Date.now() - startTime;
 			const errorMessage = error instanceof Error ? error.message : String(error);
-			errors.push(`Unthread attachment download failed: ${errorMessage}`);
-			LogEngine.error(`Unthread attachment download failed after ${processingTime}ms:`, error);
+			errors.push(`Unthread → Discord attachment processing failed: ${errorMessage}`);
+			LogEngine.error(`Unthread → Discord processing failed after ${processingTime}ms:`, error);
+
+			// Try to send text message as fallback
+			if (messageContent && messageContent.trim()) {
+				try {
+					await discordThread.send(messageContent);
+				}
+				catch (fallbackError) {
+					LogEngine.error('Failed to send fallback text message', fallbackError);
+				}
+			}
+
 			return {
 				success: false,
 				processedCount: 0,
@@ -376,6 +477,14 @@ export class AttachmentHandler {
 		const invalid: Array<{ attachment: MessageAttachment; error: string }> = [];
 
 		for (const attachment of attachments) {
+			LogEngine.info('Validating Unthread attachment (DEBUG):', {
+				filename: attachment.name || attachment.filename,
+				content_type: attachment.mimetype || attachment.content_type,
+				size: attachment.size,
+				url: attachment.urlPrivateDownload || attachment.urlPrivate || attachment.url,
+				id: attachment.id,
+			});
+
 			// Check file size
 			if (attachment.size > DISCORD_ATTACHMENT_CONFIG.maxFileSize) {
 				invalid.push({
@@ -386,19 +495,18 @@ export class AttachmentHandler {
 			}
 
 			// Check if supported file type (initially images only, as per issue requirements)
-			if (
-				typeof attachment.content_type !== 'string' ||
-				!this.isSupportedImageType(attachment.content_type)
-			) {
+			const mimeType = attachment.mimetype || attachment.content_type || '';
+			if (!mimeType || !this.isSupportedImageType(mimeType)) {
 				invalid.push({
 					attachment,
-					error: `Unsupported file type: ${attachment.content_type}`,
+					error: `Unsupported file type: ${mimeType}`,
 				});
 				continue;
 			}
 
-			// Check for valid URL
-			if (!attachment.url || !attachment.url.startsWith('http')) {
+			// Check for valid URL (prefer private download URL for Slack files)
+			const downloadUrl = attachment.urlPrivateDownload || attachment.urlPrivate || attachment.url;
+			if (!downloadUrl || !downloadUrl.startsWith('http')) {
 				invalid.push({
 					attachment,
 					error: 'Invalid or missing download URL',
@@ -543,6 +651,7 @@ export class AttachmentHandler {
 	/**
 	 * Downloads an Unthread attachment to a memory buffer
 	 */
+	// @ts-ignore - Legacy function kept for reference
 	private async downloadUnthreadAttachmentToBuffer(unthreadAttachment: MessageAttachment): Promise<FileBuffer> {
 		LogEngine.debug(`Downloading Unthread attachment: ${unthreadAttachment.filename}`);
 
@@ -555,18 +664,19 @@ export class AttachmentHandler {
 		if (isSlackFile) {
 			LogEngine.info('Detected Slack file, using thumbnail endpoint', {
 				fileId: unthreadAttachment.id,
-				fileName: unthreadAttachment.filename,
+				fileName: unthreadAttachment.name || unthreadAttachment.filename,
 			});
 
 			return this.downloadUnthreadSlackFile(
 				unthreadAttachment.id!,
-				unthreadAttachment.filename,
+				unthreadAttachment.name || unthreadAttachment.filename || 'unknown',
 				unthreadAttachment.size,
 			);
 		}
 
 		// Fallback to direct URL download for non-Slack files
-		LogEngine.debug(`Using direct URL download for: ${unthreadAttachment.filename} from ${unthreadAttachment.url}`);
+		const downloadUrl = unthreadAttachment.urlPrivateDownload || unthreadAttachment.urlPrivate || unthreadAttachment.url;
+		LogEngine.debug(`Using direct URL download for: ${unthreadAttachment.name || unthreadAttachment.filename} from ${downloadUrl}`);
 
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), DISCORD_ATTACHMENT_CONFIG.uploadTimeout);
@@ -575,7 +685,7 @@ export class AttachmentHandler {
 			// Get API key (guaranteed to exist due to startup validation)
 			const apiKey = process.env.UNTHREAD_API_KEY!;
 
-			const response = await fetch(unthreadAttachment.url, {
+			const response = await fetch(downloadUrl!, {
 				method: 'GET',
 				headers: {
 					'X-API-KEY': apiKey,
@@ -599,12 +709,12 @@ export class AttachmentHandler {
 
 			const fileBuffer: FileBuffer = {
 				buffer,
-				fileName: unthreadAttachment.filename,
-				mimeType: unthreadAttachment.content_type,
+				fileName: unthreadAttachment.name || unthreadAttachment.filename || 'unknown',
+				mimeType: unthreadAttachment.mimetype || unthreadAttachment.content_type || 'application/octet-stream',
 				size: buffer.length,
 			};
 
-			LogEngine.debug(`Downloaded ${unthreadAttachment.filename}: ${buffer.length} bytes, MIME: ${fileBuffer.mimeType}`);
+			LogEngine.debug(`Downloaded ${unthreadAttachment.name || unthreadAttachment.filename}: ${buffer.length} bytes, MIME: ${fileBuffer.mimeType}`);
 			return fileBuffer;
 
 		}
@@ -623,6 +733,7 @@ export class AttachmentHandler {
 	/**
 	 * Uploads file buffers to Discord with retry logic
 	 */
+	// @ts-ignore - Legacy function kept for reference
 	private async uploadBuffersToDiscord(
 		discordThread: ThreadChannel,
 		fileBuffers: FileBuffer[],
@@ -707,5 +818,163 @@ export class AttachmentHandler {
 			errors,
 			validAttachments: validationResult.valid,
 		};
+	}
+
+	/**
+	 * Downloads Unthread image file using the proven Slack thumbnail endpoint
+	 * Based on successful Telegram bot implementation
+	 */
+	private async downloadUnthreadImageFile(
+		fileId: string,
+		fileName: string,
+		fileSize: number,
+		mimeType: string,
+	): Promise<FileBuffer> {
+		LogEngine.info('Downloading Unthread image file', {
+			fileId,
+			fileName,
+			fileSize,
+			mimeType,
+			method: 'slack-thumbnail-endpoint',
+		});
+
+		try {
+			// Get environment variables (validated at startup)
+			const apiKey = process.env.UNTHREAD_API_KEY!;
+			const teamId = process.env.SLACK_TEAM_ID;
+
+			if (!teamId) {
+				throw new Error('SLACK_TEAM_ID environment variable is required for Slack file downloads');
+			}
+
+			// Use the proven Slack file thumbnail endpoint from Telegram bot
+			const endpoint = `https://api.unthread.io/api/slack/files/${fileId}/thumb`;
+			const params = new URLSearchParams({
+				// Use same thumbnail size as Telegram bot
+				thumbSize: '1024',
+				teamId: teamId,
+			});
+
+			const controller = new AbortController();
+			// 30 second timeout
+			const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+			try {
+				LogEngine.debug('Making Unthread image download request', {
+					endpoint,
+					fileId,
+					thumbSize: '1024',
+					// Log partial team ID for security
+					teamId: teamId.substring(0, 8) + '...',
+				});
+
+				const response = await fetch(`${endpoint}?${params.toString()}`, {
+					method: 'GET',
+					headers: {
+						'X-API-KEY': apiKey,
+						'Accept': 'application/octet-stream',
+						'User-Agent': 'unthread-discord-bot/1.0.0',
+					},
+					signal: controller.signal,
+				});
+
+				if (!response.ok) {
+					let errorMessage = `Unthread API error: ${response.status} ${response.statusText}`;
+					try {
+						const errorBody = await response.text();
+						if (errorBody) {
+							errorMessage += ` - Response: ${errorBody}`;
+						}
+					}
+					catch (bodyError) {
+						LogEngine.warn('Failed to read error response body', { bodyError });
+					}
+					throw new Error(errorMessage);
+				}
+
+				// Validate content type
+				const contentType = response.headers.get('content-type') || '';
+				if (!contentType.startsWith('image/')) {
+					LogEngine.warn('Unexpected content type from Unthread', {
+						expected: 'image/*',
+						received: contentType,
+					});
+				}
+
+				// Download file data
+				const arrayBuffer = await response.arrayBuffer();
+				const buffer = Buffer.from(arrayBuffer);
+
+				if (buffer.length === 0) {
+					throw new Error('Downloaded file is empty');
+				}
+
+				// Validate size
+				const maxSize = DISCORD_ATTACHMENT_CONFIG.maxFileSize;
+				if (buffer.length > maxSize) {
+					throw new Error(`Downloaded file too large: ${buffer.length} bytes (max: ${maxSize})`);
+				}
+
+				const fileBuffer: FileBuffer = {
+					buffer,
+					fileName,
+					mimeType: contentType || mimeType || 'image/jpeg',
+					size: buffer.length,
+				};
+
+				LogEngine.info('Unthread image download successful', {
+					fileId,
+					fileName,
+					originalSize: fileSize,
+					downloadedSize: buffer.length,
+					contentType: fileBuffer.mimeType,
+				});
+
+				return fileBuffer;
+
+			}
+			catch (fetchError: unknown) {
+				clearTimeout(timeoutId);
+
+				if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+					throw new Error('Image download timeout after 30 seconds');
+				}
+
+				throw fetchError;
+			}
+			finally {
+				clearTimeout(timeoutId);
+			}
+
+		}
+		catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			LogEngine.error('Unthread image download failed', {
+				fileId,
+				fileName,
+				error: errorMessage,
+			});
+			throw new Error(`Failed to download image ${fileName}: ${errorMessage}`);
+		}
+	}
+
+	/**
+	 * Formats file size for human-readable display
+	 */
+	private formatFileSize(bytes: number): string {
+		if (bytes === 0) return '0 B';
+
+		const k = 1024;
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+		if (i >= 4 || i < 0) {
+			// Fallback for very large files or invalid input
+			return bytes + ' B';
+		}
+
+		const unit = i === 0 ? 'B' : i === 1 ? 'KB' : i === 2 ? 'MB' : 'GB';
+		const size = parseFloat((bytes / Math.pow(k, i)).toFixed(1));
+
+		return size + ' ' + unit;
 	}
 }

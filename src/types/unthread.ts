@@ -140,12 +140,24 @@ export interface CreateMessageRequest {
 export interface MessageAttachment {
 	/** File ID (for Slack files, starts with 'F') */
 	id?: string;
-	/** Original filename */
-	filename: string;
+	/** Original filename (Slack API uses 'name' field) */
+	name?: string;
+	/** Original filename (legacy field name for compatibility) */
+	filename?: string;
+	/** File title in Slack */
+	title?: string;
+	/** File type identifier */
+	filetype?: string;
 	/** URL where the file can be accessed */
-	url: string;
-	/** MIME type of the file */
-	content_type: string;
+	url?: string;
+	/** Private URL for file access (Slack API) */
+	urlPrivate?: string;
+	/** Private download URL (Slack API) */
+	urlPrivateDownload?: string;
+	/** MIME type of the file (Slack API uses 'mimetype' field) */
+	mimetype?: string;
+	/** MIME type of the file (legacy field name for compatibility) */
+	content_type?: string;
 	/** File size in bytes */
 	size: number;
 }
