@@ -51,9 +51,14 @@ import { LogEngine } from '../config/logger';
 import { isDuplicateMessage } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
+<<<<<<< HEAD
 import { UnthreadApiResponse, UnthreadTicket, WebhookPayload, MessageAttachment } from '../types/unthread';
+=======
+import { UnthreadApiResponse, UnthreadTicket, WebhookPayload, EnhancedWebhookEvent } from '../types/unthread';
+>>>>>>> dev
 import { FileBuffer } from '../types/attachments';
 import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
+import { AttachmentDetectionService } from './attachmentDetection';
 
 /**
  * ==================== ENVIRONMENT VALIDATION ====================
@@ -677,6 +682,7 @@ async function handleMessageCreated(data: Record<string, unknown>, attachments?:
 	}
 
 	const conversationId = data.conversationId || data.id;
+<<<<<<< HEAD
 	const messageText = data.text;
 
 	// Enhanced attachment detection using metadata-driven approach from Telegram bot
@@ -691,10 +697,43 @@ async function handleMessageCreated(data: Record<string, unknown>, attachments?:
 	const processingDecision = AttachmentDetectionService.getProcessingDecision(webhookEvent, maxSizeBytes);
 
 	LogEngine.info('� Attachment processing decision (using Telegram bot pattern)', {
+=======
+	const messageText = data.text || data.content;
+
+	// Cast to enhanced webhook event for metadata-driven processing
+	const webhookEvent: EnhancedWebhookEvent = {
+		platform: 'unthread',
+		targetPlatform: 'discord',
+		type: 'message_created',
+		// Default to dashboard
+		sourcePlatform: data.sourcePlatform || 'dashboard',
+		// Webhook attachment metadata
+		attachments: data.attachments,
+		data: {
+			id: data.id,
+			content: data.content,
+			text: data.text,
+			files: data.files,
+			conversationId: conversationId,
+			userId: data.userId,
+			metadata: data.metadata,
+		},
+		timestamp: Date.now(),
+		eventId: data.id || `msg_${Date.now()}`,
+	};
+
+	// Use enhanced attachment detection service for processing decisions
+	// 8MB Discord limit
+	const maxSizeBytes = 8 * 1024 * 1024;
+	const processingDecision = AttachmentDetectionService.getProcessingDecision(webhookEvent, maxSizeBytes);
+
+	LogEngine.info('📋 Attachment processing decision for message', {
+>>>>>>> dev
 		conversationId,
 		shouldProcess: processingDecision.shouldProcess,
 		reason: processingDecision.reason,
 		hasAttachments: processingDecision.hasAttachments,
+<<<<<<< HEAD
 		hasImages: processingDecision.hasImages,
 		hasSupportedImages: processingDecision.hasSupportedImages,
 		summary: processingDecision.summary,
@@ -754,8 +793,42 @@ async function handleMessageCreated(data: Record<string, unknown>, attachments?:
 	}
 
 	if (!conversationId || (!messageText && !processingDecision.hasAttachments)) {
+=======
+		hasSupportedImages: processingDecision.hasSupportedImages,
+		summary: processingDecision.summary,
+		sourcePlatform: webhookEvent.sourcePlatform,
+	});
+
+	// Validate metadata consistency if attachments are present
+	if (processingDecision.hasAttachments && !AttachmentDetectionService.validateConsistency(webhookEvent)) {
+		LogEngine.warn('Attachment metadata inconsistency detected, falling back to legacy processing', {
+			conversationId,
+			metadataCount: AttachmentDetectionService.getFileCount(webhookEvent),
+			actualCount: data.files?.length || 0,
+		});
+	}
+
+	// Extract legacy attachments array for backward compatibility
+	const attachments = data.attachments || [];
+
+	if (!conversationId || (!messageText && attachments.length === 0 && !processingDecision.hasAttachments)) {
+>>>>>>> dev
 		LogEngine.warn('Message created event missing required data (must have text or at least one attachment)');
 		return;
+	}
+
+	// Detect "file attached" text pattern combined with attachment metadata
+	const isFileAttachedNotification = messageText &&
+		messageText.trim().toLowerCase() === 'file attached' &&
+		processingDecision.hasAttachments;
+
+	if (isFileAttachedNotification) {
+		LogEngine.info('📎 Processing file-only message (skipping "File attached" text)', {
+			conversationId,
+			hasAttachments: processingDecision.hasAttachments,
+			attachmentSummary: processingDecision.summary,
+			fileOnlyMode: true,
+		});
 	}
 
 	// Extract timestamp from Slack-formatted message ID for duplicate detection
@@ -813,15 +886,34 @@ async function handleMessageCreated(data: Record<string, unknown>, attachments?:
 			return;
 		}
 
+<<<<<<< HEAD
 		// Process and clean the message content
 		const messageContent = decodeHtmlEntities(messageText as string);
+=======
+		// Handle different processing decisions using the metadata-driven pipeline
+
+		// 1. Handle oversized attachments first
+		if (processingDecision.isOversized) {
+			await handleOversizedAttachments(webhookEvent, discordThread, maxSizeBytes);
+			return;
+		}
+
+		// 2. Handle unsupported attachments
+		if (processingDecision.hasUnsupported) {
+			await handleUnsupportedAttachments(webhookEvent, discordThread);
+			return;
+		}
+
+		// 3. Process and clean the message content
+		const messageContent = messageText ? decodeHtmlEntities(messageText) : '';
+>>>>>>> dev
 
 		// Fetch recent messages to check for duplicates
 		const messages = await discordThread.messages.fetch({ limit: 10 });
 		const messagesArray = Array.from(messages.values());
 
 		// Check if thread has at least 2 messages (initial message + ticket summary)
-		if (messages.size >= 2) {
+		if (messages.size >= 2 && messageContent.trim()) {
 			// Check for duplicate messages using our utility function
 			if (isDuplicateMessage(messagesArray as any, messageContent)) {
 				LogEngine.debug('Duplicate message detected. Skipping send.');
@@ -840,49 +932,63 @@ async function handleMessageCreated(data: Record<string, unknown>, attachments?:
 			}
 		}
 
+<<<<<<< HEAD
 		if (messageContent.trim() || effectiveAttachments.length > 0) {
 			// Process attachments if present
 			if (effectiveAttachments.length > 0) {
 				LogEngine.info(`Processing ${effectiveAttachments.length} attachments from Unthread message`);
+=======
+		// 4. Process content and attachments based on processing decision
+		const hasTextContent = !isFileAttachedNotification && messageContent.trim();
+		const shouldProcessAttachments = processingDecision.hasSupportedImages;
+>>>>>>> dev
 
-				// Import AttachmentHandler and process the attachments
-				const { AttachmentHandler } = await import('../utils/attachmentHandler');
-				const attachmentHandler = new AttachmentHandler();
+		if (hasTextContent || shouldProcessAttachments) {
+			// Send text content if present and not a file-only notification
+			if (hasTextContent) {
+				await discordThread.send(messageContent);
+				LogEngine.info(`Sent text message to Discord thread ${discordThread.id}`);
+			}
 
+<<<<<<< HEAD
 				try {
 					const attachmentResult = await attachmentHandler.downloadUnthreadAttachmentsToDiscord(
 						discordThread,
 						effectiveAttachments as MessageAttachment[],
 						messageContent.trim() || undefined,
 					);
+=======
+			// Process supported attachments using existing infrastructure
+			if (shouldProcessAttachments) {
+				LogEngine.info(`Processing ${AttachmentDetectionService.getFileCount(webhookEvent)} supported attachments from Unthread message`);
+>>>>>>> dev
 
-					if (attachmentResult.success) {
-						LogEngine.info(`Successfully processed ${attachmentResult.processedCount} attachments from Unthread`);
-					}
-					else {
-						LogEngine.warn(`Attachment processing partially failed: ${attachmentResult.errors.join(', ')}`);
+				// Use existing attachment handler for backward compatibility
+				if (attachments.length > 0) {
+					const { AttachmentHandler } = await import('../utils/attachmentHandler');
+					const attachmentHandler = new AttachmentHandler();
 
-						// Still send the text message if attachment processing failed
-						if (messageContent.trim()) {
-							await discordThread.send(messageContent);
+					try {
+						const attachmentResult = await attachmentHandler.downloadUnthreadAttachmentsToDiscord(
+							discordThread,
+							attachments,
+							isFileAttachedNotification ? undefined : messageContent.trim() || undefined,
+						);
+
+						if (attachmentResult.success) {
+							LogEngine.info(`Successfully processed ${attachmentResult.processedCount} attachments from Unthread using enhanced detection`);
+						}
+						else {
+							LogEngine.warn(`Attachment processing partially failed: ${attachmentResult.errors.join(', ')}`);
 						}
 					}
-				}
-				catch (error) {
-					LogEngine.error('Failed to process Unthread attachments:', error);
-
-					// Send text message as fallback
-					if (messageContent.trim()) {
-						await discordThread.send(messageContent);
+					catch (error) {
+						LogEngine.error('Failed to process Unthread attachments with enhanced detection:', error);
 					}
 				}
 			}
-			else if (messageContent.trim()) {
-				// Send as a regular Discord bot message if no attachments
-				await discordThread.send(messageContent);
-			}
 
-			LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id}`);
+			LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id} using metadata-driven approach`);
 		}
 	}
 	catch (error: unknown) {
@@ -893,6 +999,80 @@ async function handleMessageCreated(data: Record<string, unknown>, attachments?:
 		else {
 			LogEngine.error(`Error handling message created event for conversation ${conversationId}:`, errorMessage);
 		}
+	}
+}
+
+/**
+ * Handle oversized attachments with Discord user notification
+ * Informs users when files exceed size limits
+ */
+async function handleOversizedAttachments(event: EnhancedWebhookEvent, discordThread: any, maxSizeBytes: number): Promise<void> {
+	const totalSize = AttachmentDetectionService.getTotalSize(event);
+
+	LogEngine.info('📎 Handling oversized attachments', {
+		conversationId: event.data.conversationId,
+		totalSize: totalSize,
+		maxSizeBytes: maxSizeBytes,
+		attachmentSummary: AttachmentDetectionService.getAttachmentSummary(event),
+	});
+
+	// Send notification about size limits
+	const maxSizeMB = Math.round(maxSizeBytes / (1024 * 1024));
+	const actualSizeMB = Math.round(totalSize / (1024 * 1024) * 100) / 100;
+
+	const embed = new EmbedBuilder()
+		// Orange color for warnings
+		.setColor(0xFF9800)
+		.setTitle('📎 Attachment Size Limit Exceeded')
+		.setDescription(
+			`**Files are too large to process** (${actualSizeMB}MB)\n` +
+			`Maximum size limit is **${maxSizeMB}MB** per message.\n\n` +
+			'Your agent can still see and access all files in the Unthread dashboard.',
+		)
+		.setFooter({ text: getBotFooter() })
+		.setTimestamp();
+
+	try {
+		await discordThread.send({ embeds: [embed] });
+		LogEngine.info('Sent oversized attachment notification to Discord thread');
+	}
+	catch (error) {
+		LogEngine.error('Failed to send oversized attachment notification:', error);
+	}
+}
+
+/**
+ * Handle unsupported attachment types with Discord user notification
+ * Provides clear feedback about what file types aren't supported yet
+ */
+async function handleUnsupportedAttachments(event: EnhancedWebhookEvent, discordThread: any): Promise<void> {
+	LogEngine.info('📎 Handling unsupported attachments', {
+		conversationId: event.data.conversationId,
+		attachmentSummary: AttachmentDetectionService.getAttachmentSummary(event),
+	});
+
+	// Get supported types for user information
+	const supportedTypes = AttachmentDetectionService.getSupportedImageTypes();
+	const supportedTypesList = supportedTypes.map(type => type.replace('image/', '')).join(', ');
+
+	const embed = new EmbedBuilder()
+		// Amber color for info
+		.setColor(0xFFC107)
+		.setTitle('📎 Attachment Received')
+		.setDescription(
+			'⚠️ Some file types are not supported yet.\n\n' +
+			`**Currently supported image types:** ${supportedTypesList}\n\n` +
+			'Your agent can still see and access all files in the Unthread dashboard.',
+		)
+		.setFooter({ text: getBotFooter() })
+		.setTimestamp();
+
+	try {
+		await discordThread.send({ embeds: [embed] });
+		LogEngine.info('Sent unsupported attachment notification to Discord thread');
+	}
+	catch (error) {
+		LogEngine.error('Failed to send unsupported attachment notification:', error);
 	}
 }
 

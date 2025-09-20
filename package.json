@@ -36,7 +36,7 @@
     "url": "https://github.com/wgtechlabs/unthread-discord-bot/issues"
   },
   "engines": {
-    "node": ">=22.16.0"
+    "node": ">=20.0.0"
   },
   "packageManager": "yarn@1.22.22",
   "dependencies": {
