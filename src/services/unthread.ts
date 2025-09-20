@@ -426,16 +426,18 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 		return;
 	}
 
-	// Detect "file attached" text pattern - process files only
-	const isFileAttachedNotification = messageText &&
-		messageText.trim().toLowerCase() === 'file attached' &&
-		hasFiles;
+	// Detect file attachment notification patterns - process files only, skip text
+	const isFileAttachedNotification = messageText && hasFiles && (
+		messageText.trim().toLowerCase() === 'file attached' ||
+		/^\d+\s+files?\s+attached$/i.test(messageText.trim())
+	);
 
 	if (isFileAttachedNotification) {
-		LogEngine.info('📎 Processing file-only message (skipping "File attached" text)', {
+		LogEngine.info('📎 Processing file-only message (skipping file attachment notification text)', {
 			conversationId,
 			fileCount,
 			fileOnlyMode: true,
+			notificationText: messageText.trim(),
 		});
 
 		// Process files directly from pre-transformed data
@@ -477,13 +479,14 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 			}
 		}
 		else {
-			LogEngine.warn('File attached notification detected but no files found in pre-transformed data', {
+			LogEngine.warn('File attachment notification detected but no files found in pre-transformed data', {
 				conversationId,
 				hasFiles: !!data.files,
 				filesLength: data.files?.length || 0,
+				notificationText: messageText.trim(),
 			});
 		}
-		// Early return - do not process text for file-attached notifications
+		// Early return - do not process notification text for file attachment notifications
 		return;
 	}
 
