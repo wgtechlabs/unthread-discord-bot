@@ -266,6 +266,176 @@ export class AttachmentHandler {
 	}
 
 	/**
+	 * Direct method to download files from Unthread using pre-transformed data
+	 *
+	 * Downloads files directly from Unthread API using file IDs from webhook data.
+	 * This is the simplified approach for consuming pre-transformed webhook events.
+	 */
+	async downloadUnthreadFilesToDiscord(
+		discordThread: ThreadChannel,
+		files: any[],
+		messageContent?: string,
+	): Promise<AttachmentProcessingResult> {
+		const startTime = Date.now();
+		const errors: string[] = [];
+
+		try {
+			LogEngine.info(`Starting direct Unthread file download for Discord thread ${discordThread.id}`);
+			LogEngine.debug(`Processing ${files.length} files from pre-transformed data`);
+
+			if (files.length === 0) {
+				LogEngine.warn('No files found in pre-transformed data');
+				return {
+					success: false,
+					processedCount: 0,
+					errors: ['No files found'],
+					processingTime: Date.now() - startTime,
+				};
+			}
+
+			// Download files to buffers
+			const fileBuffers: FileBuffer[] = [];
+			const downloadPromises = files.map(file =>
+				this.downloadFileFromUnthread(file),
+			);
+
+			const downloadResults = await Promise.allSettled(downloadPromises);
+
+			// Process download results
+			for (let i = 0; i < downloadResults.length; i++) {
+				const result = downloadResults[i];
+				const file = files[i];
+
+				if (result.status === 'fulfilled') {
+					fileBuffers.push(result.value);
+					LogEngine.debug(`Successfully downloaded ${file.name} (${file.size} bytes)`);
+				}
+				else {
+					const error = `Failed to download ${file.name}: ${result.reason}`;
+					errors.push(error);
+					LogEngine.error(error);
+				}
+			}
+
+			if (fileBuffers.length === 0) {
+				LogEngine.error('No files were successfully downloaded');
+				return {
+					success: false,
+					processedCount: 0,
+					errors: errors.length > 0 ? errors : ['No files could be downloaded'],
+					processingTime: Date.now() - startTime,
+				};
+			}
+
+			// Upload buffers to Discord
+			const uploadSuccess = await this.uploadBuffersToDiscord(
+				discordThread,
+				fileBuffers,
+				messageContent,
+			);
+
+			const processingTime = Date.now() - startTime;
+			LogEngine.info(`Direct file processing completed in ${processingTime}ms. Success: ${uploadSuccess}`);
+
+			return {
+				success: uploadSuccess,
+				processedCount: fileBuffers.length,
+				errors,
+				processingTime,
+			};
+
+		}
+		catch (error) {
+			const processingTime = Date.now() - startTime;
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			errors.push(`Direct file download failed: ${errorMessage}`);
+			LogEngine.error(`Direct file download failed after ${processingTime}ms:`, error);
+			return {
+				success: false,
+				processedCount: 0,
+				errors,
+				processingTime,
+			};
+		}
+	}
+
+	/**
+	 * Download a single file from Unthread using pre-transformed file data
+	 */
+	private async downloadFileFromUnthread(file: any): Promise<FileBuffer> {
+		// Check if this is a Slack file (ID starts with 'F' and has the right structure)
+		const isSlackFile = file.id &&
+			typeof file.id === 'string' &&
+			file.id.startsWith('F') &&
+			file.id.length >= 10;
+
+		if (isSlackFile) {
+			LogEngine.info('Detected Slack file, using thumbnail endpoint', {
+				fileId: file.id,
+				fileName: file.name,
+			});
+
+			return this.downloadUnthreadSlackFile(
+				file.id,
+				file.name,
+				file.size,
+			);
+		}
+
+		// For non-Slack files, use direct URL if available
+		if (file.urlPrivateDownload || file.urlPrivate) {
+			const downloadUrl = file.urlPrivateDownload || file.urlPrivate;
+			LogEngine.debug(`Using direct URL download for: ${file.name} from ${downloadUrl}`);
+
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), DISCORD_ATTACHMENT_CONFIG.uploadTimeout);
+
+			try {
+				const apiKey = process.env.UNTHREAD_API_KEY!;
+
+				const response = await fetch(downloadUrl, {
+					method: 'GET',
+					headers: {
+						'X-API-KEY': apiKey,
+						'User-Agent': 'unthread-discord-bot',
+					},
+					signal: controller.signal,
+				});
+
+				if (!response.ok) {
+					throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+				}
+
+				const arrayBuffer = await response.arrayBuffer();
+				const buffer = Buffer.from(arrayBuffer);
+
+				const fileBuffer: FileBuffer = {
+					buffer,
+					fileName: file.name,
+					mimeType: file.mimetype || file.contentType || 'application/octet-stream',
+					size: buffer.length,
+				};
+
+				LogEngine.debug(`Downloaded ${file.name}: ${buffer.length} bytes, MIME: ${fileBuffer.mimeType}`);
+				return fileBuffer;
+
+			}
+			catch (error: unknown) {
+				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+				if (error instanceof Error && error.name === 'AbortError') {
+					throw new Error(`Download timeout for ${file.name} after ${DISCORD_ATTACHMENT_CONFIG.uploadTimeout}ms`);
+				}
+				throw new Error(`Failed to download ${file.name}: ${errorMessage}`);
+			}
+			finally {
+				clearTimeout(timeoutId);
+			}
+		}
+
+		throw new Error(`No download method available for file: ${file.name}`);
+	}
+
+	/**
 	 * Main method to download Unthread attachments and upload to Discord
 	 *
 	 * Downloads files from Unthread API and uploads them to Discord thread/channel.
@@ -541,10 +711,10 @@ export class AttachmentHandler {
 				throw new Error('SLACK_TEAM_ID environment variable is required for Slack file downloads');
 			}
 
-			// Use Unthread's Slack file thumbnail endpoint (proven pattern from Telegram bot)
+			// Use Unthread's Slack file thumbnail endpoint (proven working pattern)
 			const endpoint = `https://api.unthread.io/api/slack/files/${fileId}/thumb`;
 			const params = new URLSearchParams({
-				thumbSize: '1024',
+				thumbSize: '160',
 				teamId: teamId,
 			});
 
@@ -554,7 +724,7 @@ export class AttachmentHandler {
 			try {
 				LogEngine.debug('Making Unthread Slack file API request', {
 					endpoint,
-					params: { thumbSize: '1024', teamId: teamId.substring(0, 8) + '...' },
+					params: { thumbSize: '160', teamId: teamId.substring(0, 8) + '...' },
 					hasApiKey: !!apiKey,
 				});
 
@@ -562,7 +732,7 @@ export class AttachmentHandler {
 					method: 'GET',
 					headers: {
 						'X-API-KEY': apiKey,
-						'Accept': 'application/octet-stream',
+						'Accept': '*/*',
 						'User-Agent': 'unthread-discord-bot',
 					},
 					signal: controller.signal,

@@ -219,35 +219,12 @@ export class WebhookConsumer {
 				return;
 			}
 
-			// Handle webhook server wrapping structure
-			let event: unknown;
-			if (rawEvent && typeof rawEvent === 'object' && 'completeTransformedData' in rawEvent) {
-				// Extract the actual event from webhook server wrapping
-				const eventWrapper = rawEvent as {
-					completeTransformedData: unknown;
-					attachments?: Record<string, unknown>;
-				};
-				event = eventWrapper.completeTransformedData;
-				
-				// CRITICAL FIX: Preserve attachment metadata from webhook server root level
-				if (eventWrapper.attachments && typeof event === 'object' && event !== null) {
-					(event as Record<string, unknown>).attachments = eventWrapper.attachments;
-					LogEngine.debug('✅ Preserved attachment metadata from webhook server root level', {
-						hasAttachments: !!eventWrapper.attachments,
-						attachmentSummary: eventWrapper.attachments,
-					});
-				}
-				
-				LogEngine.debug('Extracted event from webhook server wrapper');
-			}
-			else {
-				// Direct event structure
-				event = rawEvent;
-			}
+			// Use pre-transformed event data directly from webhook server
+			const event = rawEvent;
 
 			// Log full event payload at debug level to avoid log bloat
-			LogEngine.debug('Complete webhook event payload', {
-				completeEvent: JSON.stringify(event, null, 2),
+			LogEngine.debug('Pre-transformed webhook event payload', {
+				event: JSON.stringify(event, null, 2),
 			});
 
 			// Validate the event
