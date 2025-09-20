@@ -446,6 +446,61 @@ yarn build
 yarn deploycommand:dev
 ```
 
+### 🧪 Testing
+
+This project uses **Vitest** for comprehensive unit testing with a 30% coverage target focused on core Discord ↔ Unthread messaging functionality.
+
+**Run Tests:**
+
+```bash
+# Run all tests
+yarn test
+
+# Run tests in watch mode
+yarn test:watch
+
+# Run tests with coverage report
+yarn test:coverage
+
+# Run tests without watch mode (CI)
+yarn test:run
+
+# Open test UI in browser
+yarn test:ui
+```
+
+**Test Structure:**
+
+```
+src/__tests__/
+├── events/          # Event handler tests
+├── services/        # API integration tests
+├── utils/           # Utility function tests
+├── config/          # Configuration tests
+├── vitest.setup.ts  # Global test setup
+└── async-test-utils.ts  # Testing utilities
+```
+
+**Coverage Targets:**
+- **Lines**: 30% minimum
+- **Statements**: 30% minimum  
+- **Functions**: 30% minimum
+- **Branches**: 30% minimum
+
+**Key Testing Areas:**
+- Message flow: Discord → processing → Unthread API
+- Attachment upload: File detection → validation → upload
+- Error handling: API failures, network issues, validation
+- Configuration: Environment validation, default settings
+
+**Test Patterns:**
+- Comprehensive mocking for external dependencies
+- Edge case testing for error handling
+- Reusable mock factories for Discord objects
+- Async operation testing with proper utilities
+
+For more details on testing patterns and utilities, see the test files in `src/__tests__/`.
+
 ### How to Get Your Discord Server ID
 
 1. Open Discord and go to your server.

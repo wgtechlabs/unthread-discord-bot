@@ -1,0 +1,101 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [ dev ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'yarn'
+        
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+      
+    - name: Type check
+      run: yarn build
+      
+    - name: Lint check
+      run: yarn lint
+      
+    - name: Run tests
+      run: yarn test:run
+      
+    - name: Check coverage threshold
+      run: yarn test:coverage
+      continue-on-error: true
+      
+    - name: Comment PR with coverage
+      uses: actions/github-script@v7
+      if: always()
+      with:
+        script: |
+          const fs = require('fs');
+          
+          let coverageComment = '';
+          try {
+            // Read coverage summary if it exists
+            if (fs.existsSync('./coverage/coverage-summary.json')) {
+              const coverageData = JSON.parse(fs.readFileSync('./coverage/coverage-summary.json', 'utf8'));
+              const { lines, statements, functions, branches } = coverageData.total;
+              
+              coverageComment = `
+              ## 📊 Test Coverage Report
+              
+              | Metric | Coverage | Status |
+              |--------|----------|---------|
+              | Lines | ${lines.pct}% | ${lines.pct >= 30 ? '✅' : '❌'} |
+              | Statements | ${statements.pct}% | ${statements.pct >= 30 ? '✅' : '❌'} |
+              | Functions | ${functions.pct}% | ${functions.pct >= 30 ? '✅' : '❌'} |
+              | Branches | ${branches.pct}% | ${branches.pct >= 30 ? '✅' : '❌'} |
+              
+              **Target: 30% coverage for all metrics**
+              
+              ${lines.pct >= 30 && statements.pct >= 30 ? '🎉 Coverage targets met!' : '⚠️ Coverage below target threshold'}
+              `;
+            } else {
+              coverageComment = '⚠️ Coverage report not generated';
+            }
+          } catch (error) {
+            coverageComment = `❌ Error reading coverage: ${error.message}`;
+          }
+          
+          // Find existing coverage comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const existingComment = comments.find(comment => 
+            comment.user.type === 'Bot' && comment.body.includes('📊 Test Coverage Report')
+          );
+          
+          if (existingComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: coverageComment
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: coverageComment
+            });
+          }
