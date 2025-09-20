@@ -1,8 +1,15 @@
 /**
  * Attachment Detection Service
  *
- * Provides validation and filtering services for Discord attachments.
- * Ensures only supported image types within size limits are processed.
+ * Enhanced metadata-driven attachment detection using proven patterns from the Unthread Telegram bot.
+ * Replaces Discord.js Collection-based logic with webhook metadata processing for improved reliability.
+ *
+ * Key Features:
+ * - Metadata-first approach for instant decisions without file iteration
+ * - Processing decision pipeline: oversized → unsupported → supported images
+ * - File size validation using pre-calculated metadata
+ * - Trust-but-verify consistency validation
+ * - Discord-specific adaptations for channel routing and message formatting
  *
  * @module services/attachmentDetection
  */
@@ -10,13 +17,255 @@
 import { Collection, Attachment } from 'discord.js';
 import { DISCORD_ATTACHMENT_CONFIG, isSupportedImageType } from '../config/attachmentConfig';
 import { AttachmentValidationResult } from '../types/attachments';
+import { EnhancedWebhookEvent } from '../types/unthread';
 import { LogEngine } from '../config/logger';
+
+/**
+ * Processing decision result for attachment handling
+ */
+export interface AttachmentProcessingDecision {
+	/** Whether the event should be processed */
+	shouldProcess: boolean;
+	/** Whether attachments are present */
+	hasAttachments: boolean;
+	/** Whether image attachments are present */
+	hasImages: boolean;
+	/** Whether supported images are present */
+	hasSupportedImages: boolean;
+	/** Whether unsupported attachments are present */
+	hasUnsupported: boolean;
+	/** Whether attachments exceed size limits */
+	isOversized: boolean;
+	/** Human-readable summary of attachments */
+	summary: string;
+	/** Reason for processing decision */
+	reason: string;
+}
 
 export class AttachmentDetectionService {
 	/**
-	 * Checks if a message has any image attachments
+	 * Primary event validation - process dashboard → discord events
+	 * Based on Telegram bot's shouldProcessEvent pattern
 	 */
-	static hasImageAttachments(attachments: Collection<string, Attachment>): boolean {
+	static shouldProcessEvent(event: EnhancedWebhookEvent): boolean {
+		return event.sourcePlatform === 'dashboard' &&
+			   event.targetPlatform === 'discord';
+	}
+
+	/**
+	 * Primary attachment detection using webhook metadata
+	 * Replaces complex array checking and location detection
+	 */
+	static hasAttachments(event: EnhancedWebhookEvent): boolean {
+		return this.shouldProcessEvent(event) &&
+			   event.attachments?.hasFiles === true;
+	}
+
+	/**
+	 * Image-specific detection for enhanced attachment processing
+	 * Uses metadata types array for instant categorization
+	 */
+	static hasImageAttachments(event: EnhancedWebhookEvent): boolean {
+		if (!this.hasAttachments(event)) {
+			return false;
+		}
+
+		return event.attachments?.types?.some(type =>
+			type.startsWith('image/'),
+		) ?? false;
+	}
+
+	/**
+	 * Supported image type validation with configuration
+	 * Only processes image types we can handle reliably
+	 */
+	static hasSupportedImages(event: EnhancedWebhookEvent): boolean {
+		if (!this.hasImageAttachments(event)) {
+			return false;
+		}
+
+		const supportedTypes = DISCORD_ATTACHMENT_CONFIG.supportedImageTypes;
+
+		return event.attachments?.types?.some(type =>
+			supportedTypes.includes(type.toLowerCase() as any),
+		) ?? false;
+	}
+
+	/**
+	 * Check for unsupported file types (non-images or unsupported images)
+	 * Enables clear user communication about what we can't process yet
+	 */
+	static hasUnsupportedAttachments(event: EnhancedWebhookEvent): boolean {
+		if (!this.hasAttachments(event)) {
+			return false;
+		}
+
+		// If we have attachments but no supported images, they're unsupported
+		return !this.hasSupportedImages(event);
+	}
+
+	/**
+	 * Size validation using pre-calculated metadata
+	 * No need to iterate through files for size calculation
+	 */
+	static isWithinSizeLimit(event: EnhancedWebhookEvent, maxSizeBytes: number): boolean {
+		if (!this.hasAttachments(event)) {
+			return true;
+		}
+		return (event.attachments?.totalSize ?? 0) <= maxSizeBytes;
+	}
+
+	/**
+	 * Check if files exceed size limits
+	 * Enables specific messaging for oversized files
+	 */
+	static isOversized(event: EnhancedWebhookEvent, maxSizeBytes: number): boolean {
+		if (!this.hasAttachments(event)) {
+			return false;
+		}
+		return (event.attachments?.totalSize ?? 0) > maxSizeBytes;
+	}
+
+	/**
+	 * Get attachment summary for logging/UI
+	 * Ready-to-use summary without manual calculation
+	 */
+	static getAttachmentSummary(event: EnhancedWebhookEvent): string {
+		if (!this.hasAttachments(event)) {
+			return 'No attachments';
+		}
+
+		const attachments = event.attachments;
+		if (!attachments) {
+			return 'No attachments';
+		}
+
+		const { fileCount, totalSize, types } = attachments;
+		const sizeMB = Math.round(totalSize / 1024 / 1024 * 100) / 100;
+		const typeList = types.join(', ');
+
+		return `${fileCount} files (${sizeMB}MB) - ${typeList}`;
+	}
+
+	/**
+	 * Get file count without array access
+	 * Instant count from metadata
+	 */
+	static getFileCount(event: EnhancedWebhookEvent): number {
+		return event.attachments?.fileCount || 0;
+	}
+
+	/**
+	 * Get total size without calculation
+	 * Pre-calculated size from metadata
+	 */
+	static getTotalSize(event: EnhancedWebhookEvent): number {
+		return event.attachments?.totalSize || 0;
+	}
+
+	/**
+	 * Get unique file types without iteration
+	 * Deduplicated types from metadata
+	 */
+	static getFileTypes(event: EnhancedWebhookEvent): string[] {
+		return event.attachments?.types || [];
+	}
+
+	/**
+	 * Get file names with guaranteed correlation to data.files
+	 * names[i] corresponds to data.files[i]
+	 */
+	static getFileNames(event: EnhancedWebhookEvent): string[] {
+		return event.attachments?.names || [];
+	}
+
+	/**
+	 * Validate metadata consistency (trust but verify)
+	 * Ensures webhook metadata matches actual file data
+	 */
+	static validateConsistency(event: EnhancedWebhookEvent): boolean {
+		if (!this.shouldProcessEvent(event)) {
+			return false;
+		}
+
+		const metadata = event.attachments;
+		const files = event.data.files;
+
+		// No files scenario - both should be empty/false
+		if (!metadata?.hasFiles && (!files || files.length === 0)) {
+			return true;
+		}
+
+		// Has files scenario - counts should match
+		if (metadata?.hasFiles && files && files.length === metadata.fileCount) {
+			return true;
+		}
+
+		// Inconsistency detected
+		LogEngine.warn('Attachment metadata inconsistency detected', {
+			metadataHasFiles: metadata?.hasFiles,
+			metadataCount: metadata?.fileCount,
+			actualFilesCount: files?.length || 0,
+			eventId: event.eventId,
+			sourcePlatform: event.sourcePlatform,
+			conversationId: event.data.conversationId,
+		});
+
+		return false;
+	}
+
+	/**
+	 * Generate processing decision summary
+	 * Central method for determining how to handle attachments
+	 */
+	static getProcessingDecision(event: EnhancedWebhookEvent, maxSizeBytes: number = DISCORD_ATTACHMENT_CONFIG.maxFileSize): AttachmentProcessingDecision {
+		const shouldProcess = this.shouldProcessEvent(event);
+		const hasAttachments = this.hasAttachments(event);
+		const hasImages = this.hasImageAttachments(event);
+		const hasSupportedImages = this.hasSupportedImages(event);
+		const hasUnsupported = this.hasUnsupportedAttachments(event);
+		const isOversized = this.isOversized(event, maxSizeBytes);
+		const summary = this.getAttachmentSummary(event);
+
+		let reason = '';
+		if (!shouldProcess) {
+			reason = 'Non-dashboard event';
+		}
+		else if (!hasAttachments) {
+			reason = 'No attachments';
+		}
+		else if (isOversized) {
+			reason = 'Files too large';
+		}
+		else if (hasUnsupported) {
+			reason = 'Unsupported file types';
+		}
+		else if (hasSupportedImages) {
+			reason = 'Ready for image processing';
+		}
+		else {
+			reason = 'Unknown state';
+		}
+
+		return {
+			shouldProcess,
+			hasAttachments,
+			hasImages,
+			hasSupportedImages,
+			hasUnsupported,
+			isOversized,
+			summary,
+			reason,
+		};
+	}
+
+	// ==================== LEGACY DISCORD.JS COLLECTION METHODS ====================
+	// Maintained for backward compatibility with existing Discord message processing
+
+	/**
+	 * Checks if a Discord message has any image attachments (legacy method)
+	 */
+	static hasDiscordImageAttachments(attachments: Collection<string, Attachment>): boolean {
 		return attachments.some(attachment =>
 			attachment.contentType && isSupportedImageType(attachment.contentType),
 		);
