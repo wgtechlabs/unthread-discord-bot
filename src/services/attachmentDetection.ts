@@ -48,7 +48,7 @@ export class AttachmentDetectionService {
 	 * Based on Telegram bot's shouldProcessEvent pattern
 	 */
 	static shouldProcessEvent(event: EnhancedWebhookEvent): boolean {
-		return event.sourcePlatform === 'dashboard' && 
+		return event.sourcePlatform === 'dashboard' &&
 			   event.targetPlatform === 'discord';
 	}
 
@@ -57,7 +57,7 @@ export class AttachmentDetectionService {
 	 * Replaces complex array checking and location detection
 	 */
 	static hasAttachments(event: EnhancedWebhookEvent): boolean {
-		return this.shouldProcessEvent(event) && 
+		return this.shouldProcessEvent(event) &&
 			   event.attachments?.hasFiles === true;
 	}
 
@@ -69,9 +69,9 @@ export class AttachmentDetectionService {
 		if (!this.hasAttachments(event)) {
 			return false;
 		}
-		
-		return event.attachments?.types?.some(type => 
-			type.startsWith('image/')
+
+		return event.attachments?.types?.some(type =>
+			type.startsWith('image/'),
 		) ?? false;
 	}
 
@@ -83,11 +83,11 @@ export class AttachmentDetectionService {
 		if (!this.hasImageAttachments(event)) {
 			return false;
 		}
-		
+
 		const supportedTypes = DISCORD_ATTACHMENT_CONFIG.supportedImageTypes;
-		
-		return event.attachments?.types?.some(type => 
-			supportedTypes.includes(type.toLowerCase() as any)
+
+		return event.attachments?.types?.some(type =>
+			supportedTypes.includes(type.toLowerCase() as any),
 		) ?? false;
 	}
 
@@ -99,7 +99,7 @@ export class AttachmentDetectionService {
 		if (!this.hasAttachments(event)) {
 			return false;
 		}
-		
+
 		// If we have attachments but no supported images, they're unsupported
 		return !this.hasSupportedImages(event);
 	}
@@ -134,16 +134,16 @@ export class AttachmentDetectionService {
 		if (!this.hasAttachments(event)) {
 			return 'No attachments';
 		}
-		
+
 		const attachments = event.attachments;
 		if (!attachments) {
 			return 'No attachments';
 		}
-		
+
 		const { fileCount, totalSize, types } = attachments;
 		const sizeMB = Math.round(totalSize / 1024 / 1024 * 100) / 100;
 		const typeList = types.join(', ');
-		
+
 		return `${fileCount} files (${sizeMB}MB) - ${typeList}`;
 	}
 
@@ -187,20 +187,20 @@ export class AttachmentDetectionService {
 		if (!this.shouldProcessEvent(event)) {
 			return false;
 		}
-		
+
 		const metadata = event.attachments;
 		const files = event.data.files;
-		
+
 		// No files scenario - both should be empty/false
 		if (!metadata?.hasFiles && (!files || files.length === 0)) {
 			return true;
 		}
-		
+
 		// Has files scenario - counts should match
 		if (metadata?.hasFiles && files && files.length === metadata.fileCount) {
 			return true;
 		}
-		
+
 		// Inconsistency detected
 		LogEngine.warn('Attachment metadata inconsistency detected', {
 			metadataHasFiles: metadata?.hasFiles,
@@ -208,9 +208,9 @@ export class AttachmentDetectionService {
 			actualFilesCount: files?.length || 0,
 			eventId: event.eventId,
 			sourcePlatform: event.sourcePlatform,
-			conversationId: event.data.conversationId
+			conversationId: event.data.conversationId,
 		});
-		
+
 		return false;
 	}
 
@@ -226,22 +226,27 @@ export class AttachmentDetectionService {
 		const hasUnsupported = this.hasUnsupportedAttachments(event);
 		const isOversized = this.isOversized(event, maxSizeBytes);
 		const summary = this.getAttachmentSummary(event);
-		
+
 		let reason = '';
 		if (!shouldProcess) {
 			reason = 'Non-dashboard event';
-		} else if (!hasAttachments) {
+		}
+		else if (!hasAttachments) {
 			reason = 'No attachments';
-		} else if (isOversized) {
+		}
+		else if (isOversized) {
 			reason = 'Files too large';
-		} else if (hasUnsupported) {
+		}
+		else if (hasUnsupported) {
 			reason = 'Unsupported file types';
-		} else if (hasSupportedImages) {
+		}
+		else if (hasSupportedImages) {
 			reason = 'Ready for image processing';
-		} else {
+		}
+		else {
 			reason = 'Unknown state';
 		}
-		
+
 		return {
 			shouldProcess,
 			hasAttachments,
@@ -250,7 +255,7 @@ export class AttachmentDetectionService {
 			hasUnsupported,
 			isOversized,
 			summary,
-			reason
+			reason,
 		};
 	}
 
