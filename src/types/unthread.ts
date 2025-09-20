@@ -142,6 +142,8 @@ export interface CreateMessageRequest {
  * Represents a file attachment in a message
  */
 export interface MessageAttachment {
+	/** File ID (for Slack files, starts with 'F') */
+	id?: string;
 	/** Original filename */
 	filename: string;
 	/** URL where the file can be accessed */
@@ -223,8 +225,14 @@ export type WebhookEventType =
  * All webhook events follow this structure with event-specific data.
  */
 export interface WebhookPayload {
+	/** Platform that generated the webhook */
+	platform: string;
+	/** Target platform for processing */
+	targetPlatform: string;
 	/** Type of webhook event */
-	event: WebhookEventType;
+	type: string;
+	/** Source platform that originated the event */
+	sourcePlatform: string;
 	/** ISO timestamp when the event occurred */
 	timestamp: string;
 	/** Event-specific data payload */
@@ -278,7 +286,7 @@ export interface EnhancedWebhookEvent {
  */
 export interface TicketWebhookPayload extends WebhookPayload {
 	/** Ticket-related event types */
-	event: 'ticket.created' | 'ticket.updated' | 'ticket.solved' | 'ticket.closed';
+	type: 'conversation_created' | 'conversation_updated' | 'ticket.solved' | 'ticket.closed';
 	/** Ticket data */
 	data: UnthreadTicket;
 }
@@ -288,7 +296,7 @@ export interface TicketWebhookPayload extends WebhookPayload {
  */
 export interface MessageWebhookPayload extends WebhookPayload {
 	/** Message-related event types */
-	event: 'message.created' | 'message.updated';
+	type: 'message_created' | 'message_updated';
 	/** Message data */
 	data: UnthreadMessage;
 }

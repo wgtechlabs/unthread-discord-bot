@@ -43,7 +43,7 @@
  * @module utils/attachmentHandler
  */
 
-import { Collection, Attachment, ThreadChannel } from 'discord.js';
+import { Collection, Attachment, ThreadChannel, AttachmentBuilder } from 'discord.js';
 import { FileBuffer, AttachmentProcessingResult } from '../types/attachments';
 import { MessageAttachment } from '../types/unthread';
 import { DISCORD_ATTACHMENT_CONFIG } from '../config/attachmentConfig';
@@ -413,10 +413,160 @@ export class AttachmentHandler {
 	}
 
 	/**
+	 * Downloads Slack file from Unthread using thumbnail endpoint
+	 * Based on proven Telegram bot implementation patterns
+	 */
+	private async downloadUnthreadSlackFile(fileId: string, fileName: string, fileSize: number): Promise<FileBuffer> {
+		LogEngine.info('Starting Unthread Slack file download', {
+			fileId,
+			fileName,
+			fileSize,
+			method: 'slack-thumbnail-endpoint',
+		});
+
+		try {
+			// Get environment variables (guaranteed to exist due to startup validation)
+			const apiKey = process.env.UNTHREAD_API_KEY!;
+			const teamId = process.env.SLACK_TEAM_ID;
+
+			if (!teamId) {
+				throw new Error('SLACK_TEAM_ID environment variable is required for Slack file downloads');
+			}
+
+			// Use Unthread's Slack file thumbnail endpoint (proven pattern from Telegram bot)
+			const endpoint = `https://api.unthread.io/api/slack/files/${fileId}/thumb`;
+			const params = new URLSearchParams({
+				thumbSize: '1024',
+				teamId: teamId,
+			});
+
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), DISCORD_ATTACHMENT_CONFIG.uploadTimeout);
+
+			try {
+				LogEngine.debug('Making Unthread Slack file API request', {
+					endpoint,
+					params: { thumbSize: '1024', teamId: teamId.substring(0, 8) + '...' },
+					hasApiKey: !!apiKey,
+				});
+
+				const response = await fetch(`${endpoint}?${params.toString()}`, {
+					method: 'GET',
+					headers: {
+						'X-API-KEY': apiKey,
+						'Accept': 'application/octet-stream',
+						'User-Agent': 'unthread-discord-bot',
+					},
+					signal: controller.signal,
+				});
+
+				if (!response.ok) {
+					let errorMessage = `Unthread Slack file API error: ${response.status} ${response.statusText}`;
+					try {
+						const errorBody = await response.text();
+						if (errorBody) {
+							errorMessage += ` - Response: ${errorBody}`;
+						}
+					}
+					catch (bodyError) {
+						LogEngine.warn('Failed to read error response body', { bodyError });
+					}
+					throw new Error(errorMessage);
+				}
+
+				// Validate content type
+				const contentType = response.headers.get('content-type') || '';
+				LogEngine.debug('Received response', {
+					fileId,
+					status: response.status,
+					contentType,
+					contentLength: response.headers.get('content-length'),
+				});
+
+				// Get response as buffer
+				const arrayBuffer = await response.arrayBuffer();
+				const buffer = Buffer.from(arrayBuffer);
+
+				if (buffer.length === 0) {
+					throw new Error('Downloaded file is empty');
+				}
+
+				// Validate size against Discord limits
+				const maxSize = DISCORD_ATTACHMENT_CONFIG.maxFileSize;
+				if (buffer.length > maxSize) {
+					throw new Error(`File too large: ${buffer.length} bytes (max: ${maxSize})`);
+				}
+
+				const fileBuffer: FileBuffer = {
+					buffer,
+					fileName,
+					mimeType: contentType || 'application/octet-stream',
+					size: buffer.length,
+				};
+
+				LogEngine.info('Slack file download successful', {
+					fileId,
+					fileName,
+					downloadedSize: buffer.length,
+					expectedSize: fileSize,
+					contentType: fileBuffer.mimeType,
+				});
+
+				return fileBuffer;
+
+			}
+			catch (fetchError: unknown) {
+				clearTimeout(timeoutId);
+
+				if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+					throw new Error(`Slack file download timeout after ${DISCORD_ATTACHMENT_CONFIG.uploadTimeout}ms`);
+				}
+
+				throw fetchError;
+			}
+			finally {
+				clearTimeout(timeoutId);
+			}
+
+		}
+		catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			LogEngine.error('Slack file download failed', {
+				fileId,
+				fileName,
+				error: errorMessage,
+			});
+			throw new Error(`Failed to download Slack file ${fileName}: ${errorMessage}`);
+		}
+	}
+
+	/**
 	 * Downloads an Unthread attachment to a memory buffer
 	 */
 	private async downloadUnthreadAttachmentToBuffer(unthreadAttachment: MessageAttachment): Promise<FileBuffer> {
-		LogEngine.debug(`Downloading Unthread attachment: ${unthreadAttachment.filename} from ${unthreadAttachment.url}`);
+		LogEngine.debug(`Downloading Unthread attachment: ${unthreadAttachment.filename}`);
+
+		// Check if this is a Slack file (ID starts with 'F' and has the right structure)
+		const isSlackFile = unthreadAttachment.id &&
+			typeof unthreadAttachment.id === 'string' &&
+			unthreadAttachment.id.startsWith('F') &&
+			unthreadAttachment.id.length >= 10;
+
+		if (isSlackFile) {
+			LogEngine.info('Detected Slack file, using thumbnail endpoint', {
+				fileId: unthreadAttachment.id,
+				fileName: unthreadAttachment.filename,
+			});
+
+			return this.downloadUnthreadSlackFile(
+				unthreadAttachment.id!,
+				unthreadAttachment.filename,
+				unthreadAttachment.size,
+			);
+		}
+
+		// Fallback to direct URL download for non-Slack files
+		LogEngine.debug(`Using direct URL download for: ${unthreadAttachment.filename} from ${unthreadAttachment.url}`);
 
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), DISCORD_ATTACHMENT_CONFIG.uploadTimeout);
@@ -458,11 +608,12 @@ export class AttachmentHandler {
 			return fileBuffer;
 
 		}
-		catch (error: any) {
-			if (error.name === 'AbortError') {
+		catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			if (error instanceof Error && error.name === 'AbortError') {
 				throw new Error(`Download timeout for ${unthreadAttachment.filename} after ${DISCORD_ATTACHMENT_CONFIG.uploadTimeout}ms`);
 			}
-			throw new Error(`Failed to download ${unthreadAttachment.filename}: ${error.message}`);
+			throw new Error(`Failed to download ${unthreadAttachment.filename}: ${errorMessage}`);
 		}
 		finally {
 			clearTimeout(timeoutId);
@@ -485,7 +636,6 @@ export class AttachmentHandler {
 				LogEngine.debug(`Discord upload attempt ${attempt}/${maxAttempts} for ${fileBuffers.length} files`);
 
 				// Convert FileBuffers to Discord AttachmentBuilder format
-				const { AttachmentBuilder } = await import('discord.js');
 				const attachments = fileBuffers.map(fileBuffer =>
 					new AttachmentBuilder(fileBuffer.buffer, {
 						name: fileBuffer.fileName,
@@ -494,7 +644,7 @@ export class AttachmentHandler {
 				);
 
 				// Send to Discord with optional message content
-				const sendOptions: any = {
+				const sendOptions: { files: AttachmentBuilder[]; content?: string } = {
 					files: attachments,
 				};
 
@@ -508,9 +658,10 @@ export class AttachmentHandler {
 				return true;
 
 			}
-			catch (error: any) {
-				lastError = error;
-				LogEngine.warn(`Discord upload attempt ${attempt} failed:`, error.message);
+			catch (error: unknown) {
+				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+				lastError = error instanceof Error ? error : new Error(errorMessage);
+				LogEngine.warn(`Discord upload attempt ${attempt} failed:`, errorMessage);
 
 				if (attempt < maxAttempts) {
 					// Calculate exponential backoff delay

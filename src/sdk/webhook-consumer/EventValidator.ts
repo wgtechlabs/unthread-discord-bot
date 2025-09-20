@@ -27,8 +27,8 @@ export class EventValidator {
 
 		const eventObj = event as Record<string, unknown>;
 
-		// Required fields validation
-		if (!eventObj.event || typeof eventObj.event !== 'string') {
+		// Required fields validation - check for 'type' field (actual webhook format)
+		if (!eventObj.type || typeof eventObj.type !== 'string') {
 			LogEngine.warn('Event validation failed: Missing or invalid event type');
 			return false;
 		}
@@ -38,17 +38,17 @@ export class EventValidator {
 			return false;
 		}
 
-		// Validate supported event types
-		const supportedEvents = ['message_created', 'conversation_updated', 'conversation.created'];
-		if (!supportedEvents.includes(eventObj.event)) {
-			LogEngine.debug(`Unsupported event type: ${eventObj.event}`);
+		// Validate supported event types (updated to match actual webhook server output)
+		const supportedEvents = ['message_created', 'conversation_updated', 'conversation_created'];
+		if (!supportedEvents.includes(eventObj.type)) {
+			LogEngine.debug(`Unsupported event type: ${eventObj.type}`);
 			return false;
 		}
 
 		// Event-specific validation
 		const data = eventObj.data as Record<string, unknown>;
 
-		if (eventObj.event === 'message_created') {
+		if (eventObj.type === 'message_created') {
 			// Message events must have conversation ID and content or attachments
 			const hasConversationId = !!(data.conversationId || data.id);
 			const hasContent = !!(data.text || data.content || data.markdown);
@@ -67,13 +67,25 @@ export class EventValidator {
 			return true;
 		}
 
-		if (eventObj.event === 'conversation_updated') {
+		if (eventObj.type === 'conversation_updated') {
 			// Status update events must have conversation ID and status
 			const hasConversationId = !!(data.conversationId || data.id);
 			const hasStatus = !!data.status;
 
 			if (!hasConversationId || !hasStatus) {
 				LogEngine.warn('Conversation update validation failed: Missing conversation ID or status');
+				return false;
+			}
+
+			return true;
+		}
+
+		if (eventObj.type === 'conversation_created') {
+			// Conversation creation events must have conversation ID
+			const hasConversationId = !!(data.conversationId || data.id);
+
+			if (!hasConversationId) {
+				LogEngine.warn('Conversation creation validation failed: Missing conversation ID');
 				return false;
 			}
 

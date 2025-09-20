@@ -47,7 +47,7 @@ import { Pool } from 'pg';
 import { UnifiedStorage } from './UnifiedStorage';
 import { LogEngine } from '../../config/logger';
 import { ThreadTicketMapping } from '../../types/discord';
-import { DEFAULT_CONFIG } from '../../config/defaults';
+import { DEFAULT_CONFIG, getSSLConfig, processConnectionString } from '../../config/defaults';
 
 /**
  * Safely converts a Date object or ISO string to ISO string
@@ -200,11 +200,16 @@ export class BotsStore {
 		});
 
 		// Initialize direct database pool for complex queries
+		const isProduction = process.env.NODE_ENV === 'production';
+		const sslConfig = getSSLConfig(isProduction);
+		const processedPostgresUrl = processConnectionString(config.postgresUrl, sslConfig);
+		
 		this.pool = new Pool({
-			connectionString: config.postgresUrl,
+			connectionString: processedPostgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
 			connectionTimeoutMillis: 2000,
+			ssl: sslConfig,
 		});
 
 		LogEngine.info('BotsStore initialized with UnifiedStorage backend');

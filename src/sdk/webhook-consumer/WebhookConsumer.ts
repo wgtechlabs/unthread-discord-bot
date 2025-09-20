@@ -206,9 +206,9 @@ export class WebhookConsumer {
 			});
 
 			// Parse the event
-			let event: unknown;
+			let rawEvent: unknown;
 			try {
-				event = JSON.parse(eventData);
+				rawEvent = JSON.parse(eventData);
 				LogEngine.info('✅ Event parsed successfully');
 			}
 			catch (parseError) {
@@ -217,6 +217,19 @@ export class WebhookConsumer {
 					eventData: eventData.substring(0, 500),
 				});
 				return;
+			}
+
+			// Handle webhook server wrapping structure
+			let event: unknown;
+			if (rawEvent && typeof rawEvent === 'object' && 'completeTransformedData' in rawEvent) {
+				// Extract the actual event from webhook server wrapping
+				const eventWrapper = rawEvent as { completeTransformedData: unknown };
+				event = eventWrapper.completeTransformedData;
+				LogEngine.debug('Extracted event from webhook server wrapper');
+			}
+			else {
+				// Direct event structure
+				event = rawEvent;
 			}
 
 			// Log full event payload at debug level to avoid log bloat
@@ -238,13 +251,13 @@ export class WebhookConsumer {
 			// Process the validated event using existing handler
 			const validatedEvent = event as WebhookPayload;
 
-			LogEngine.info(`🚀 Processing ${validatedEvent.event} event`);
+			LogEngine.info(`🚀 Processing ${validatedEvent.type} event`);
 			try {
 				await handleWebhookEvent(validatedEvent);
-				LogEngine.info(`✅ Event processed successfully: ${validatedEvent.event}`);
+				LogEngine.info(`✅ Event processed successfully: ${validatedEvent.type}`);
 			}
 			catch (handlerError) {
-				LogEngine.error(`❌ Handler execution failed for ${validatedEvent.event}`, {
+				LogEngine.error(`❌ Handler execution failed for ${validatedEvent.type}`, {
 					error: (handlerError as Error).message,
 					stack: (handlerError as Error).stack,
 					conversationId: EventValidator.extractConversationId(validatedEvent.data),

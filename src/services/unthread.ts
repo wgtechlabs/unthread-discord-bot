@@ -77,6 +77,7 @@ export function validateEnvironment(): void {
 	const requiredEnvVars = [
 		{ name: 'UNTHREAD_API_KEY', value: process.env.UNTHREAD_API_KEY },
 		{ name: 'UNTHREAD_SLACK_CHANNEL_ID', value: process.env.UNTHREAD_SLACK_CHANNEL_ID },
+		{ name: 'SLACK_TEAM_ID', value: process.env.SLACK_TEAM_ID },
 	];
 
 	const missingVars = requiredEnvVars.filter(envVar => !envVar.value?.trim());
@@ -327,47 +328,46 @@ export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Pro
  */
 
 /**
- * Processes webhook events from Unthread
+ * Process incoming webhook events from Unthread
  *
- * Handles various webhook event types including message creation and conversation updates.
- * Routes events to appropriate handlers based on event type.
+ * Handles different types of webhook events and routes them to appropriate handlers.
+ * This function processes events from the Redis queue that were received from Unthread webhooks.
  *
- * @param payload - Webhook payload from Unthread
- * @throws {Error} When event processing fails for supported event types
- * @throws {Error} When message forwarding or status updates fail
+ * @param {WebhookPayload} payload - The webhook event payload
+ * @returns {Promise<void>}
  *
  * @example
  * ```typescript
  * await handleWebhookEvent({
- *   event: 'message_created',
+ *   type: 'message_created',
  *   data: { conversationId: '123', text: 'Hello', userId: 'user123' }
  * });
  * ```
  */
 export async function handleWebhookEvent(payload: WebhookPayload): Promise<void> {
-	const { event, data } = payload;
+	const { type, data } = payload;
 
-	LogEngine.info(`Processing webhook event: ${event}`);
+	LogEngine.info(`Processing webhook event: ${type}`);
 	LogEngine.debug('Event data:', data);
 
 	try {
-		switch (event) {
+		switch (type) {
 		case 'message_created':
 			await handleMessageCreated(data);
 			break;
 		case 'conversation_updated':
 			await handleStatusUpdated(data);
 			break;
-		case 'conversation.created':
+		case 'conversation_created':
 			LogEngine.debug('Conversation created event received - no action needed for Discord integration');
 			break;
 		default:
-			LogEngine.debug(`Unhandled webhook event type: ${event}`);
+			LogEngine.debug(`Unhandled webhook event type: ${type}`);
 		}
 	}
 	catch (error: unknown) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		LogEngine.error(`Error processing webhook event ${event}:`, errorMessage);
+		LogEngine.error(`Error processing webhook event ${type}:`, errorMessage);
 		throw error;
 	}
 }

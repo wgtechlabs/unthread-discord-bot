@@ -71,15 +71,19 @@ export type SupportedImageType = typeof DISCORD_ATTACHMENT_CONFIG.supportedImage
  * Gets file extension from MIME type
  */
 export function getFileExtensionFromMimeType(mimeType: string): string {
-	const mimeToExt: Record<string, string> = {
-		'image/png': 'png',
-		'image/jpeg': 'jpg',
-		'image/jpg': 'jpg',
-		'image/gif': 'gif',
-		'image/webp': 'webp',
-	};
-
-	return mimeToExt[mimeType] || 'bin';
+	switch (mimeType) {
+	case 'image/png':
+		return 'png';
+	case 'image/jpeg':
+	case 'image/jpg':
+		return 'jpg';
+	case 'image/gif':
+		return 'gif';
+	case 'image/webp':
+		return 'webp';
+	default:
+		return 'bin';
+	}
 }
 
 /**
