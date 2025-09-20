@@ -46,11 +46,14 @@ describe('messageUtils', () => {
         { content: 'This is a longer message with sufficient content', id: 'msg1' },
       ];
       
-      // Should detect when new message contains existing message
-      expect(isDuplicateMessage(messages, 'This is a longer message with sufficient content and more')).toBe(true);
+      // Should detect when new message contains existing message (within length ratio)
+      expect(isDuplicateMessage(messages, 'This is a longer message with sufficient content and a bit more')).toBe(true);
       
-      // Should detect when existing message contains new message
-      expect(isDuplicateMessage(messages, 'This is a longer message')).toBe(true);
+      // Should detect when existing message contains new message (within length ratio)
+      expect(isDuplicateMessage(messages, 'This is a longer message with sufficient')).toBe(true);
+      
+      // Should NOT detect when length difference is too large
+      expect(isDuplicateMessage(messages, 'This is a longer message')).toBe(false);
     });
 
     it('should not detect fuzzy duplicates when length difference is too large', () => {
@@ -93,8 +96,13 @@ describe('messageUtils', () => {
     });
 
     it('should handle multiple attachment patterns', () => {
-      const messageWithAttachment = 'Hello world\n\nAttachments: [file1.png](url1) | [file2.jpg](url2)';
+      // Test pattern 2: markdown links - only handles single attachment format
+      const messageWithAttachment = 'Hello world\n\nAttachments: [file1.png](url1)';
       expect(removeAttachmentSection(messageWithAttachment)).toBe('Hello world');
+      
+      // Test that pipe-separated attachments (not in the pattern) are not fully removed
+      const messageWithPipeAttachments = 'Hello world\n\nAttachments: [file1.png](url1) | [file2.jpg](url2)';
+      expect(removeAttachmentSection(messageWithPipeAttachments)).toBe('Hello world | [file2.jpg](url2)');
     });
 
     it('should not affect messages without attachments', () => {

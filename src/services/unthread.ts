@@ -51,11 +51,7 @@ import { LogEngine } from '../config/logger';
 import { isDuplicateMessage } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
-<<<<<<< HEAD
-import { UnthreadApiResponse, UnthreadTicket, WebhookPayload, MessageAttachment } from '../types/unthread';
-=======
 import { UnthreadApiResponse, UnthreadTicket, WebhookPayload, EnhancedWebhookEvent } from '../types/unthread';
->>>>>>> dev
 import { FileBuffer } from '../types/attachments';
 import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
 import { AttachmentDetectionService } from './attachmentDetection';
