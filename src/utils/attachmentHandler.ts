@@ -388,7 +388,7 @@ export class AttachmentHandler {
 						attachment.size,
 						attachment.mimetype || attachment.content_type || 'image/jpeg',
 					);
-					
+
 					// Create Discord AttachmentBuilder
 					const discordAttachment = new AttachmentBuilder(fileBuffer.buffer, {
 						name: fileBuffer.fileName,
