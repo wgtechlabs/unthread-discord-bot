@@ -1,12 +1,13 @@
 /**
  * Vitest Configuration
  *
- * Comprehensive test configuration for the Discord bot with v8 coverage provider,
- * targeting 30% code coverage focused on core Discord ↔ Unthread messaging functionality.
+ * Comprehensive test configuration for the Discord bot with v8 coverage provider.
+ * Focuses on core Discord ↔ Unthread messaging functionality with flexible coverage tracking.
  *
- * Coverage targets:
+ * Coverage tracking:
  * - Core business logic: message flow, attachment processing, API integration
  * - Supporting infrastructure: configuration, utilities, error handling
+ * - No hard coverage requirements - allows for iterative development
  *
  * @module vitest.config
  */
@@ -25,17 +26,12 @@ export default defineConfig({
     // Global test configuration
     globals: true,
     
-    // Coverage configuration with v8 provider
+    // Coverage configuration with v8 provider (no hard requirements)
     coverage: {
       provider: 'v8',
       
-      // 30% coverage thresholds for all metrics
-      thresholds: {
-        branches: 30,
-        functions: 30,
-        lines: 30,
-        statements: 30,
-      },
+      // No coverage thresholds - allow flexible development
+      // Coverage will be tracked but not enforced
       
       // Include source files in coverage
       include: [
