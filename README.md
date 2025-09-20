@@ -209,6 +209,84 @@ yarn lint
 yarn lint:fix
 ```
 
+### 🧪 Testing
+
+The project includes comprehensive unit testing with Vitest and automated CI/CD integration:
+
+#### Test Commands
+
+```bash
+# Run all tests
+yarn test
+
+# Run tests once (CI mode)
+yarn test:run
+
+# Run tests with coverage report
+yarn test:coverage
+
+# Run tests in watch mode (development)
+yarn test:watch
+
+# Open Vitest UI for interactive testing
+yarn test:ui
+```
+
+#### Test Structure
+
+The test suite is organized into focused modules that mirror the source code structure:
+
+```
+src/__tests__/
+├── vitest.setup.ts           # Global test configuration and mocking
+├── async-test-utils.ts       # Advanced async testing utilities
+├── infrastructure.test.ts    # Testing infrastructure validation
+├── utils/                    # Utility function tests
+│   ├── decodeHtmlEntities.test.ts
+│   ├── retry.test.ts
+│   ├── messageUtils.test.ts
+│   ├── botUtils.test.ts
+│   └── ...
+├── config/                   # Configuration tests
+│   ├── defaults.test.ts
+│   └── ...
+├── services/                 # Service integration tests
+│   ├── unthread.test.ts
+│   └── ...
+└── events/                   # Event handler tests
+    ├── messageCreate.test.ts
+    └── ...
+```
+
+#### Test Coverage
+
+- **100+ tests** covering core functionality
+- **Comprehensive mocking** of Discord.js, Unthread API, Redis, and external dependencies
+- **Real-world scenarios** including API failures, message processing, and attachment handling
+- **Performance testing** for large message handling and timing-sensitive operations
+- **Edge case coverage** with error handling and input validation
+
+#### Coverage Targets
+
+- **30% minimum coverage** (informational, not enforced)
+- **V8 coverage provider** with LCOV, JSON, and HTML reports
+- **Codecov integration** for PR coverage tracking
+- **Automated coverage comments** on pull requests
+
+#### Development Workflow
+
+1. **Write tests first** for new features (TDD approach)
+2. **Run tests frequently** during development with `yarn test:watch`
+3. **Check coverage** before submitting PRs with `yarn test:coverage`
+4. **Review test reports** in the generated `coverage/` directory
+
+#### Continuous Integration
+
+- **Automated testing** on every push to `dev` branch
+- **PR validation** with coverage reporting and visual indicators
+- **GitHub Actions workflows** handle linting, type checking, and testing
+- **Codecov uploads** provide detailed coverage tracking across commits
+
 ### 🐳 Docker Development Commands
 
 The project includes dedicated Docker scripts for local development and security testing:
