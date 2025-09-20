@@ -116,6 +116,10 @@ export interface UnthreadMessage {
 	conversationId?: string;
 	/** Message text content (alternative field name) */
 	text?: string;
+	/** Webhook attachment metadata (for enhanced processing) */
+	webhookAttachments?: WebhookAttachments;
+	/** Files array from webhook events */
+	files?: WebhookFileData[];
 }
 
 /**
@@ -146,6 +150,47 @@ export interface MessageAttachment {
 	content_type: string;
 	/** File size in bytes */
 	size: number;
+}
+
+/**
+ * Webhook attachment metadata structure
+ * Provides instant file information without array processing
+ * Based on unthread-telegram-bot implementation
+ */
+export interface WebhookAttachments {
+	/** Instant boolean check for file presence */
+	hasFiles: boolean;
+	/** Count without array.length calls */
+	fileCount: number;
+	/** Pre-calculated total size in bytes */
+	totalSize: number;
+	/** Unique MIME types for categorization */
+	types: string[];
+	/** All file names (correlates with data.files[i]) */
+	names: string[];
+}
+
+/**
+ * Individual file data structure from webhook
+ * Maintains compatibility with existing Slack file format
+ */
+export interface WebhookFileData {
+	/** File identifier for downloads */
+	id: string;
+	/** Original filename */
+	name: string;
+	/** File size in bytes */
+	size: number;
+	/** MIME type for processing decisions */
+	mimetype: string;
+	/** Private download URL */
+	urlPrivate?: string;
+	/** Direct download URL */
+	urlPrivateDownload?: string;
+	/** File extension (optional) */
+	filetype?: string;
+	/** Display title (optional) */
+	title?: string;
 }
 
 /**
@@ -184,6 +229,48 @@ export interface WebhookPayload {
 	timestamp: string;
 	/** Event-specific data payload */
 	data: UnthreadTicket | UnthreadMessage | Record<string, unknown>;
+	/** Enhanced attachment metadata for efficient processing */
+	attachments?: WebhookAttachments;
+}
+
+/**
+ * Enhanced webhook event structure for Discord processing
+ * Based on unthread-telegram-bot patterns with Discord adaptations
+ */
+export interface EnhancedWebhookEvent {
+	/** Platform identifier */
+	platform: 'unthread';
+	/** Target platform for this bot */
+	targetPlatform: 'discord';
+	/** Event type */
+	type: 'message_created' | 'conversation_updated';
+	/** Source platform (dashboard, slack, etc.) */
+	sourcePlatform: string;
+	/** Enhanced attachment metadata */
+	attachments?: WebhookAttachments;
+	/** Event data */
+	data: {
+		/** Message/conversation ID */
+		id: string;
+		/** Message content */
+		content?: string;
+		/** Message text (alternative field) */
+		text?: string;
+		/** Files array for processing */
+		files?: WebhookFileData[];
+		/** Conversation identifier */
+		conversationId: string;
+		/** User identifier */
+		userId?: string;
+		/** Additional metadata */
+		metadata?: Record<string, unknown>;
+		/** Other webhook data fields */
+		[key: string]: unknown;
+	};
+	/** Event timestamp */
+	timestamp: number;
+	/** Unique event identifier */
+	eventId: string;
 }
 
 /**
