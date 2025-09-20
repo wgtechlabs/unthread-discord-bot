@@ -317,7 +317,7 @@ export interface MockFetchResponse {
 export function createFetchMock(
   responses: Record<string, MockFetchResponse>
 ): ReturnType<typeof vi.fn> {
-  return vi.fn().mockImplementation(async (url: string | URL, options?: any) => {
+  return vi.fn().mockImplementation(async (url: string | URL, _options?: any) => {
     const urlString = typeof url === 'string' ? url : url.toString();
     
     // Find matching response pattern

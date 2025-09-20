@@ -51,26 +51,6 @@ vi.mock('discord.js', () => {
     tag: 'testuser#0001'
   };
 
-  const mockMessage = {
-    id: 'test_message_id',
-    content: 'Test message content',
-    author: mockUser,
-    channel: {
-      id: 'test_channel_id',
-      name: 'test-channel',
-      type: 0,
-      send: vi.fn().mockResolvedValue({ id: 'sent_message_id' })
-    },
-    guild: {
-      id: 'test_guild_id',
-      name: 'Test Guild'
-    },
-    createdTimestamp: Date.now(),
-    reply: vi.fn().mockResolvedValue({ id: 'reply_message_id' }),
-    edit: vi.fn().mockResolvedValue({}),
-    delete: vi.fn().mockResolvedValue({})
-  };
-
   const mockThread = {
     id: 'test_thread_id',
     name: 'Test Thread',
@@ -203,8 +183,8 @@ vi.mock('discord.js', () => {
 global.fetch = vi.fn();
 
 // Default fetch implementation for successful API responses
-const mockFetchImplementation = vi.fn((url: string, options?: any) => {
-  const urlStr = typeof url === 'string' ? url : url.toString();
+const mockFetchImplementation = vi.fn((url: string | Request, options?: any) => {
+  const urlStr = typeof url === 'string' ? url : (url as Request).url;
   
   // Mock customer creation response
   if (urlStr.includes('/customers') && options?.method === 'POST') {
@@ -326,7 +306,14 @@ vi.mock('@wgtechlabs/log-engine', () => ({
     error: vi.fn(),
     trace: vi.fn(),
     success: vi.fn(),
-    log: vi.fn()
+    log: vi.fn(),
+    configure: vi.fn()
+  },
+  LogMode: {
+    DEBUG: 'debug',
+    INFO: 'info',
+    WARN: 'warn',
+    ERROR: 'error'
   }
 }));
 
@@ -340,14 +327,14 @@ vi.mock('express', () => {
     use: vi.fn(),
     get: vi.fn(),
     post: vi.fn(),
-    listen: vi.fn((port, callback) => {
+    listen: vi.fn((_port, callback) => {
       if (callback) callback();
       return { close: vi.fn() };
     }),
     set: vi.fn()
   };
   
-  const expressMock = vi.fn(() => mockApp);
+  const expressMock = vi.fn(() => mockApp) as any;
   expressMock.json = vi.fn();
   expressMock.urlencoded = vi.fn();
   expressMock.static = vi.fn();
