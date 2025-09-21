@@ -3,6 +3,28 @@
  *
  * Contains common utility types and interfaces used across the application.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * These types ensure consistency and type safety throughout the codebase.
+ * When creating new utility functions or API integrations, check here first
+ * for existing types that might be reusable.
+ *
+ * 🔧 TYPE CATEGORIES:
+ * ==================
+ * - Retry Types: Configuration for retry operations
+ * - API Types: Common request/response structures
+ * - File Types: Attachment and file handling
+ * - Pagination Types: For paginated API responses
+ * - Database Types: Common database operation results
+ *
+ * 💡 BEST PRACTICES:
+ * =================
+ * - Use generic types for reusability (ApiResponse<T>, DatabaseResult<T>)
+ * - Document complex types with inline comments
+ * - Export types for use in other modules
+ * - Keep utility types simple and focused
+ * - Prefer composition over inheritance for complex types
+ *
  * @module types/utils
  */
 

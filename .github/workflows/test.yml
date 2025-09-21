@@ -1,0 +1,124 @@
+---
+name: Test
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'tsconfig.json'
+      - 'vitest.config.ts'
+      - '.github/workflows/test.yml'
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'tsconfig.json'
+      - 'vitest.config.ts'
+      - '.github/workflows/test.yml'
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  testing:
+    name: Testing
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run linter
+        run: yarn lint
+
+      - name: Run type checking
+        run: yarn build
+
+      - name: Run tests (fast feedback)
+        run: yarn test:run
+
+      - name: Run tests with coverage (detailed analysis)
+        run: yarn test:coverage
+        if: success()
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: discord-bot-coverage
+          fail_ci_if_error: false
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: |
+            coverage/
+            !coverage/tmp/
+          retention-days: 7
+
+      - name: Check test results
+        if: always()
+        id: check-test-results
+        run: echo "found=$(test -f coverage/test-results.json && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always() && steps.check-test-results.outputs.found == 'true'
+        with:
+          name: test-results
+          path: coverage/test-results.json
+          retention-days: 7
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check if tests passed by looking for test results
+          if [ -f coverage/test-results.json ] || [ -d coverage ]; then
+            echo "**✅ Tests completed successfully!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Check if coverage was collected
+            if [ -f coverage/lcov.info ]; then
+              echo "**✅ Coverage analysis completed!**" >> $GITHUB_STEP_SUMMARY
+              echo "📊 **Coverage Report**: Available in artifacts and Codecov" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**⚠️ Coverage analysis skipped** (tests failed or coverage collection issue)" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            echo "📋 **Test Results**: Available in uploaded artifacts" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**❌ Tests failed!**" >> $GITHUB_STEP_SUMMARY
+            echo "Coverage analysis was skipped due to test failures." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔄 Two-Stage Testing Process:" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Fast Test Execution** - Quick feedback on test results" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Coverage Analysis** - Detailed coverage collection (only if tests pass)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📁 Artifacts Generated:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`coverage-report\`: HTML coverage report and LCOV data" >> $GITHUB_STEP_SUMMARY
+          echo "- \`test-results\`: JSON test results for analysis" >> $GITHUB_STEP_SUMMARY

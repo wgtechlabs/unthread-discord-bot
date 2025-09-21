@@ -1,21 +1,42 @@
 /**
  * Unthread Discord Bot - Main Entry Point
  *
- * This is the primary server file that initializes the Discord bot and Express webhook server.
- * The bot connects to Discord and handles slash commands, while the Express server
- * receives webhooks from Unthread to sync ticket updates.
+ * This is the primary server file that initializes the Discord bot as a Redis consumer.
+ * The bot connects to Discord and handles slash commands, while consuming events
+ * from Redis queue populated by the unthread-webhook-server.
+ *
+ * 🏗️ ARCHITECTURE OVERVIEW FOR CONTRIBUTORS:
+ * ==========================================
+ * This bot follows a modular, Redis-based architecture:
+ *
+ * 1. Discord Client: Handles real-time Discord events (messages, interactions)
+ * 2. Redis Consumer: Consumes webhook events from Redis queue
+ * 3. 3-Layer Storage: PostgreSQL (L3) + Redis (L2) + Memory (L1) via BotsStore
+ *
+ * Data Flow:
+ * Discord → Bot → Unthread API → Webhook Server → Redis Queue → Discord Bot
  *
  * Key Components:
  * - Discord.js Client with required intents and partials
- * - Express server for webhook handling
  * - Command and event loader system
- * - Global client reference for webhook integration
+ * - Global client reference for integration
+ * - Redis-based event consumption
+ * - BotsStore SDK for unified data persistence
  *
- * Architecture:
- * - Built with TypeScript for type safety and maintainability
- * - Follows KISS (Keep It Simple, Stupid) principle
- * - Clean code approach with comprehensive documentation
- * - Modular design with clear separation of concerns
+ * 🔧 DEVELOPMENT SETUP:
+ * =====================
+ * 1. Copy .env.example to .env and fill required variables
+ * 2. Run `yarn install` to install dependencies
+ * 3. Run `yarn dev` for development with auto-reload
+ * 4. Use `yarn deploycommand` to register slash commands
+ * 5. Check logs for connection status and errors
+ *
+ * 🐛 TROUBLESHOOTING:
+ * ==================
+ * - Bot not responding? Check DISCORD_BOT_TOKEN and permissions
+ * - Webhook issues? Verify Redis connections and queue processing
+ * - Commands not working? Redeploy with `yarn deploycommand`
+ * - Database errors? Check PostgreSQL connection and migrations
  *
  * Environment Variables Required:
  * - DISCORD_BOT_TOKEN: Bot token from Discord Developer Portal
@@ -23,11 +44,15 @@
  * - GUILD_ID: Discord server ID where commands will be deployed
  * - UNTHREAD_API_KEY: API key for Unthread integration
  * - UNTHREAD_SLACK_CHANNEL_ID: Slack channel ID for ticket routing
- * - UNTHREAD_WEBHOOK_SECRET: Secret for webhook signature verification
- * - REDIS_URL: Redis connection URL for caching and data persistence (required)
+ * - POSTGRES_URL: PostgreSQL connection URL for L3 persistent storage (required)
+ * - PLATFORM_REDIS_URL: Redis connection URL for L2 cache layer (required)
+ * - WEBHOOK_REDIS_URL: Redis connection URL for webhook queue processing (required)
  * - FORUM_CHANNEL_IDS: Comma-separated list of forum channel IDs for automatic ticket creation (optional)
- * - DEBUG_MODE: Enable verbose logging during development (optional, defaults to false)
- * - PORT: Port for webhook server (optional, defaults to 3000)
+ * - NODE_ENV: Environment mode (development enables debug logging, production uses info level)
+ *
+ * NOTE: The bot now operates as a pure Redis consumer, processing events from
+ * the unthread-webhook-server via Redis queue, eliminating the need for direct
+ * webhook endpoints.
  *
  * @module index
  * @author Waren Gonzaga
@@ -52,74 +77,66 @@ dotenv.config();
 import * as fs from 'fs';
 import * as path from 'node:path';
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
-import express from 'express';
 import { BotConfig } from './types/discord';
-import { webhookHandler } from './services/webhook';
 import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
-import { version } from '../package.json';
 import './types/global';
 
-// Import database to ensure Redis connection is tested on startup
-import { testRedisConnection } from './utils/database';
-import keyv from './utils/database';
+// Import new storage architecture
+import { BotsStore } from './sdk/bots-brain/BotsStore';
+
+// Import clean webhook consumer
+import { WebhookConsumer } from './sdk/webhook-consumer';
 
 /**
  * Startup Validation Function
  *
  * Validates all required dependencies before starting the bot.
- * This includes Redis connection testing and other critical validations.
+ * This includes storage layers testing and other critical validations.
  *
- * @throws {Error} When Redis connection fails or other startup requirements are not met
+ * @throws {Error} When storage connection fails or other startup requirements are not met
  */
 async function validateStartupRequirements(): Promise<void> {
 	LogEngine.info('Validating startup requirements...');
 
 	try {
-		// Test Redis connection explicitly
-		await testRedisConnection();
+		// Initialize and test the new storage architecture
+		const botsStore = await BotsStore.initialize();
+		const health = await botsStore.healthCheck();
+
+		// Log detailed health status for debugging
+		LogEngine.info('Storage health check results:', health);
+
+		// Check storage health with specific error details
+		const failedLayers = [];
+		if (!health.memory) failedLayers.push('memory');
+		if (!health.redis) failedLayers.push('redis');
+		if (!health.postgres) failedLayers.push('postgres');
+		if (!health.database_pool) failedLayers.push('database_pool');
+
+		if (failedLayers.length > 0) {
+			throw new Error(`Storage layer health check failed: ${failedLayers.join(', ')} layer(s) unhealthy`);
+		}
+
+		LogEngine.info('3-layer storage architecture validated successfully');
 		LogEngine.info('All startup requirements validated successfully');
 	}
 	catch (error) {
-		LogEngine.error('Startup validation failed:', error);
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		const errorStack = error instanceof Error ? error.stack : undefined;
+		LogEngine.error('Startup validation failed:', errorMessage);
+		if (errorStack) {
+			LogEngine.debug('Error stack:', errorStack);
+		}
 		process.exit(1);
-	}
-}
-
-/**
- * Redis Health Check
- *
- * Safely probes Redis connection without throwing errors.
- * Returns status and error information for health monitoring.
- */
-async function checkRedisHealth(): Promise<{ status: 'connected' | 'disconnected'; error?: string }> {
-	try {
-		// Use the keyv instance to perform a quick health check
-		const testKey = `health:check:${Date.now()}`;
-		const testValue = 'ping';
-
-		// Set and immediately get a test value with short TTL
-		await keyv.set(testKey, testValue, 1000);
-		const result = await keyv.get(testKey);
-
-		if (result === testValue) {
-			return { status: 'connected' };
-		}
-		else {
-			return { status: 'disconnected', error: 'Redis ping test failed - value mismatch' };
-		}
-	}
-	catch (error) {
-		const errorMessage = error instanceof Error ? error.message : 'Unknown Redis error';
-		return { status: 'disconnected', error: errorMessage };
 	}
 }
 
 /**
  * Main startup function
  *
- * Initializes the Discord bot and Express webhook server with comprehensive
- * environment validation and error handling.
+ * Initializes the Discord bot with comprehensive environment validation
+ * and error handling. Now operates as a pure Redis consumer.
  *
  * @throws {Error} When required environment variables are missing or invalid
  * @throws {Error} When Discord client login fails
@@ -128,8 +145,17 @@ async function checkRedisHealth(): Promise<{ status: 'connected' | 'disconnected
 async function main(): Promise<void> {
 	try {
 		// Step 1: Load and validate environment variables
-		const requiredEnvVars = ['DISCORD_BOT_TOKEN', 'REDIS_URL', 'CLIENT_ID', 'GUILD_ID', 'UNTHREAD_API_KEY', 'UNTHREAD_SLACK_CHANNEL_ID', 'UNTHREAD_WEBHOOK_SECRET'];
-		const { DISCORD_BOT_TOKEN, REDIS_URL } = process.env as Partial<BotConfig>;
+		const requiredEnvVars = [
+			'DISCORD_BOT_TOKEN',
+			'CLIENT_ID',
+			'GUILD_ID',
+			'UNTHREAD_API_KEY',
+			'UNTHREAD_SLACK_CHANNEL_ID',
+			'POSTGRES_URL',
+			'PLATFORM_REDIS_URL',
+			'WEBHOOK_REDIS_URL',
+		];
+		const { DISCORD_BOT_TOKEN, POSTGRES_URL, PLATFORM_REDIS_URL } = process.env as Partial<BotConfig>;
 
 		const missingVars: string[] = [];
 
@@ -156,25 +182,33 @@ async function main(): Promise<void> {
 			process.exit(1);
 		}
 
-		if (!REDIS_URL) {
-			LogEngine.error('REDIS_URL is required but not set in environment variables');
-			LogEngine.error('Redis is now required for proper caching and data persistence');
+		if (!POSTGRES_URL) {
+			LogEngine.error('POSTGRES_URL is required for PostgreSQL connection');
+			LogEngine.error('Please provide a valid PostgreSQL connection URL (e.g., postgres://user:password@localhost:5432/database)');
+			process.exit(1);
+		}
+
+		if (!PLATFORM_REDIS_URL) {
+			LogEngine.error('PLATFORM_REDIS_URL is required for L2 cache layer');
 			LogEngine.error('Please provide a valid Redis connection URL (e.g., redis://localhost:6379)');
 			process.exit(1);
 		}
 
-		// Step 2: Validate all dependencies before proceeding
+		// Step 3: Initialize and validate the new 3-layer storage architecture
 		await validateStartupRequirements();
 
-		// Step 3: Start Discord login after validation succeeds
+		// Step 4: Start Discord login after validation succeeds
+		LogEngine.info('Logging in to Discord...');
 		await client.login(DISCORD_BOT_TOKEN);
 		global.discordClient = client;
 		LogEngine.info('Discord client is ready and set globally.');
 
-		// Step 4: Start Express server after all validation and setup completes
-		app.listen(port, () => {
-			LogEngine.info(`Server listening on port ${port}`);
-		});
+		// Step 5: Initialize webhook consumer after Discord client is ready
+		// This ensures deterministic startup order without race conditions
+		LogEngine.info('Initializing webhook consumer...');
+		await initializeWebhookConsumer();
+
+		LogEngine.info('🚀 Unthread Discord Bot started successfully as Redis consumer');
 	}
 	catch (error) {
 		LogEngine.error('Failed to start bot:', error);
@@ -182,19 +216,6 @@ async function main(): Promise<void> {
 	}
 }
 
-
-// Parse port with proper fallback and validation
-const { PORT } = process.env as Partial<BotConfig>;
-let port = 3000;
-if (PORT) {
-	const parsedPort = parseInt(PORT, 10);
-	if (!Number.isNaN(parsedPort) && parsedPort > 0 && parsedPort <= 65535) {
-		port = parsedPort;
-	}
-	else {
-		LogEngine.warn(`Invalid PORT value "${PORT}", defaulting to 3000`);
-	}
-}
 
 /**
  * Extended Discord client with commands collection
@@ -224,13 +245,6 @@ interface EventModule {
 }
 
 /**
- * Express request with raw body for webhook verification
- */
-interface WebhookRequest extends express.Request {
-	rawBody: string;
-}
-
-/**
  * Discord Client Configuration
  *
  * Configures the Discord client with necessary intents and partials:
@@ -257,82 +271,6 @@ const client = new Client({
 		Partials.ThreadMember,
 	],
 }) as ExtendedClient;
-
-/**
- * Express Application Setup
- */
-const app = express();
-
-/**
- * Raw Body JSON Middleware for Webhook Signature Verification
- *
- * This middleware is specifically designed for webhook routes that require
- * raw body access for HMAC signature verification. It captures the raw body
- * while still parsing JSON for convenient access. Includes a 1MB body size
- * limit for security protection against DoS attacks.
- */
-const rawBodyJsonMiddleware = express.json({
-	limit: '1mb',
-	verify: (req: express.Request, _res: express.Response, buf: Buffer, encoding: string) => {
-		const webhookReq = req as WebhookRequest;
-		webhookReq.rawBody = buf.toString(encoding as BufferEncoding);
-	},
-});
-
-/**
- * Webhook Route Handler
- *
- * Handles incoming webhooks from Unthread for ticket updates and synchronization.
- * Uses dedicated JSON middleware with raw body capture for signature verification.
- * All webhook processing is delegated to the webhookHandler service.
- */
-app.post('/webhook/unthread', rawBodyJsonMiddleware, webhookHandler);
-
-/**
- * Health Check Endpoint
- *
- * Provides a simple health check endpoint for monitoring and load balancers.
- * Returns application status and dependency health information.
- */
-app.get('/health', async (_req: express.Request, res: express.Response) => {
-	try {
-		// Perform real Redis health check
-		const redisHealth = await checkRedisHealth();
-
-		// Basic health check response
-		const healthStatus = {
-			status: 'healthy',
-			timestamp: new Date().toISOString(),
-			uptime: process.uptime(),
-			version: version,
-			environment: process.env.NODE_ENV || 'development',
-			discord: {
-				status: client?.isReady() ? 'connected' : 'disconnected',
-				user: client?.user?.displayName || client?.user?.username || 'not logged in',
-			},
-			redis: redisHealth,
-		};
-
-		// Set overall status based on dependencies
-		const isHealthy = redisHealth.status === 'connected' && (client?.isReady() ?? false);
-		if (isHealthy) {
-			healthStatus.status = 'healthy';
-			res.status(200).json(healthStatus);
-		}
-		else {
-			healthStatus.status = 'unhealthy';
-			res.status(503).json(healthStatus);
-		}
-	}
-	catch (error) {
-		LogEngine.error('Health check failed:', error);
-		res.status(503).json({
-			status: 'unhealthy',
-			timestamp: new Date().toISOString(),
-			error: error instanceof Error ? error.message : 'Unknown error',
-		});
-	}
-});
 
 /**
  * Command Loading System
@@ -474,3 +412,65 @@ catch (error) {
 
 // Kick off startup after all modules are wired
 main();
+
+/**
+ * Initialize WebhookConsumer for Redis-based event processing
+ *
+ * This replaces the complex BullMQ implementation with a simple Redis consumer
+ * that polls the queue and processes events directly.
+ */
+let webhookConsumer: WebhookConsumer | null = null;
+
+/**
+ * Initialize WebhookConsumer after Discord client is ready
+ *
+ * Uses proper event-driven startup coordination instead of arbitrary timeouts.
+ * Waits for the ClientReady event to ensure Discord client is fully initialized.
+ */
+async function initializeWebhookConsumer(): Promise<void> {
+	try {
+		// Check if webhook Redis URL is configured
+		if (process.env.WEBHOOK_REDIS_URL) {
+			LogEngine.info('Initializing clean Redis-based webhook consumer...');
+
+			webhookConsumer = new WebhookConsumer({
+				redisUrl: process.env.WEBHOOK_REDIS_URL,
+				queueName: 'unthread-events',
+				// Poll every second
+				pollInterval: 1000,
+			});
+
+			await webhookConsumer.start();
+			LogEngine.info('✅ Webhook consumer started successfully - polling Redis queue for events');
+		}
+		else {
+			LogEngine.warn('WEBHOOK_REDIS_URL not configured - webhook consumer disabled');
+		}
+	}
+	catch (error) {
+		LogEngine.error('Failed to initialize webhook consumer:', error);
+		LogEngine.warn('Bot will continue without Redis-based webhook processing');
+	}
+}
+
+// WebhookConsumer initialization is now handled in main() for deterministic startup order
+// No separate ready listener needed as initialization happens after login completes
+
+/**
+ * Graceful shutdown handler for WebhookConsumer
+ */
+process.on('SIGINT', async () => {
+	LogEngine.info('Received SIGINT - shutting down webhook consumer...');
+	if (webhookConsumer) {
+		await webhookConsumer.stop();
+		LogEngine.info('Webhook consumer stopped');
+	}
+});
+
+process.on('SIGTERM', async () => {
+	LogEngine.info('Received SIGTERM - shutting down webhook consumer...');
+	if (webhookConsumer) {
+		await webhookConsumer.stop();
+		LogEngine.info('Webhook consumer stopped');
+	}
+});

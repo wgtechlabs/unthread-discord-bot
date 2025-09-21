@@ -1,8 +1,10 @@
 # Unthread Discord Bot 🤖 - Official Integration
 
-[![made by](https://img.shields.io/badge/made%20by-WG%20Technology%20Labs-0060a0.svg?logo=github&longCache=true&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs) [![sponsors](https://img.shields.io/badge/sponsor-%E2%9D%A4-%23db61a2.svg?&logo=github&logoColor=white&labelColor=181717&style=flat-square)](https://github.com/sponsors/wgtechlabs) [![release](https://img.shields.io/github/release/wgtechlabs/unthread-discord-bot.svg?logo=github&labelColor=181717&color=green&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/releases) [![star](https://img.shields.io/github/stars/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&color=yellow&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/stargazers) [![license](https://img.shields.io/github/license/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/blob/main/license)
+[![made by](https://img.shields.io/badge/made%20by-WG%20Tech%20Labs-0060a0.svg?logo=github&longCache=true&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs) [![official](https://img.shields.io/badge/official-Unthread%20Extension-FF5241.svg?logo=discord&logoColor=white&labelColor=181717&style=flat-square)](https://unthread.com) [![sponsors](https://img.shields.io/badge/sponsor-%E2%9D%A4-%23db61a2.svg?&logo=github&logoColor=white&labelColor=181717&style=flat-square)](https://github.com/sponsors/wgtechlabs)
 
 [![banner](https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/repo_banner.jpg)](https://github.com/wgtechlabs/unthread-discord-bot)
+
+[![release workflow](https://img.shields.io/github/actions/workflow/status/wgtechlabs/unthread-discord-bot/release.yml?style=flat-square&logo=github&label=release&labelColor=181717)](https://github.com/wgtechlabs/unthread-discord-bot/actions/workflows/release.yml) [![build workflow](https://img.shields.io/github/actions/workflow/status/wgtechlabs/unthread-discord-bot/build.yml?branch=dev&style=flat-square&logo=github&labelColor=181717&label=build)](https://github.com/wgtechlabs/unthread-discord-bot/actions/workflows/build.yml) [![version](https://img.shields.io/github/release/wgtechlabs/unthread-discord-bot.svg?logo=github&labelColor=181717&color=default&style=flat-square&label=version)](https://github.com/wgtechlabs/unthread-discord-bot/releases) [![star](https://img.shields.io/github/stars/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&color=yellow&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/stargazers) [![license](https://img.shields.io/github/license/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/blob/main/license)
 
 The Unthread Discord Bot seamlessly connects your Discord community with Unthread's powerful ticket management system. This official integration transforms how you handle support requests by enabling users to create and manage tickets directly within Discord.
 
@@ -43,11 +45,70 @@ Ready to transform your Discord support experience? Get started in minutes with 
 
 ## 📥 Easy Deployment
 
+### 🚀 One-Click Railway Deployment
+
 You can use Railway to deploy this bot with just one click. Railway offers a seamless deployment experience without any configuration hassles.
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/nVHIjj?referralCode=dTwT-i)
 > [!TIP]
 > When you deploy using the Railway button above, you're directly supporting the ongoing development and maintenance of this project. Your support helps keep this bot free and continuously improving with new features. Thank you for your contribution! 🙏✨
+
+### 🐳 Docker Deployment
+
+The bot is also available as pre-built Docker images with multi-architecture support (linux/amd64, linux/arm64):
+
+**Docker Hub Images:**
+```bash
+# Latest stable release
+docker pull wgtechlabs/unthread-discord-bot:latest
+
+# Specific version
+docker pull wgtechlabs/unthread-discord-bot:1.0.0
+
+# Development build (from dev branch)
+docker pull wgtechlabs/unthread-discord-bot:dev
+```
+
+**GitHub Container Registry:**
+```bash
+# Latest stable release
+docker pull ghcr.io/wgtechlabs/unthread-discord-bot:latest
+
+# Specific version (with v prefix)
+docker pull ghcr.io/wgtechlabs/unthread-discord-bot:v1.0.0
+
+# Development build
+docker pull ghcr.io/wgtechlabs/unthread-discord-bot:dev
+```
+
+**Quick start with Docker:**
+```bash
+# Create environment file
+cp .env.example .env
+# Edit .env with your configuration
+
+# Run with Docker
+docker run --env-file .env wgtechlabs/unthread-discord-bot:latest
+
+# Or with Docker Compose
+docker-compose up -d
+```
+
+### 🛡️ Security & Supply Chain
+
+All Docker images include comprehensive security features:
+
+- **SBOM Generation**: Software Bill of Materials for transparency
+- **Vulnerability Scanning**: Automated security scanning with Trivy
+- **Supply Chain Attestations**: Build provenance and authenticity verification
+- **Multi-stage Builds**: Minimal runtime images with security best practices
+- **Non-root Execution**: Containers run as unprivileged `nodejs` user
+
+**Generate SBOM locally:**
+```bash
+# For contributors and security analysis
+./scripts/generate-sbom.sh unthread-discord-bot:latest
+```
 
 <!-- ## 😎 Demo
 
@@ -87,17 +148,44 @@ You can use Railway to deploy this bot with just one click. Railway offers a sea
 
 ## 🏗️ Architecture
 
-This bot is built with **TypeScript** for enhanced maintainability, type safety, and developer experience. The codebase follows clean coding principles and the KISS (Keep It Simple, Stupid) methodology for easy maintenance and extensibility.
+This bot is built with **TypeScript** for enhanced maintainability, type safety, and developer experience. The codebase follows clean coding principles and implements a modern **3-layer data persistence architecture** for optimal performance and reliability.
+
+### 🚀 New 3-Layer Storage Architecture
+
+**Layer 1 (L1): In-Memory Cache**
+- Ultra-fast access for frequently used data
+- LRU eviction policy to manage memory efficiently
+- Automatic cache warming from lower layers
+
+**Layer 2 (L2): Redis Cache**
+- Distributed cache for persistence across restarts
+- Fast lookup with millisecond response times
+- Shared between application instances
+
+**Layer 3 (L3): PostgreSQL Database**
+- Primary source of truth for all data
+- ACID compliance and data integrity
+- Complex queries and reporting capabilities
 
 ### Technology Stack
 
 - **TypeScript**: For type safety and better code maintainability
 - **Discord.js v14**: Modern Discord API interactions
-- **Express.js**: Webhook server for Unthread integration
+- **Express.js**: RESTful API server with comprehensive monitoring
 - **Node.js 18+**: Runtime environment
 - **Yarn with PnP**: Package management and dependency resolution
 - **ESLint**: Code quality and consistent formatting
-- **Redis**: Required for caching and data persistence
+
+**Storage & Performance:**
+- **PostgreSQL**: Primary database with full ACID compliance
+- **Redis**: High-performance L2 cache and queue management
+- **BullMQ**: Robust job queue system for webhook processing
+- **IORedis**: High-performance Redis client with cluster support
+
+**Infrastructure:**
+- **Docker Compose**: Complete local development environment
+- **Health Monitoring**: Comprehensive health checks and metrics
+- **Queue Processing**: Async webhook handling with retry logic
 
 ### Build System
 
@@ -115,7 +203,176 @@ yarn deploycommand
 
 # Production start
 yarn start
+
+# Linting
+yarn lint
+yarn lint:fix
 ```
+
+### 🧪 Testing
+
+The project includes comprehensive unit testing with Vitest and automated CI/CD integration:
+
+#### Test Commands
+
+```bash
+# Run all tests
+yarn test
+
+# Run tests once (CI mode)
+yarn test:run
+
+# Run tests with coverage report
+yarn test:coverage
+
+# Run tests in watch mode (development)
+yarn test:watch
+
+# Open Vitest UI for interactive testing
+yarn test:ui
+```
+
+#### Test Structure
+
+The test suite is organized into focused modules that mirror the source code structure:
+
+```
+src/__tests__/
+├── vitest.setup.ts           # Global test configuration and mocking
+├── async-test-utils.ts       # Advanced async testing utilities
+├── infrastructure.test.ts    # Testing infrastructure validation
+├── utils/                    # Utility function tests
+│   ├── decodeHtmlEntities.test.ts
+│   ├── retry.test.ts
+│   ├── messageUtils.test.ts
+│   ├── botUtils.test.ts
+│   └── ...
+├── config/                   # Configuration tests
+│   ├── defaults.test.ts
+│   └── ...
+├── services/                 # Service integration tests
+│   ├── unthread.test.ts
+│   └── ...
+└── events/                   # Event handler tests
+    ├── messageCreate.test.ts
+    └── ...
+```
+
+#### Test Coverage
+
+- **100+ tests** covering core functionality
+- **Comprehensive mocking** of Discord.js, Unthread API, Redis, and external dependencies
+- **Real-world scenarios** including API failures, message processing, and attachment handling
+- **Performance testing** for large message handling and timing-sensitive operations
+- **Edge case coverage** with error handling and input validation
+
+#### Coverage Targets
+
+- **30% minimum coverage** (informational, not enforced)
+- **V8 coverage provider** with LCOV, JSON, and HTML reports
+- **Codecov integration** for PR coverage tracking
+- **Automated coverage comments** on pull requests
+
+#### Development Workflow
+
+1. **Write tests first** for new features (TDD approach)
+2. **Run tests frequently** during development with `yarn test:watch`
+3. **Check coverage** before submitting PRs with `yarn test:coverage`
+4. **Review test reports** in the generated `coverage/` directory
+
+#### Continuous Integration
+
+- **Automated testing** on every push to `dev` branch
+- **PR validation** with coverage reporting and visual indicators
+- **GitHub Actions workflows** handle linting, type checking, and testing
+- **Codecov uploads** provide detailed coverage tracking across commits
+
+### 🐳 Docker Development Commands
+
+The project includes dedicated Docker scripts for local development and security testing:
+
+```bash
+# Build Docker image locally
+yarn docker:build
+
+# Build with enhanced security (no cache)
+yarn docker:build:secure
+
+# Build with SBOM and provenance generation
+yarn docker:build:sbom
+
+# Run the Docker container
+yarn docker:run
+
+# Generate SBOM for security analysis
+yarn sbom:generate
+```
+
+### 🚀 CI/CD Pipeline
+
+The project features a comprehensive CI/CD pipeline with GitHub Actions that automatically:
+
+**Development Builds (on `dev` branch):**
+- Builds multi-architecture Docker images (linux/amd64, linux/arm64)
+- Publishes to Docker Hub and GitHub Container Registry with `dev` tags
+- Generates Software Bill of Materials (SBOM)
+- Performs vulnerability scanning with Trivy
+- Creates build attestations for supply chain security
+
+**Production Releases (on release tags):**
+- Builds and publishes versioned Docker images with semantic versioning
+- Creates multiple tag variants (latest, major, minor, patch)
+- Enhanced security scanning and reporting
+- Comprehensive release summaries with deployment instructions
+
+**Security Features:**
+- SBOM generation for transparency
+- Supply chain attestations
+- Vulnerability scanning results in GitHub Security tab
+- Non-root container execution
+
+### 🐳 Local Development with Docker
+
+For the complete development experience with all dependencies:
+
+```bash
+# Start all services (PostgreSQL, Redis, Bot)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f discord-bot
+
+# Stop all services
+docker-compose down
+
+# Reset all data
+docker-compose down -v
+```
+
+### 📊 Monitoring & Health Checks
+
+The bot operates as a pure Redis consumer without direct HTTP endpoints. Health monitoring is handled through:
+
+**Internal Health Checks:**
+- **Storage Layers**: Automatic validation of Memory (L1), Redis (L2), and PostgreSQL (L3) connectivity
+- **Discord Connection**: Real-time monitoring of Discord client connectivity
+- **Webhook Consumer**: Redis queue processing status and connection health
+
+**External Monitoring:**
+- **unthread-webhook-server**: Provides HTTP endpoints for external health checks at `http://localhost:3000/health`
+- **Docker Health Checks**: Container-level health monitoring via docker-compose
+- **Logging**: Comprehensive logging system for debugging and monitoring
+
+**Health Check Methods:**
+```typescript
+// Internal storage health check
+const health = await botsStore.healthCheck();
+
+// Webhook consumer health check  
+const consumerHealth = await webhookConsumer.healthCheck();
+```
+
+**Note**: The bot no longer exposes direct HTTP endpoints. All webhook processing is handled through the Redis queue populated by the separate unthread-webhook-server service.
 
 ## 📦 Manual Installation
 
@@ -166,23 +423,44 @@ yarn start
 
 > **Note**: The bot requires these specific permissions to create and manage threads for ticket handling. Missing permissions may cause functionality issues.
 
-### 4. Fill Out the Environment Files
+### 4. Setup Storage Dependencies
+
+**For Docker Compose (Recommended):**
+```bash
+# Use the provided Docker Compose configuration
+docker-compose up -d postgres redis-cache redis-queue
+```
+
+**For Manual Setup:**
+- **PostgreSQL 16+**: Required for L3 persistent storage
+- **Redis 7+**: Required for L2 cache and queue processing
+
+### 5. Fill Out the Environment Files
 
 1. Create a `.env` file in the root directory of your project.
 2. Copy the contents of `.env.example` to `.env`.
 3. Fill in the required information:
+
+**Discord Configuration:**
    - `DISCORD_BOT_TOKEN`: The token you copied from the "Bot" tab.
    - `CLIENT_ID`: Your application's client ID, found in the "General Information" tab.
    - `GUILD_ID`: The ID of the Discord server where you want to deploy the bot. [How to Get Your Discord Server ID](#how-to-get-your-discord-server-id)
+
+**Unthread Configuration:**
    - `UNTHREAD_API_KEY`: Your Unthread API key.
    - `UNTHREAD_SLACK_CHANNEL_ID`: Your Unthread Slack channel ID for ticket routing.
-   - `UNTHREAD_WEBHOOK_SECRET`: Your Unthread webhook secret.
-   - `REDIS_URL`: Redis connection URL for caching and data persistence (required).
+
+**Storage Configuration (3-Layer Architecture):**
+   - `POSTGRES_URL`: PostgreSQL connection string (e.g., `postgres://user:password@localhost:5432/database`)
+   - `PLATFORM_REDIS_URL`: Redis cache connection URL (e.g., `redis://localhost:6379`)
+   - `WEBHOOK_REDIS_URL`: Redis queue connection URL (e.g., `redis://localhost:6380`)
+
+**Optional Configuration:**
    - `FORUM_CHANNEL_IDS`: Comma-separated list of forum channel IDs for automatic ticket creation.
-   - `DEBUG_MODE`: Set to `true` for verbose logging during development (default: `false`).
+   - `NODE_ENV`: Set to `development` for verbose debug logging, or `production` for info-level logging (default: `production`).
    - `PORT`: Port for the webhook server (default: `3000`).
 
-### 5. Install and Run the Project Locally
+### 6. Install and Run the Project Locally
 
 1. Clone the repository and navigate to the project directory:
 
@@ -294,10 +572,10 @@ For local development, you'll need to expose your webhook endpoint to receive ev
 3. Under "Webhook Configuration", enter the following URL: `https://<YOUR_PUBLIC_URL>/webhook/unthread`
    - Replace `<YOUR_PUBLIC_URL>` with the public URL from your port forwarding setup
    - For production: Use your actual server domain (e.g., `https://your-bot-server.com/webhook/unthread`)
-4. Set the webhook secret to match your `UNTHREAD_WEBHOOK_SECRET` environment variable.
+4. Configure the webhook to send events to the unthread-webhook-server, which will queue them for the bot.
 5. Save the settings.
 
-Your bot should now be able to receive events from Unthread and sync ticket updates in real-time.
+**Note:** The Discord bot now receives events through a Redis queue from the unthread-webhook-server, similar to the Telegram bot architecture. Direct webhook signature validation has been removed.
 
 ### Configure Forum Channels (Optional)
 
@@ -351,13 +629,14 @@ Need assistance with the bot? Here's how to get help:
 **Forum channel tickets not creating:**
 
 - Confirm the channel IDs in `FORUM_CHANNEL_IDS` are actual forum channels (not text channels)
-- Enable Debug Mode (`DEBUG_MODE=true`) to see detailed logs
+- Set development environment (`NODE_ENV=development`) to see detailed logs
 - Check bot permissions in the specific forum channels
 
 **Webhook issues:**
 
 - Verify the webhook URL is accessible from the internet
-- Check that the `UNTHREAD_WEBHOOK_SECRET` matches your Unthread configuration
+- Ensure events are being queued properly in the Redis webhook queue
+- Check the unthread-webhook-server is processing and queuing events correctly
 - Ensure the Express server is running on the correct port
 
 **Redis connection problems:**

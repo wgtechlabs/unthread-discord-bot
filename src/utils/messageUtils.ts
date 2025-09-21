@@ -4,8 +4,34 @@
  * This module provides utility functions for processing messages between Discord and Unthread,
  * including duplicate detection, attachment handling, and message formatting.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * These utilities are critical for message synchronization quality. They prevent
+ * duplicate messages, handle attachments properly, and maintain message context
+ * during bidirectional sync between Discord and Unthread.
+ *
  * These utilities help ensure consistent message handling and prevent duplicate messages
  * from being synchronized between platforms, which can happen due to bidirectional sync.
+ *
+ * 🔄 KEY FUNCTIONS:
+ * ================
+ * - isDuplicateMessage: Prevents message loops and redundant syncing
+ * - containsDiscordAttachments: Detects attachments for special handling
+ * - removeAttachmentSection: Cleans attachment metadata for content comparison
+ * - processQuotedContent: Handles reply chains and quoted messages
+ *
+ * 🐛 DEBUGGING MESSAGE SYNC:
+ * =========================
+ * - Duplicate detection not working? Check content normalization logic
+ * - Attachments not processing? Verify URL patterns and content detection
+ * - Quote handling broken? Review reply chain parsing and formatting
+ * - Performance issues? Monitor message processing time and optimize patterns
+ *
+ * 🚨 SYNC LOOP PREVENTION:
+ * =======================
+ * The duplicate detection algorithms are crucial for preventing infinite loops
+ * when messages sync between Discord and Unthread. Always test changes carefully
+ * to ensure loops don't occur.
  *
  * @module utils/messageUtils
  */
@@ -63,7 +89,7 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 		return false;
 	}
 
-	// Check for exact content match
+	// Check for exact content match (case-sensitive)
 	const exactDuplicate = messages.some(msg => msg.content === trimmedContent);
 	if (exactDuplicate) {
 		LogEngine.debug('Exact duplicate message detected');
@@ -74,20 +100,32 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 	// Only apply fuzzy matching for messages with sufficient content
 	if (trimmedContent.length >= 10) {
 		const contentDuplicate = messages.some(msg => {
-			// Normalize whitespace for comparison
-			const strippedMsg = msg.content.replace(/\s+/g, ' ').trim();
-			const strippedNewContent = trimmedContent.replace(/\s+/g, ' ').trim();
-
-			// Only consider it a duplicate if one contains the other AND
-			// they're relatively close in length (to avoid false positives)
-			if (strippedMsg.includes(strippedNewContent) &&
-				strippedMsg.length <= strippedNewContent.length * 1.5) {
-				return true;
+			// First check if this is just a case difference (no fuzzy matching for that)
+			const originalContent = msg.content.trim();
+			if (originalContent.toLowerCase() === trimmedContent.toLowerCase() && originalContent !== trimmedContent) {
+				return false;
 			}
 
-			if (strippedNewContent.includes(strippedMsg) &&
-				strippedNewContent.length <= strippedMsg.length * 1.5) {
-				return true;
+			// Normalize whitespace and case for fuzzy comparison
+			const strippedMsg = msg.content.replace(/\s+/g, ' ').trim().toLowerCase();
+			const strippedNewContent = trimmedContent.replace(/\s+/g, ' ').trim().toLowerCase();
+
+			// Check if new content is contained in existing message
+			if (strippedMsg.includes(strippedNewContent)) {
+				// Ensure reasonable length ratio to avoid false positives
+				const ratio = strippedNewContent.length / strippedMsg.length;
+				if (ratio >= 0.3) {
+					return true;
+				}
+			}
+
+			// Check if existing message is contained in new content
+			if (strippedNewContent.includes(strippedMsg)) {
+				// Ensure reasonable length ratio to avoid false positives
+				const ratio = strippedMsg.length / strippedNewContent.length;
+				if (ratio >= 0.3) {
+					return true;
+				}
 			}
 
 			return false;
@@ -97,63 +135,6 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 			LogEngine.debug('Content duplicate message detected (fuzzy match)');
 			return true;
 		}
-	}
-
-	return false;
-}
-
-/**
- * Checks if a message contains Discord attachment links
- *
- * Discord attachments can be represented in various formats in messages:
- * - Markdown links with Discord CDN URLs
- * - Specially formatted attachment references with image/video/file prefixes
- * - Plain URLs to the Discord CDN
- *
- * This function detects these patterns to prevent duplicate attachments from
- * being synchronized between platforms.
- *
- * @param messageContent - Message content to check
- * @returns True if the message contains Discord attachments, false otherwise
- *
- * @example
- * ```typescript
- * const hasAttachments = containsDiscordAttachments(
- *   "Check this out: https://cdn.discordapp.com/attachments/123/456/image.png"
- * );
- * if (hasAttachments) {
- *   console.log("Message contains Discord attachments");
- * }
- * ```
- */
-function containsDiscordAttachments(messageContent: string): boolean {
-	if (!messageContent) return false;
-
-	// Enhanced Discord CDN attachment patterns - handles multiple formats globally
-	const patterns = [
-		// Pattern 1: <https://cdn.discordapp.com/attachments/...|file_name>
-		/<https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^>|]+\|(?:image|video|file)_\d+>/gi,
-		// Pattern 2: [file_name](https://cdn.discordapp.com/attachments/...)
-		/\[(?:image|video|file)_\d+\]\(https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^)]+\)/gi,
-		// Pattern 3: Direct CDN URLs
-		/https:\/\/cdn\.discordapp\.com\/attachments\/\d+\/\d+\/[^\s]+/gi,
-		// Pattern 4: Media CDN URLs
-		/https:\/\/media\.discordapp\.net\/attachments\/\d+\/\d+\/[^\s]+/gi,
-	];
-
-	// Check against all patterns
-	for (const pattern of patterns) {
-		if (pattern.test(messageContent)) {
-			return true;
-		}
-	}
-
-	// More comprehensive check for various formats
-	// These are the common markers for Discord attachments in synchronized messages
-	if (messageContent.includes('Attachments:') &&
-		(messageContent.includes('cdn.discordapp.com/attachments/') || messageContent.includes('media.discordapp.net/attachments/')) &&
-		(messageContent.includes('|image_') || messageContent.includes('|file_') || messageContent.includes('|video_'))) {
-		return true;
 	}
 
 	return false;
@@ -185,24 +166,32 @@ function containsDiscordAttachments(messageContent: string): boolean {
 function removeAttachmentSection(messageContent: string): string {
 	if (!messageContent) return '';
 
-	// Enhanced patterns for attachment sections - handles multiple formats
+	// Split content into sections and filter out attachment sections
+	const sections = messageContent.split(/\n\n/);
+	const filteredSections = sections.filter(section => {
+		// Remove sections that start with "Attachments:"
+		return !section.trim().startsWith('Attachments:');
+	});
+
+	// Join the remaining sections back together
+	const processedContent = filteredSections.join('\n\n');
+
+	// Also remove inline attachment patterns
 	const attachmentPatterns = [
-		// Pattern 1: Attachments: <url|file_name>
-		/\n\nAttachments: <[^>]+>/g,
-		// Pattern 2: Attachments: [file_name](url)
-		/\n\nAttachments: \[[^\]]+\]\([^)]+\)/g,
-		// Pattern 3: General attachment section with any content after "Attachments:"
-		/\n\nAttachments: .+$/g,
+		// Inline attachments in angle brackets with pipe separator
+		/ <[^>|]+\|[^>]+>/g,
+		// Markdown-style attachment links preceded by "and"
+		/ and \[[^\]]+\]\([^)]+\)/g,
+		// Standalone markdown attachment links
+		/ \[[^\]]+\]\([^)]+\)/g,
 	];
 
-	let processedContent = messageContent;
-
-	// Apply all patterns to remove various attachment formats
+	let finalContent = processedContent;
 	for (const pattern of attachmentPatterns) {
-		processedContent = processedContent.replace(pattern, '');
+		finalContent = finalContent.replace(pattern, '');
 	}
 
-	return processedContent.trim();
+	return finalContent.trim();
 }
 
 /**
@@ -305,7 +294,6 @@ function processQuotedContent(
  */
 const messageUtils = {
 	isDuplicateMessage,
-	containsDiscordAttachments,
 	removeAttachmentSection,
 	processQuotedContent,
 };
@@ -313,4 +301,4 @@ const messageUtils = {
 export default messageUtils;
 
 // Export individual functions for named imports
-export { isDuplicateMessage, containsDiscordAttachments, removeAttachmentSection, processQuotedContent };
+export { isDuplicateMessage, removeAttachmentSection, processQuotedContent };

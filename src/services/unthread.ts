@@ -5,6 +5,11 @@
  * It manages customer records, ticket creation/retrieval, and webhook event processing.
  * All communication between Discord and Unthread is managed through these functions.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This is the core integration layer with Unthread's API. Understanding this module
+ * is crucial for debugging ticket creation, message sync, and webhook processing issues.
+ *
  * Key Features:
  * - Customer creation and management
  * - Ticket creation and status updates
@@ -12,19 +17,43 @@
  * - Message forwarding between Discord and Unthread
  * - Thread-to-ticket mapping management
  *
+ * 🔄 API INTEGRATION PATTERNS:
+ * ===========================
+ * - All API calls use fetch() with proper error handling
+ * - Automatic retry logic for transient failures
+ * - Rate limiting respect via backoff strategies
+ * - Comprehensive logging for debugging
+ *
+ * 🐛 DEBUGGING API ISSUES:
+ * =======================
+ * - Check UNTHREAD_API_KEY validity and permissions
+ * - Monitor rate limiting (429 responses)
+ * - Verify webhook signature validation
+ * - Review customer/ticket mapping consistency
+ * - Check network connectivity to api.unthread.io
+ *
+ * 🚨 COMMON INTEGRATION ISSUES:
+ * ============================
+ * - Authentication: API key invalid or expired
+ * - Rate limits: Too many requests, implement backoff
+ * - Data consistency: Thread-ticket mappings out of sync
+ * - Webhook processing: Events not being handled properly
+ * - Customer creation: Duplicate emails or invalid data
+ *
  * @module services/unthread
  */
 
 import { decodeHtmlEntities } from '../utils/decodeHtmlEntities';
-import { setKey, getKey, setPersistentKey } from '../utils/memory';
+import { BotsStore, ExtendedThreadTicketMapping } from '../sdk/bots-brain/BotsStore';
 import { getBotFooter } from '../utils/botUtils';
 import { EmbedBuilder, User } from 'discord.js';
 import { LogEngine } from '../config/logger';
-import { isDuplicateMessage, containsDiscordAttachments } from '../utils/messageUtils';
+import { isDuplicateMessage } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
-import { UnthreadApiResponse, UnthreadTicket, WebhookPayload } from '../types/unthread';
-import { ThreadTicketMapping } from '../types/discord';
+import { WebhookPayload, UnthreadApiResponse, UnthreadTicket } from '../types/unthread';
+import { FileBuffer } from '../types/attachments';
+import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
 
 /**
  * ==================== ENVIRONMENT VALIDATION ====================
@@ -47,6 +76,7 @@ export function validateEnvironment(): void {
 	const requiredEnvVars = [
 		{ name: 'UNTHREAD_API_KEY', value: process.env.UNTHREAD_API_KEY },
 		{ name: 'UNTHREAD_SLACK_CHANNEL_ID', value: process.env.UNTHREAD_SLACK_CHANNEL_ID },
+		{ name: 'SLACK_TEAM_ID', value: process.env.SLACK_TEAM_ID },
 	];
 
 	const missingVars = requiredEnvVars.filter(envVar => !envVar.value?.trim());
@@ -107,15 +137,11 @@ export async function createTicket(user: User, title: string, issue: string, ema
 	LogEngine.info(`Creating ticket for user: ${user.displayName || user.username} (${user.id})`);
 	LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? 'SET' : 'NOT_SET'}, SLACK_CHANNEL_ID=${process.env.UNTHREAD_SLACK_CHANNEL_ID ? 'SET' : 'NOT_SET'}`);
 
-	// Validate API key before making request
-	const apiKey = process.env.UNTHREAD_API_KEY;
-	if (!apiKey) {
-		LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
-		throw new Error('UNTHREAD_API_KEY environment variable is required');
-	}
+	// Get API key (guaranteed to exist due to startup validation)
+	const apiKey = process.env.UNTHREAD_API_KEY!;
 
 	const customer = await getOrCreateCustomer(user, email);
-	LogEngine.debug(`Customer: ${customer?.customerId || 'unknown'} (${customer?.email || email})`);
+	LogEngine.debug(`Customer: ${customer?.unthreadCustomerId || 'unknown'} (${customer?.email || email})`);
 
 	const requestPayload = {
 		type: 'slack',
@@ -123,7 +149,7 @@ export async function createTicket(user: User, title: string, issue: string, ema
 		markdown: `${issue}`,
 		status: 'open',
 		channelId: process.env.UNTHREAD_SLACK_CHANNEL_ID?.trim(),
-		customerId: customer?.customerId,
+		customerId: customer?.unthreadCustomerId,
 		onBehalfOf: {
 			name: user.displayName || user.username,
 			email: email,
@@ -135,7 +161,7 @@ export async function createTicket(user: User, title: string, issue: string, ema
 
 	// Setup timeout handling for request resilience
 	const abortController = new AbortController();
-	const timeoutMs = Number(process.env.UNTHREAD_HTTP_TIMEOUT_MS) || 15000;
+	const timeoutMs = getConfig('UNTHREAD_HTTP_TIMEOUT_MS', DEFAULT_CONFIG.UNTHREAD_HTTP_TIMEOUT_MS);
 	const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
 
 	try {
@@ -196,26 +222,33 @@ export async function createTicket(user: User, title: string, issue: string, ema
  * @param discordThreadId - Discord thread ID
  * @throws {Error} When cache operations fail
  */
+/**
+ * Binds a Discord thread with an Unthread ticket using BotsStore
+ *
+ * @param unthreadTicketId - Unthread ticket ID
+ * @param discordThreadId - Discord thread ID
+ * @throws {Error} When storage operations fail
+ */
 export async function bindTicketWithThread(unthreadTicketId: string, discordThreadId: string): Promise<void> {
-	const mapping: ThreadTicketMapping = {
-		unthreadTicketId,
-		discordThreadId,
-		createdAt: new Date().toISOString(),
-	};
+	try {
+		const botsStore = BotsStore.getInstance();
 
-	// Create bidirectional mapping for efficient lookups with hybrid storage strategy:
-	// - Memory cache (7 days) for fast access to recent tickets
-	// - Persistent storage (3 years) for long-term customer access
+		const mapping: ExtendedThreadTicketMapping = {
+			unthreadTicketId,
+			discordThreadId,
+			createdAt: new Date().toISOString(),
+			status: 'active',
+		};
 
-	// Store in memory cache for fast access (7 days TTL)
-	await setKey(`ticket:discord:${discordThreadId}`, mapping);
-	await setKey(`ticket:unthread:${unthreadTicketId}`, mapping);
+		// Store using BotsStore 3-layer architecture
+		await botsStore.storeThreadTicketMapping(mapping);
 
-	// Store in persistent storage for long-term access (3 years TTL)
-	await setPersistentKey(`persistent:ticket:discord:${discordThreadId}`, mapping);
-	await setPersistentKey(`persistent:ticket:unthread:${unthreadTicketId}`, mapping);
-
-	LogEngine.info(`Bound Discord thread ${discordThreadId} with Unthread ticket ${unthreadTicketId} (hybrid storage: 7d cache + 3y persistent)`);
+		LogEngine.info(`Bound Discord thread ${discordThreadId} with Unthread ticket ${unthreadTicketId} using 3-layer storage`);
+	}
+	catch (error) {
+		LogEngine.error('Error binding ticket with thread:', error);
+		throw error;
+	}
 }
 
 /**
@@ -227,28 +260,30 @@ export async function bindTicketWithThread(unthreadTicketId: string, discordThre
  * @param discordThreadId - Discord thread ID
  * @returns Ticket mapping or null if not found
  */
-export async function getTicketByDiscordThreadId(discordThreadId: string): Promise<ThreadTicketMapping | null> {
-	// First, try memory cache (fast access for recent tickets)
-	let mapping = (await getKey(`ticket:discord:${discordThreadId}`)) as ThreadTicketMapping | null;
+/**
+ * Retrieves the Unthread ticket mapping for a Discord thread using BotsStore
+ *
+ * @param discordThreadId - Discord thread ID
+ * @returns Ticket mapping or null if not found
+ */
+export async function getTicketByDiscordThreadId(discordThreadId: string): Promise<ExtendedThreadTicketMapping | null> {
+	try {
+		const botsStore = BotsStore.getInstance();
+		const mapping = await botsStore.getThreadTicketMapping(discordThreadId);
 
-	if (mapping) {
-		LogEngine.debug(`Found ticket mapping in memory cache for Discord thread: ${discordThreadId}`);
+		if (mapping) {
+			LogEngine.debug(`Found ticket mapping for Discord thread: ${discordThreadId}`);
+		}
+		else {
+			LogEngine.debug(`No ticket mapping found for Discord thread: ${discordThreadId}`);
+		}
+
 		return mapping;
 	}
-
-	// Fallback to persistent storage (for older tickets)
-	// PATCH: Fixed persistent key retrieval to match storage namespace
-	// TODO: Remove when SDK migration replaces this caching layer
-	const persistentKey = `persistent:ticket:discord:${discordThreadId}`;
-	mapping = (await getKey(persistentKey)) as ThreadTicketMapping | null;
-
-	if (mapping) {
-		LogEngine.debug(`Found ticket mapping in persistent storage for Discord thread: ${discordThreadId}`);
-		// Optionally refresh the memory cache for future fast access
-		await setKey(`ticket:discord:${discordThreadId}`, mapping);
+	catch (error) {
+		LogEngine.error('Error retrieving ticket mapping by Discord thread ID:', error);
+		return null;
 	}
-
-	return mapping;
 }
 
 /**
@@ -260,28 +295,30 @@ export async function getTicketByDiscordThreadId(discordThreadId: string): Promi
  * @param unthreadTicketId - Unthread ticket ID
  * @returns Ticket mapping or null if not found
  */
-export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Promise<ThreadTicketMapping | null> {
-	// First, try memory cache (fast access for recent tickets)
-	let mapping = (await getKey(`ticket:unthread:${unthreadTicketId}`)) as ThreadTicketMapping | null;
+/**
+ * Retrieves the Discord thread mapping for an Unthread ticket using BotsStore
+ *
+ * @param unthreadTicketId - Unthread ticket ID
+ * @returns Ticket mapping or null if not found
+ */
+export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Promise<ExtendedThreadTicketMapping | null> {
+	try {
+		const botsStore = BotsStore.getInstance();
+		const mapping = await botsStore.getMappingByTicketId(unthreadTicketId);
 
-	if (mapping) {
-		LogEngine.debug(`Found ticket mapping in memory cache for Unthread ticket: ${unthreadTicketId}`);
+		if (mapping) {
+			LogEngine.debug(`Found ticket mapping for Unthread ticket: ${unthreadTicketId}`);
+		}
+		else {
+			LogEngine.debug(`No ticket mapping found for Unthread ticket: ${unthreadTicketId}`);
+		}
+
 		return mapping;
 	}
-
-	// Fallback to persistent storage (for older tickets)
-	// PATCH: Fixed persistent key retrieval to match storage namespace
-	// TODO: Remove when SDK migration replaces this caching layer
-	const persistentKey = `persistent:ticket:unthread:${unthreadTicketId}`;
-	mapping = (await getKey(persistentKey)) as ThreadTicketMapping | null;
-
-	if (mapping) {
-		LogEngine.debug(`Found ticket mapping in persistent storage for Unthread ticket: ${unthreadTicketId}`);
-		// Optionally refresh the memory cache for future fast access
-		await setKey(`ticket:unthread:${unthreadTicketId}`, mapping);
+	catch (error) {
+		LogEngine.error('Error retrieving ticket mapping:', error);
+		return null;
 	}
-
-	return mapping;
 }
 
 /**
@@ -290,47 +327,46 @@ export async function getTicketByUnthreadTicketId(unthreadTicketId: string): Pro
  */
 
 /**
- * Processes webhook events from Unthread
+ * Process incoming webhook events from Unthread
  *
- * Handles various webhook event types including message creation and conversation updates.
- * Routes events to appropriate handlers based on event type.
+ * Handles different types of webhook events and routes them to appropriate handlers.
+ * This function processes events from the Redis queue that were received from Unthread webhooks.
  *
- * @param payload - Webhook payload from Unthread
- * @throws {Error} When event processing fails for supported event types
- * @throws {Error} When message forwarding or status updates fail
+ * @param {WebhookPayload} payload - The webhook event payload
+ * @returns {Promise<void>}
  *
  * @example
  * ```typescript
  * await handleWebhookEvent({
- *   event: 'message_created',
+ *   type: 'message_created',
  *   data: { conversationId: '123', text: 'Hello', userId: 'user123' }
  * });
  * ```
  */
 export async function handleWebhookEvent(payload: WebhookPayload): Promise<void> {
-	const { event, data } = payload;
+	const { type, data, sourcePlatform } = payload;
 
-	LogEngine.info(`Processing webhook event: ${event}`);
+	LogEngine.info(`Processing webhook event: ${type}`);
 	LogEngine.debug('Event data:', data);
 
 	try {
-		switch (event) {
+		switch (type) {
 		case 'message_created':
-			await handleMessageCreated(data);
+			await handleMessageCreated(data, sourcePlatform);
 			break;
 		case 'conversation_updated':
 			await handleStatusUpdated(data);
 			break;
-		case 'conversation.created':
+		case 'conversation_created':
 			LogEngine.debug('Conversation created event received - no action needed for Discord integration');
 			break;
 		default:
-			LogEngine.debug(`Unhandled webhook event type: ${event}`);
+			LogEngine.debug(`Unhandled webhook event type: ${type}`);
 		}
 	}
 	catch (error: unknown) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		LogEngine.error(`Error processing webhook event ${event}:`, errorMessage);
+		LogEngine.error(`Error processing webhook event ${type}:`, errorMessage);
 		throw error;
 	}
 }
@@ -339,12 +375,17 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
  * Handles message creation webhook events
  *
  * @param {any} data - Webhook event data
+ * @param {string} sourcePlatform - Source platform from webhook server (dashboard, discord, etc.)
  * @returns {Promise<void>}
  */
-async function handleMessageCreated(data: any): Promise<void> {
+async function handleMessageCreated(data: any, sourcePlatform: string): Promise<void> {
 	// Check if message originated from Discord to avoid duplication
-	if (data.metadata && data.metadata.source === 'discord') {
-		LogEngine.debug('Message originated from Discord, skipping to avoid duplication');
+	// The webhook server provides sourcePlatform for reliable source detection
+	if (sourcePlatform === 'discord') {
+		LogEngine.debug('Message originated from Discord, skipping to avoid duplication', {
+			sourcePlatform,
+			conversationId: data.conversationId || data.id,
+		});
 		return;
 	}
 
@@ -366,59 +407,101 @@ async function handleMessageCreated(data: any): Promise<void> {
 	}
 
 	const conversationId = data.conversationId || data.id;
-	const messageText = data.text;
+	const messageText = data.text || data.content;
 
-	if (!conversationId || !messageText) {
-		LogEngine.warn('Message created event missing required data');
+	// Use pre-transformed data directly from webhook server
+	const hasFiles = data.files && data.files.length > 0;
+	const fileCount = data.files ? data.files.length : 0;
+
+	LogEngine.info('📋 Processing pre-transformed message data', {
+		conversationId,
+		hasFiles,
+		fileCount,
+		hasText: !!messageText?.trim(),
+		sourcePlatform,
+	});
+
+	if (!conversationId || (!messageText?.trim() && !hasFiles)) {
+		LogEngine.warn('Message created event missing required data (must have text or files)');
 		return;
 	}
 
-	// Extract timestamp from Slack-formatted message ID for duplicate detection
-	const messageId = data.id;
-	const slackTimestamp = messageId ? messageId.split('-').pop()?.split('.')[0] : null;
+	// Detect file attachment notification patterns - process files only, skip text
+	const isFileAttachedNotification = messageText && hasFiles && (
+		messageText.trim().toLowerCase() === 'file attached' ||
+		/^\d+\s+files?\s+attached$/i.test(messageText.trim())
+	);
 
-	if (slackTimestamp) {
-		// Check if we have any records of a message deleted within a short window
-		const currentTime = Date.now();
-		// Convert to milliseconds
-		const messageTimestamp = parseInt(slackTimestamp) * 1000;
+	if (isFileAttachedNotification) {
+		LogEngine.info('📎 Processing file-only message (skipping file attachment notification text)', {
+			conversationId,
+			fileCount,
+			fileOnlyMode: true,
+			notificationText: messageText.trim(),
+		});
 
-		// Only process if the message isn't too old (prevents processing old messages)
-		// Within 10 seconds
-		if (currentTime - messageTimestamp < 10000) {
-			// Check recent deleted messages in this channel
-			const ticketMapping = await getTicketByUnthreadTicketId(conversationId);
+		// Process files directly from pre-transformed data
+		if (data.files && data.files.length > 0) {
+			try {
+				const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
+					conversationId,
+					{ maxAttempts: 3, maxRetryWindow: 10000, baseDelayMs: 1000 },
+				);
 
-			// If we can't find the thread mapping, proceed with sending the message
-			if (!ticketMapping) {
-				LogEngine.debug(`No Discord thread found for Unthread ticket ${conversationId}, proceeding with message`);
-			}
-			else {
-				const deletedMessagesKey = `deleted:channel:${ticketMapping.discordThreadId}`;
-				const recentlyDeletedMessages = (await getKey(deletedMessagesKey)) as any[] || [];
+				if (discordThread) {
+					LogEngine.info(`Processing ${data.files.length} files from pre-transformed data:`,
+						data.files.map((f: any) => ({ id: f.id, name: f.name, type: f.mimetype, size: f.size })));
 
-				// If there are any recently deleted messages in the last 5 seconds,
-				// skip processing to avoid duplicates
-				if (recentlyDeletedMessages.length > 0) {
-					LogEngine.debug(`Recently deleted messages found for thread ${ticketMapping.discordThreadId}, skipping to avoid duplicates`);
-					return;
+					// Use pre-transformed file data directly - no conversion needed
+					const { AttachmentHandler } = await import('../utils/attachmentHandler');
+					const attachmentHandler = new AttachmentHandler();
+
+					const attachmentResult = await attachmentHandler.downloadUnthreadFilesToDiscord(
+						discordThread,
+						data.files,
+						// No text message for file-only notifications
+						undefined,
+					);
+
+					if (attachmentResult.success) {
+						LogEngine.info(`Successfully processed ${attachmentResult.processedCount} file-only attachments`);
+					}
+					else {
+						LogEngine.warn(`File-only processing failed: ${attachmentResult.errors.join(', ')}`);
+					}
+				}
+				else {
+					LogEngine.warn(`No Discord thread found for file-only message in conversation ${conversationId}`);
 				}
 			}
+			catch (error) {
+				LogEngine.error('Error processing file-only attachments:', error);
+			}
 		}
+		else {
+			LogEngine.warn('File attachment notification detected but no files found in pre-transformed data', {
+				conversationId,
+				hasFiles: !!data.files,
+				filesLength: data.files?.length || 0,
+				notificationText: messageText.trim(),
+			});
+		}
+		// Early return - do not process notification text for file attachment notifications
+		return;
 	}
 
+	// Process regular messages with pre-transformed data
 	try {
 		// Use retry-enabled lookup for message_created events to handle race conditions
+		const retryOptions = {
+			maxAttempts: 3,
+			maxRetryWindow: 10000,
+			baseDelayMs: 1000,
+		};
+
 		const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
 			conversationId,
-			getTicketByUnthreadTicketId,
-			{
-				maxAttempts: 3,
-				// 10 seconds - reasonable for new ticket creation
-				maxRetryWindow: 10000,
-				// 1 second base delay
-				baseDelayMs: 1000,
-			},
+			retryOptions,
 		);
 
 		if (!discordThread) {
@@ -426,44 +509,74 @@ async function handleMessageCreated(data: any): Promise<void> {
 			return;
 		}
 
+		// Check for oversized files (simple size check)
+		// 8MB Discord limit
+		const maxSizeBytes = 8 * 1024 * 1024;
+		if (hasFiles && data.files) {
+			const totalSize = data.files.reduce((sum: number, file: any) => sum + (file.size || 0), 0);
+			if (totalSize > maxSizeBytes) {
+				await handleOversizedFiles(discordThread, totalSize, maxSizeBytes);
+				return;
+			}
+		}
+
 		// Process and clean the message content
-		const messageContent = decodeHtmlEntities(messageText);
+		const messageContent = messageText ? decodeHtmlEntities(messageText) : '';
 
-		// Fetch recent messages to check for duplicates
-		const messages = await discordThread.messages.fetch({ limit: 10 });
-		const messagesArray = Array.from(messages.values());
-
-		// Check if thread has at least 2 messages (initial message + ticket summary)
-		if (messages.size >= 2) {
-			// Check for duplicate messages using our utility function
-			if (isDuplicateMessage(messagesArray as any, messageContent)) {
-				LogEngine.debug('Duplicate message detected. Skipping send.');
-				return;
-			}
-
-			// Check ticket summary for duplicate content
-			const sortedMessages = messagesArray.sort((a: any, b: any) => a.createdTimestamp - b.createdTimestamp);
-
-			// New check: Is this a forum post with its original content being echoed back?
-			// This specifically handles the case of forum posts having their content duplicated
-			const firstMessage = sortedMessages[0];
-			if (firstMessage && (firstMessage as any).content.trim() === messageContent.trim()) {
-				LogEngine.debug('Message appears to be echoing the initial forum post. Skipping to prevent duplication.');
-				return;
-			}
-		}
-
-		// Skip messages that contain Discord attachments
-		if (containsDiscordAttachments(messageContent)) {
-			LogEngine.debug(`Skipping message with Discord attachments in thread ${discordThread.id}`);
-			return;
-		}
-
+		// Check for duplicate messages
 		if (messageContent.trim()) {
-			// Send as a regular Discord bot message instead of embed
-			await discordThread.send(messageContent);
-			LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id}`);
+			const messages = await discordThread.messages.fetch({ limit: 10 });
+			const messagesArray = Array.from(messages.values());
+
+			if (messages.size >= 2) {
+				if (isDuplicateMessage(messagesArray as any, messageContent)) {
+					LogEngine.debug('Duplicate message detected. Skipping send.');
+					return;
+				}
+
+				// Check if echoing the initial forum post
+				const sortedMessages = messagesArray.sort((a: any, b: any) => a.createdTimestamp - b.createdTimestamp);
+				const firstMessage = sortedMessages[0];
+				if (firstMessage && (firstMessage as any).content.trim() === messageContent.trim()) {
+					LogEngine.debug('Message appears to be echoing the initial forum post. Skipping to prevent duplication.');
+					return;
+				}
+			}
 		}
+
+		// Send text content if present
+		if (messageContent.trim()) {
+			await discordThread.send(messageContent);
+			LogEngine.info(`Sent text message to Discord thread ${discordThread.id}`);
+		}
+
+		// Process files if present
+		if (hasFiles && data.files && data.files.length > 0) {
+			LogEngine.info(`Processing ${data.files.length} files from pre-transformed data`);
+
+			const { AttachmentHandler } = await import('../utils/attachmentHandler');
+			const attachmentHandler = new AttachmentHandler();
+
+			try {
+				const attachmentResult = await attachmentHandler.downloadUnthreadFilesToDiscord(
+					discordThread,
+					data.files,
+					messageContent.trim() || undefined,
+				);
+
+				if (attachmentResult.success) {
+					LogEngine.info(`Successfully processed ${attachmentResult.processedCount} files`);
+				}
+				else {
+					LogEngine.warn(`File processing partially failed: ${attachmentResult.errors.join(', ')}`);
+				}
+			}
+			catch (error) {
+				LogEngine.error('Failed to process files:', error);
+			}
+		}
+
+		LogEngine.info(`Forwarded message from Unthread to Discord thread ${discordThread.id} using direct consumption`);
 	}
 	catch (error: unknown) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -473,6 +586,39 @@ async function handleMessageCreated(data: any): Promise<void> {
 		else {
 			LogEngine.error(`Error handling message created event for conversation ${conversationId}:`, errorMessage);
 		}
+	}
+}
+
+/**
+ * Handle oversized files with Discord user notification
+ */
+async function handleOversizedFiles(discordThread: any, totalSize: number, maxSizeBytes: number): Promise<void> {
+	LogEngine.info('📎 Handling oversized files', {
+		totalSize,
+		maxSizeBytes,
+	});
+
+	// Send notification about size limits
+	const maxSizeMB = Math.round(maxSizeBytes / (1024 * 1024));
+	const actualSizeMB = Math.round(totalSize / (1024 * 1024) * 100) / 100;
+
+	const embed = new EmbedBuilder()
+		.setColor(0xFF9800)
+		.setTitle('📎 Attachment Size Limit Exceeded')
+		.setDescription(
+			`**Files are too large to process** (${actualSizeMB}MB)\n` +
+			`Maximum size limit is **${maxSizeMB}MB** per message.\n\n` +
+			'Your agent can still see and access all files in the Unthread dashboard.',
+		)
+		.setFooter({ text: getBotFooter() })
+		.setTimestamp();
+
+	try {
+		await discordThread.send({ embeds: [embed] });
+		LogEngine.info('Sent oversized files notification to Discord thread');
+	}
+	catch (error) {
+		LogEngine.error('Failed to send oversized files notification:', error);
 	}
 }
 
@@ -494,10 +640,7 @@ async function handleStatusUpdated(data: any): Promise<void> {
 	LogEngine.debug(`Processing status update for conversation ${conversation.id} (ticket #${conversation.friendlyId}): ${conversation.status}`);
 
 	try {
-		const { discordThread } = await findDiscordThreadByTicketId(
-			conversation.id,
-			getTicketByUnthreadTicketId,
-		);
+		const { discordThread } = await findDiscordThreadByTicketId(conversation.id);
 
 		if (!discordThread) {
 			LogEngine.debug(`No Discord thread found for conversation ${conversation.id}`);
@@ -607,9 +750,6 @@ export async function sendMessageToUnthread(
 			name: user.displayName || user.username,
 			email: email,
 		},
-		metadata: {
-			source: 'discord',
-		},
 	};
 
 	LogEngine.debug(`Sending message to Unthread conversation ${conversationId}:`, requestData);
@@ -620,12 +760,8 @@ export async function sendMessageToUnthread(
 	const timeoutId = setTimeout(() => abortController.abort(), 8000);
 
 	try {
-		// Validate API key before making requests
-		const apiKey = process.env.UNTHREAD_API_KEY;
-		if (!apiKey) {
-			LogEngine.error('UNTHREAD_API_KEY environment variable is not set');
-			throw new Error('UNTHREAD_API_KEY environment variable is required');
-		}
+		// Get API key (guaranteed to exist due to startup validation)
+		const apiKey = process.env.UNTHREAD_API_KEY!;
 
 		// Perform preflight check to verify conversation exists
 		LogEngine.debug(`Performing preflight check for conversation ${conversationId}`);
@@ -672,6 +808,114 @@ export async function sendMessageToUnthread(
 			LogEngine.error(`Request to Unthread conversation ${conversationId} timed out after 8 seconds`);
 			throw new Error('Request to Unthread timed out');
 		}
+		throw error;
+	}
+	finally {
+		clearTimeout(timeoutId);
+	}
+}
+
+/**
+ * Sends a message with file attachments to an Unthread conversation
+ *
+ * Uploads multiple file buffers to Unthread using FormData for multipart upload.
+ * This is the core function for Discord → Unthread attachment processing.
+ *
+ * @param conversationId - Unthread conversation ID
+ * @param onBehalfOf - User information for the message
+ * @param message - Text message content
+ * @param fileBuffers - Array of file buffers to upload
+ * @returns Unthread API response
+ * @throws {Error} When UNTHREAD_API_KEY is not set
+ * @throws {Error} When API request fails or times out
+ * @throws {Error} When file upload fails (4xx/5xx responses)
+ *
+ * @example
+ * ```typescript
+ * const response = await sendMessageWithAttachmentsToUnthread(
+ *   'conv123',
+ *   { name: 'John Doe', email: 'john@example.com' },
+ *   'Here are the images',
+ *   [fileBuffer1, fileBuffer2]
+ * );
+ * ```
+ */
+export async function sendMessageWithAttachmentsToUnthread(
+	conversationId: string,
+	onBehalfOf: { name: string; email: string },
+	message: string,
+	fileBuffers: FileBuffer[],
+): Promise<UnthreadApiResponse<any>> {
+	LogEngine.debug(`Sending message with ${fileBuffers.length} attachments to Unthread conversation ${conversationId}`);
+
+	// Get API key (guaranteed to exist due to startup validation)
+	const apiKey = process.env.UNTHREAD_API_KEY!;
+
+	// Create FormData for multipart upload using proven Telegram bot approach
+	const formData = new FormData();
+
+	// Consolidate message data into single JSON payload to reduce field count
+	const messagePayload = {
+		body: {
+			type: 'markdown',
+			value: message,
+		},
+		onBehalfOf: onBehalfOf,
+	};
+
+	// Use 'json' field for consolidated message payload (reduces from 4+ fields to 2 fields)
+	formData.append('json', JSON.stringify(messagePayload));
+
+	// Add file attachments using 'attachments' field
+	fileBuffers.forEach((fileBuffer, index) => {
+		// Convert Buffer to Uint8Array for proper Blob compatibility
+		const uint8Array = new Uint8Array(fileBuffer.buffer);
+		const blob = new Blob([uint8Array], { type: fileBuffer.mimeType });
+		formData.append('attachments', blob, fileBuffer.fileName);
+		LogEngine.debug(`Added attachment ${index + 1}: ${fileBuffer.fileName} (${fileBuffer.size} bytes, ${fileBuffer.mimeType})`);
+	});
+
+	const abortController = new AbortController();
+	// 30 second timeout for file uploads
+	const timeoutId = setTimeout(() => abortController.abort(), 30000);
+
+	try {
+		const conversationUrl = `https://api.unthread.io/api/conversations/${conversationId}/messages`;
+		LogEngine.debug(`POST ${conversationUrl} with consolidated JSON payload FormData upload (2 fields instead of 4+)`);
+
+		const response = await fetch(conversationUrl, {
+			method: 'POST',
+			headers: {
+				'X-API-KEY': apiKey,
+				// Don't set Content-Type - let fetch set it with boundary for FormData
+			},
+			body: formData,
+			signal: abortController.signal,
+		});
+
+		LogEngine.debug(`Upload response status: ${response.status}`);
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			LogEngine.error(`Failed to upload attachments to Unthread: ${response.status} - ${errorText}`);
+			throw new Error(`Failed to upload attachments to Unthread: ${response.status}`);
+		}
+
+		const responseData = await response.json();
+		LogEngine.info(`Successfully uploaded ${fileBuffers.length} attachments to Unthread:`, responseData);
+
+		return {
+			success: true,
+			data: responseData,
+		};
+
+	}
+	catch (error: any) {
+		if (error.name === 'AbortError') {
+			LogEngine.error(`File upload to Unthread conversation ${conversationId} timed out after 30 seconds`);
+			throw new Error('File upload to Unthread timed out');
+		}
+		LogEngine.error('Error uploading attachments to Unthread:', error);
 		throw error;
 	}
 	finally {

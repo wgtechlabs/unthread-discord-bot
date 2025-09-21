@@ -1,6 +1,6 @@
 import { Events, Message } from 'discord.js';
 import { LogEngine } from '../config/logger';
-import { setKey, getKey } from '../utils/memory';
+import { BotsStore } from '../sdk/bots-brain/BotsStore';
 
 /**
  * Message Delete Event Handler
@@ -11,24 +11,46 @@ import { setKey, getKey } from '../utils/memory';
  */
 export const name = Events.MessageDelete;
 
+/**
+ * Executes when a message is deleted in Discord
+ *
+ * This function tracks deleted messages in the memory cache to support features
+ * like moderation logging and unthread operations that may need to reference
+ * recently deleted messages. Messages are stored with appropriate TTLs to
+ * prevent memory leaks.
+ *
+ * @param message - The Discord message that was deleted
+ * @returns Promise that resolves when message tracking is complete
+ *
+ * @example
+ * ```typescript
+ * // This function is automatically called by Discord.js when messages are deleted
+ * // It stores message metadata for 5 minutes for moderation purposes
+ * ```
+ *
+ * @note Bot messages are ignored to avoid processing automated content
+ * @see {@link BotsStore} for cache storage implementation
+ */
 export async function execute(message: Message): Promise<void> {
 	// Ignore bot messages to avoid processing automated content
 	if (message.author?.bot) return;
 
 	try {
+		// Cache the deleted message for moderation purposes using BotsStore
+		const botsStore = BotsStore.getInstance();
+
 		// Store individual deleted message details
 		// Key format: deleted:{messageId}
-		// TTL: 5 minutes (300000ms)
-		// 5 minute TTL
-		await setKey(`deleted:${message.id}`, {
+		// TTL: 5 minutes (300 seconds)
+		await botsStore.setBotConfig(`deleted:${message.id}`, {
 			channelId: message.channel.id,
 			timestamp: Date.now(),
-		}, 300000);
+		}, 300);
 
 		// Track multiple deleted messages by channel for bulk operations
 		// Key format: deleted:channel:{channelId}
 		const channelKey = `deleted:channel:${message.channel.id}`;
-		const recentlyDeletedInChannel = (await getKey(channelKey) as Array<Record<string, unknown>>) || [];
+		const recentlyDeletedInChannel = (await botsStore.getBotConfig<Array<Record<string, unknown>>>(channelKey)) || [];
 
 		// Add this message to the channel's deletion history
 		recentlyDeletedInChannel.push({
@@ -43,9 +65,8 @@ export async function execute(message: Message): Promise<void> {
 			.filter((item: Record<string, unknown>) => (item.timestamp as number) > oneMinuteAgo)
 			.slice(-10);
 
-		// Update the cache
-		// 1 minute TTL
-		await setKey(channelKey, filteredList, 60000);
+		// Update the cache with 1 minute TTL (60 seconds)
+		await botsStore.setBotConfig(channelKey, filteredList, 60);
 
 		LogEngine.debug(`Cached deleted message ID: ${message.id} from channel: ${message.channel.id}`);
 	}

@@ -3,6 +3,10 @@ import { version } from '../../package.json';
 import { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } from '../services/unthread';
 import { isValidatedForumChannel } from '../utils/channelUtils';
 import { LogEngine } from '../config/logger';
+import { AttachmentHandler } from '../utils/attachmentHandler';
+import { AttachmentDetectionService } from '../services/attachmentDetection';
+import { DISCORD_ATTACHMENT_CONFIG } from '../config/attachmentConfig';
+import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
 
 /**
  * Message Creation Event Handler
@@ -10,11 +14,35 @@ import { LogEngine } from '../config/logger';
  * This module processes all incoming messages to the bot and handles integration
  * between Discord threads and Unthread tickets.
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This is one of the most critical event handlers - it handles bidirectional
+ * message sync between Discord and Unthread. Understanding this flow is
+ * essential for debugging communication issues.
+ *
  * Key responsibilities:
  * 1. Forwards messages from support threads to corresponding Unthread tickets
  * 2. Preserves message context by formatting quotes/replies properly
  * 3. Handles attachments and converts them to markdown links
  * 4. Implements legacy command handling (!!ping, !!version)
+ *
+ * 🔄 MESSAGE FLOW:
+ * ===============
+ * Discord Thread Message → Bot Event → Ticket Lookup → Unthread API
+ *
+ * 🐛 TROUBLESHOOTING:
+ * ==================
+ * - Messages not syncing? Check thread-ticket mapping in database
+ * - Attachments not working? Verify Discord permissions and file size limits
+ * - Legacy commands failing? Check bot permissions in channel
+ * - Duplicate messages? Review bot ignore logic and message filtering
+ *
+ * 🚨 COMMON ISSUES:
+ * ================
+ * - Bot loops: Ensure bot messages are properly filtered
+ * - Permission errors: Bot needs read/write access in threads
+ * - API failures: Check Unthread API connectivity and rate limits
+ * - Memory leaks: Monitor attachment processing for large files
  *
  * @module events/messageCreate
  * @requires discord.js
@@ -89,46 +117,80 @@ export async function execute(message: Message): Promise<void> {
 					}
 				}
 
-				// Process and format attachments into markdown links
-				if (message.attachments.size > 0) {
-					const attachments = Array.from(message.attachments.values());
-					if (attachments.length > 0) {
-						// Dynamically determine attachment type for better presentation
-						const attachmentLinks = attachments.map((attachment, index) => {
-							const type = attachment.contentType?.startsWith('image/')
-								? 'image'
-								: attachment.contentType?.startsWith('video/')
-									? 'video'
-									: 'file';
-							return `[${type}_${index + 1}](${attachment.url})`;
-						});
-
-						// Add attachments list to the message with separator characters
-						messageToSend = messageToSend || '';
-						messageToSend += `\n\nAttachments: ${attachmentLinks.join(' | ')}`;
-						LogEngine.debug(`Added ${attachments.length} attachments to message`);
-					}
-				}
-
 				// Retrieve or create customer email for Unthread ticket association
 				const customer = await getCustomerById(message.author.id);
-				const email = customer?.email || `${message.author.username}@discord.user`;
+				const dummyEmailDomain = getConfig('DUMMY_EMAIL_DOMAIN', DEFAULT_CONFIG.DUMMY_EMAIL_DOMAIN);
+				const email = customer?.email || `${message.author.username}@${dummyEmailDomain}`;
 
-				LogEngine.debug(`Forwarding message to Unthread ticket ${ticketMapping.unthreadTicketId}`, {
-					threadId: message.channel.id,
-					authorId: message.author.id,
-					hasAttachments: message.attachments.size > 0,
-					messageLength: messageToSend.length,
-				});
+				// Process image attachments if present
+				if (message.attachments.size > 0) {
+					const imageAttachments = AttachmentDetectionService.filterSupportedImages(message.attachments);
 
-				// Forward the message to Unthread's API
-				const response = await sendMessageToUnthread(
-					ticketMapping.unthreadTicketId,
-					message.author,
-					messageToSend,
-					email,
-				);
-				LogEngine.info(`Forwarded message to Unthread for ticket ${ticketMapping.unthreadTicketId}`, response);
+					if (imageAttachments.size > 0) {
+						LogEngine.debug(`Found ${imageAttachments.size} valid image attachments`);
+
+						const attachmentHandler = new AttachmentHandler();
+						const uploadResult = await attachmentHandler.uploadDiscordAttachmentsToUnthread(
+							ticketMapping.unthreadTicketId,
+							imageAttachments,
+							messageToSend || 'Files uploaded',
+							{ name: message.author.displayName || message.author.username, email },
+						);
+
+						if (uploadResult.success) {
+							LogEngine.info(`Successfully uploaded ${uploadResult.processedCount} attachments for ticket ${ticketMapping.unthreadTicketId} in ${uploadResult.processingTime}ms`);
+
+							// Send success feedback to user
+							try {
+								await message.react('📎');
+							}
+							catch (reactionError) {
+								LogEngine.debug('Could not add reaction to message:', reactionError);
+							}
+						}
+						else {
+							LogEngine.warn(`Attachment upload failed: ${uploadResult.errors.join(', ')}. Falling back to text message.`);
+
+							// Fallback to text message if upload fails
+							if (messageToSend) {
+								await sendMessageToUnthread(ticketMapping.unthreadTicketId, message.author, messageToSend, email);
+							}
+
+							// Send error feedback to user
+							try {
+								await message.react('❌');
+							}
+							catch (reactionError) {
+								LogEngine.debug('Could not add reaction to message:', reactionError);
+							}
+						}
+					}
+					else {
+						// Handle unsupported attachments
+						const { invalid: unsupportedAttachments } = AttachmentDetectionService.validateAttachments(message.attachments);
+
+						if (unsupportedAttachments.length > 0) {
+							LogEngine.debug(`Found ${unsupportedAttachments.length} unsupported attachments`);
+
+							// Send feedback about unsupported files
+							try {
+								await message.reply(DISCORD_ATTACHMENT_CONFIG.errorMessages.unsupportedFileType);
+							}
+							catch (replyError) {
+								LogEngine.debug('Could not reply to message:', replyError);
+							}
+						}
+
+						// Send text message if there's content
+						if (messageToSend) {
+							await sendMessageToUnthread(ticketMapping.unthreadTicketId, message.author, messageToSend, email);
+						}
+					}
+				}
+				else if (messageToSend) {
+					// Regular text message
+					await sendMessageToUnthread(ticketMapping.unthreadTicketId, message.author, messageToSend, email);
+				}
 			}
 			else {
 				LogEngine.debug(`Message in thread ${message.channel.id} has no Unthread ticket mapping, skipping`);

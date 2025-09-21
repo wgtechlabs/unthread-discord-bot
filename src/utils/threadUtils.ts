@@ -1,9 +1,12 @@
 /**
- * Thread Utilities Module
+ * Thread Utilities Module - Updated for 3-Layer Architecture
  *
  * This module provides utility functions for working with Discord threads
- * and mapping them to Unthread tickets. The utilities consolidate common
- * operations like finding threads by ticket ID and error handling patterns.
+ * and mapping them to Unthread tickets using the new BotsStore 3-layer storage system.
+ *
+ * The utilities consolidate common operations like finding threads by ticket ID and
+ * error handling patterns, now leveraging the unified storage engine for improved
+ * performance and reliability.
  *
  * These utilities help ensure consistent error handling and reduce code duplication
  * when performing common thread-related operations across the application.
@@ -13,6 +16,11 @@
 
 import { LogEngine } from '../config/logger';
 import { ThreadChannel, Message } from 'discord.js';
+import { BotsStore, ExtendedThreadTicketMapping } from '../sdk/bots-brain/BotsStore';
+import { ThreadTicketMapping } from '../types/discord';
+
+// Re-export interfaces for backward compatibility
+export { ThreadTicketMapping } from '../types/discord';
 
 /**
  * Custom error class for mapping not found scenarios
@@ -37,26 +45,6 @@ export class MappingNotFoundError extends Error {
 		super(message);
 		this.name = 'MappingNotFoundError';
 	}
-}
-
-/**
- * Ticket mapping structure for thread-ticket relationships
- */
-interface TicketMapping {
-    /** Discord thread ID */
-    discordThreadId: string;
-    /** Unthread ticket/conversation ID */
-    unthreadTicketId: string;
-}
-
-/**
- * Result structure containing both mapping and Discord thread
- */
-interface ThreadResult {
-    /** The ticket mapping data */
-    ticketMapping: TicketMapping;
-    /** The Discord thread channel object */
-    discordThread: ThreadChannel;
 }
 
 /**
@@ -103,8 +91,8 @@ interface RetryOptions {
  * - Webhooks arriving faster than expected from Unthread
  *
  * @param unthreadTicketId - Unthread ticket/conversation ID
- * @param lookupFunction - Function to lookup ticket mapping by Unthread ID
  * @param options - Retry configuration options
+ * @param lookupFunction - Optional function to lookup ticket mapping by Unthread ID
  * @returns Object containing mapping and thread
  * @throws {MappingNotFoundError} When ticket mapping not found after all retries
  * @throws {Error} When Discord API errors occur or thread is not accessible
@@ -115,7 +103,6 @@ interface RetryOptions {
  * try {
  *   const result = await findDiscordThreadByTicketIdWithRetry(
  *     'ticket123',
- *     getTicketByUnthreadTicketId,
  *     { maxAttempts: 5, maxRetryWindow: 15000 }
  *   );
  *   console.log(`Found thread: ${result.discordThread.id}`);
@@ -126,11 +113,44 @@ interface RetryOptions {
  * }
  * ```
  */
+/**
+ * Fetches a Discord thread using an Unthread ticket ID with retry logic for race conditions
+ *
+ * This function extends findDiscordThreadByTicketId with intelligent retry logic to handle
+ * edge cases where webhook events arrive before ticket mappings are fully propagated in storage.
+ *
+ * Common scenarios this handles:
+ * - Storage propagation delays under high load
+ * - Network hiccups during mapping creation
+ * - Temporary storage system unavailability
+ *
+ * @param unthreadTicketId - The Unthread ticket/conversation ID to search for
+ * @param options - Configuration options for retry behavior
+ * @param lookupFunction - Optional custom lookup function for ticket mappings
+ * @returns Promise that resolves to thread result containing mapping and Discord thread
+ * @throws {MappingNotFoundError} When no mapping exists after all retry attempts
+ * @throws {Error} When Discord client is unavailable or thread cannot be fetched
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   const result = await findDiscordThreadByTicketIdWithRetry('ticket-123', {
+ *     maxAttempts: 5,
+ *     maxRetryWindow: 15000
+ *   });
+ *   console.log(`Found thread after retries: ${result.discordThread.name}`);
+ * } catch (error) {
+ *   if (error.context?.likelyRaceCondition) {
+ *     console.log('Mapping likely exists but propagation was slower than expected');
+ *   }
+ * }
+ * ```
+ */
 export async function findDiscordThreadByTicketIdWithRetry(
 	unthreadTicketId: string,
-	lookupFunction: (id: string) => Promise<TicketMapping | null>,
 	options: RetryOptions = {},
-): Promise<ThreadResult> {
+	lookupFunction?: (id: string) => Promise<ThreadTicketMapping | null>,
+): Promise<{ ticketMapping: ExtendedThreadTicketMapping; discordThread: ThreadChannel }> {
 	const {
 		maxAttempts = 3,
 		// 10 seconds
@@ -147,8 +167,17 @@ export async function findDiscordThreadByTicketIdWithRetry(
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 		attemptsUsed = attempt;
 		try {
-			// Try the standard lookup
-			return await findDiscordThreadByTicketId(unthreadTicketId, lookupFunction);
+			// Use provided lookup function or default to BotsStore lookup
+			if (lookupFunction) {
+				const customMapping = await lookupFunction(unthreadTicketId);
+				if (customMapping) {
+					// If custom lookup found a mapping, use the standard resolution
+					return await findDiscordThreadByTicketId(unthreadTicketId);
+				}
+			}
+
+			// Default lookup using BotsStore
+			return await findDiscordThreadByTicketId(unthreadTicketId);
 		}
 		catch (error: unknown) {
 			lastError = error instanceof Error ? error : new Error('Unknown error');
@@ -200,14 +229,14 @@ export async function findDiscordThreadByTicketIdWithRetry(
 			LogEngine.warn(`Potential race condition detected for ticket ${unthreadTicketId}: mapping not found after ${attemptsUsed} attempts over ${totalTime}ms`);
 		}
 		else {
-			LogEngine.error(`Ticket mapping genuinely missing for ${unthreadTicketId} (checked after ${totalTime}ms)`);
+			LogEngine.error(`Thread lookup failed for ticket ${unthreadTicketId} after ${attemptsUsed} attempts over ${totalTime}ms: ${lastError.message}`);
 		}
 
 		throw enhancedError;
 	}
 
-	// This should never happen, but just in case
-	throw new Error(`Unexpected error in retry logic for ticket ${unthreadTicketId}`);
+	// This should never happen, but TypeScript needs this
+	throw new Error('Unexpected error: retry loop completed without result or error');
 }
 
 /**
@@ -242,27 +271,51 @@ export async function findDiscordThreadByTicketIdWithRetry(
  * }
  * ```
  */
+/**
+ * Fetches a Discord thread using an Unthread ticket ID with BotsStore
+ *
+ * This function provides a simplified interface for finding Discord threads
+ * by Unthread ticket ID using the new 3-layer storage architecture.
+ *
+ * @param unthreadTicketId - The Unthread ticket/conversation ID
+ * @returns Promise that resolves to thread result containing mapping and Discord thread
+ * @throws {MappingNotFoundError} When no mapping exists for the ticket ID
+ * @throws {Error} When Discord client is unavailable or thread cannot be fetched
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   const result = await findDiscordThreadByTicketId('ticket-123');
+ *   console.log(`Found thread: ${result.discordThread.name}`);
+ * } catch (error) {
+ *   if (error instanceof MappingNotFoundError) {
+ *     console.log('No Discord thread exists for this ticket');
+ *   }
+ * }
+ * ```
+ */
 export async function findDiscordThreadByTicketId(
 	unthreadTicketId: string,
-	lookupFunction: (id: string) => Promise<TicketMapping | null>,
-): Promise<ThreadResult> {
-	// Get the ticket mapping using the provided lookup function
-	// This allows the function to work with different storage mechanisms
-	const ticketMapping = await lookupFunction(unthreadTicketId);
-	if (!ticketMapping) {
-		const error = new MappingNotFoundError(`No Discord thread found for Unthread ticket ${unthreadTicketId}`);
-		LogEngine.error(error.message);
-		throw error;
-	}
-
-	// Fetch the Discord thread
+): Promise<{ ticketMapping: ExtendedThreadTicketMapping; discordThread: ThreadChannel }> {
 	try {
+		const botsStore = BotsStore.getInstance();
+
+		// Get the ticket mapping using BotsStore (3-layer lookup)
+		const ticketMapping = await botsStore.getMappingByTicketId(unthreadTicketId);
+		if (!ticketMapping) {
+			const error = new MappingNotFoundError(`No Discord thread found for Unthread ticket ${unthreadTicketId}`);
+			LogEngine.error(error.message);
+			throw error;
+		}
+
+		// Fetch the Discord thread
 		const discordClient = (global as typeof globalThis).discordClient;
 		if (!discordClient) {
 			const error = new Error('Discord client is not initialized or unavailable.');
 			LogEngine.error(error.message);
 			throw error;
 		}
+
 		const channel = await discordClient.channels.fetch(ticketMapping.discordThreadId);
 		if (!channel) {
 			const error = new Error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);

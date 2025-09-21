@@ -10,6 +10,7 @@ module.exports = [
 	// TypeScript files configuration
 	{
 		files: ['src/**/*.ts'],
+		ignores: ['src/**/*.test.ts', 'src/**/*.spec.ts', 'src/__tests__/**/*'],
 		languageOptions: {
 			parser: typescriptParser,
 			parserOptions: {
@@ -99,6 +100,57 @@ module.exports = [
 			'security/detect-possible-timing-attacks': 'warn',
 			'security/detect-pseudoRandomBytes': 'error',
 			'security/detect-unsafe-regex': 'error',
+		},
+	},
+	// Test files configuration - separate from main TypeScript project
+	{
+		files: ['src/**/*.test.ts', 'src/**/*.spec.ts', 'src/__tests__/**/*.ts'],
+		languageOptions: {
+			parser: typescriptParser,
+			parserOptions: {
+				ecmaVersion: 2021,
+				sourceType: 'module',
+				// Don't use project config for test files since they're excluded from main tsconfig
+			},
+			globals: {
+				console: 'readonly',
+				process: 'readonly',
+				Buffer: 'readonly',
+				__dirname: 'readonly',
+				__filename: 'readonly',
+				module: 'readonly',
+				require: 'readonly',
+				exports: 'readonly',
+				global: 'readonly',
+				setTimeout: 'readonly',
+				clearTimeout: 'readonly',
+				setInterval: 'readonly',
+				clearInterval: 'readonly',
+				// Vitest globals
+				describe: 'readonly',
+				it: 'readonly',
+				test: 'readonly',
+				expect: 'readonly',
+				beforeEach: 'readonly',
+				afterEach: 'readonly',
+				beforeAll: 'readonly',
+				afterAll: 'readonly',
+				vi: 'readonly',
+			},
+		},
+		plugins: {
+			'@typescript-eslint': typescriptEslint,
+		},
+		rules: {
+			// Relaxed rules for test files
+			'@typescript-eslint/no-explicit-any': 'off',
+			'security/detect-object-injection': 'off',
+			'no-console': 'off',
+			// Keep other basic rules
+			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+			'indent': ['error', 'tab'],
+			'quotes': ['error', 'single'],
+			'semi': ['error', 'always'],
 		},
 	},
 	// JavaScript files configuration (if any)

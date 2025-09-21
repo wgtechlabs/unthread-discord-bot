@@ -6,9 +6,34 @@
  * - Slash command executions
  * - Thread creation and binding with Unthread tickets
  *
+ * 🎯 FOR CONTRIBUTORS:
+ * ===================
+ * This handler is the entry point for all user interactions with the bot.
+ * It's crucial for understanding how tickets are created and commands are processed.
+ *
  * The handler processes different interaction types and routes them to
  * the appropriate functions, maintaining a clean separation of concerns
  * for different interaction workflows.
+ *
+ * 🔄 INTERACTION FLOWS:
+ * ====================
+ * 1. Slash Commands: /support, /ping, /server, etc.
+ * 2. Modal Submissions: Support ticket form completion
+ * 3. Thread Creation: Automatic binding with Unthread tickets
+ *
+ * 🐛 TROUBLESHOOTING:
+ * ==================
+ * - Commands not responding? Check slash command registration
+ * - Modal submission failing? Verify form validation and API connectivity
+ * - Thread creation issues? Check forum channel permissions and configuration
+ * - Permission errors? Ensure bot has necessary guild permissions
+ *
+ * 🚨 COMMON ISSUES:
+ * ================
+ * - Interaction timeout: Responses must be sent within 3 seconds
+ * - Modal validation: Check required fields and character limits
+ * - API failures: Monitor Unthread API status and rate limits
+ * - Thread permissions: Bot needs manage threads permission in forum channels
  *
  * @module events/interactionCreate
  */
@@ -16,9 +41,10 @@
 import { Events, ChannelType, Interaction, CommandInteraction, ModalSubmitInteraction, EmbedBuilder } from 'discord.js';
 import { createTicket, bindTicketWithThread } from '../services/unthread';
 import { LogEngine } from '../config/logger';
-import { setKey } from '../utils/memory';
-import { getOrCreateCustomer, getCustomerByDiscordId, updateCustomer } from '../utils/customerUtils';
+import { BotsStore } from '../sdk/bots-brain/BotsStore';
+import { getOrCreateCustomer, getCustomerByDiscordId } from '../utils/customerUtils';
 import { getBotFooter } from '../utils/botUtils';
+import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
 
 /**
  * Simple type for ticket objects from external API
@@ -84,15 +110,26 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 	if (!email || email.trim() === '') {
 		// If no email provided, try to get existing customer record
 		const existingCustomer = await getCustomerByDiscordId(interaction.user.id);
-		email = existingCustomer?.email || `${interaction.user.username}@discord.user`;
+		const dummyEmailDomain = getConfig('DUMMY_EMAIL_DOMAIN', DEFAULT_CONFIG.DUMMY_EMAIL_DOMAIN);
+		email = existingCustomer?.email || `${interaction.user.username}@${dummyEmailDomain}`;
 		LogEngine.debug(`Using fallback email for user ${interaction.user.id}: ${email}`);
 	}
 	else {
 		// If email provided, update or create customer record
 		const existingCustomer = await getCustomerByDiscordId(interaction.user.id);
 		if (existingCustomer) {
-			existingCustomer.email = email;
-			await updateCustomer(existingCustomer);
+			// Update customer with new email using BotsStore
+			const botsStore = BotsStore.getInstance();
+			const normalizedEmail = email.trim().toLowerCase();
+			try {
+				await botsStore.storeCustomer(interaction.user, normalizedEmail, existingCustomer.unthreadCustomerId);
+				// Proactively clear both discord and unthread keyed caches
+				await botsStore.clearCache('customer', interaction.user.id);
+				await botsStore.clearCache('customer', existingCustomer.unthreadCustomerId);
+			}
+			catch (err) {
+				LogEngine.warn(`Customer email update failed for ${interaction.user.id}; proceeding.`, err);
+			}
 		}
 		else {
 			await getOrCreateCustomer(interaction.user, email);
@@ -184,10 +221,10 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 		const threadObj = thread as ThreadResponse | null;
 		if (ticketObj?.id && threadObj?.id) {
 			try {
-				// Remove the mapping to prevent orphaned entries
-				// Set with short TTL to delete
-				await setKey(`ticket:discord:${threadObj.id}`, null, 1);
-				await setKey(`ticket:unthread:${ticketObj.id}`, null, 1);
+				// Remove the mapping using BotsStore
+				const botsStore = BotsStore.getInstance();
+				await botsStore.clearCache('mapping', threadObj.id);
+				await botsStore.clearCache('mapping', ticketObj.id);
 				LogEngine.info(`Cleaned up orphaned ticket mapping: Discord thread ${threadObj.id} <-> Unthread ticket ${ticketObj.id}`);
 			}
 			catch (cleanupError) {

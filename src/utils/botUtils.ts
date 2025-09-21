@@ -28,11 +28,11 @@ import { version } from '../../package.json';
 export function getBotName(): string {
 	const client = global.discordClient;
 
-	if (client?.user?.displayName) {
+	if (client?.user?.displayName && client.user.displayName.trim()) {
 		return client.user.displayName;
 	}
 
-	if (client?.user?.username) {
+	if (client?.user?.username && client.user.username.trim()) {
 		return client.user.username;
 	}
 
