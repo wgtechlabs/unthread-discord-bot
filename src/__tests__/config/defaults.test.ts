@@ -422,6 +422,7 @@ describe('defaults configuration', () => {
 
 			const config = getSSLConfig(false);
 
+			// Development default: SSL without validation for convenience
 			expect(config).toEqual({ rejectUnauthorized: false });
 		});
 
@@ -446,39 +447,47 @@ describe('defaults configuration', () => {
 			expect(config).toEqual({ rejectUnauthorized: true });
 		});
 
-		it('should return SSL config for any non-"full" value', () => {
-			const testValues = ['partial', 'none', 'invalid', ''];
-
-			testValues.forEach(value => {
-				process.env.DATABASE_SSL_VALIDATE = value;
-
-				const config = getSSLConfig(true);
-
-				// Any non-'full' value in production uses secure default
-				expect(config).toEqual({ rejectUnauthorized: true });
-			});
-
-			delete process.env.DATABASE_SSL_VALIDATE;
-		});
-
-		it('should not be consistent between production and development for security', () => {
+		it('should follow Telegram bot SSL logic for "true" value', () => {
 			process.env.DATABASE_SSL_VALIDATE = 'true';
 
 			const prodConfig = getSSLConfig(true);
 			const devConfig = getSSLConfig(false);
 
-			// Production should use strict validation, development can be flexible
-			expect(prodConfig).toEqual({ rejectUnauthorized: true });
-			expect(devConfig).toEqual({ rejectUnauthorized: true });
+			// Telegram bot logic: 'true' means SSL without validation
+			expect(prodConfig).toEqual({ rejectUnauthorized: false });
+			expect(devConfig).toEqual({ rejectUnauthorized: false });
+
+			delete process.env.DATABASE_SSL_VALIDATE;
 		});
 
-		it('should allow disabling SSL validation in production only with explicit override', () => {
+		it('should return SSL config for any non-special value using defaults', () => {
+			const testValues = ['partial', 'none', 'invalid', ''];
+
+			testValues.forEach(value => {
+				process.env.DATABASE_SSL_VALIDATE = value;
+
+				const prodConfig = getSSLConfig(true);
+				const devConfig = getSSLConfig(false);
+
+				// Non-special values use environment defaults
+				expect(prodConfig).toEqual({ rejectUnauthorized: true }); // Production default
+				expect(devConfig).toEqual({ rejectUnauthorized: false }); // Development default
+			});
+
+			delete process.env.DATABASE_SSL_VALIDATE;
+		});
+
+		it('should follow Telegram bot SSL logic for "false" value', () => {
 			process.env.DATABASE_SSL_VALIDATE = 'false';
 
-			const config = getSSLConfig(true);
+			const prodConfig = getSSLConfig(true);
+			const devConfig = getSSLConfig(false);
 
-			// Production allows disabling validation with explicit 'false' setting
-			expect(config).toEqual({ rejectUnauthorized: false });
+			// Telegram bot logic: 'false' means SSL with full validation
+			expect(prodConfig).toEqual({ rejectUnauthorized: true });
+			expect(devConfig).toEqual({ rejectUnauthorized: true });
+
+			delete process.env.DATABASE_SSL_VALIDATE;
 		});
 	});
 

@@ -191,36 +191,29 @@ export function getSSLConfig(isProduction: boolean): SSLConfig | false {
 		return createSSLConfig(false);
 	}
 
-	// In production, enforce secure SSL by default
-	if (isProduction) {
-		// Allow disabling SSL validation with explicit override
-		if (sslValidate === 'false') {
-			LogEngine.info('Production SSL validation disabled via DATABASE_SSL_VALIDATE=false');
-			// SSL enabled, validation disabled
-			return createSSLConfig(false);
-		}
-
-		// Production default: SSL enabled WITH strict certificate validation for security
-		LogEngine.debug('Production SSL with strict certificate validation enabled');
-		return createSSLConfig(true);
-	}
-
-	// In development, check remaining SSL validation settings
-	// If set to 'true', enable SSL with strict validation
+	// Follow Telegram bot SSL logic exactly:
+	// Enable SSL without validation
 	if (sslValidate === 'true') {
-		LogEngine.debug('Development SSL with strict validation enabled via DATABASE_SSL_VALIDATE=true');
-		return createSSLConfig(true);
-	}
-
-	// If explicitly set to 'false', enable SSL but disable certificate validation (dev convenience)
-	if (sslValidate === 'false') {
-		LogEngine.debug('Development SSL with relaxed validation enabled via DATABASE_SSL_VALIDATE=false');
+		LogEngine.debug('SSL enabled without validation - DATABASE_SSL_VALIDATE=true (Telegram bot logic)');
 		return createSSLConfig(false);
 	}
 
-	// Development default: SSL enabled WITH strict certificate validation (secure by default)
-	LogEngine.debug('Development SSL with default strict validation enabled');
-	return createSSLConfig(true);
+	// Enable SSL with full validation
+	if (sslValidate === 'false') {
+		LogEngine.debug('SSL enabled with full validation - DATABASE_SSL_VALIDATE=false (Telegram bot logic)');
+		return createSSLConfig(true);
+	}
+
+	// Default behavior based on environment
+	if (isProduction) {
+		// Production default: SSL with strict validation for security
+		LogEngine.debug('Production SSL with strict certificate validation enabled (default)');
+		return createSSLConfig(true);
+	}
+
+	// Development default: SSL without validation for convenience
+	LogEngine.debug('Development SSL without validation enabled (default)');
+	return createSSLConfig(false);
 }
 
 /**
