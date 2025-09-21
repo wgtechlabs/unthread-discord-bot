@@ -242,10 +242,10 @@ describe('defaults configuration', () => {
 	});
 
 	describe('getAllConfig', () => {
-		it('should return all default configuration values', () => {
-			// Temporarily clear NODE_ENV to test defaults
-			const originalNodeEnv = process.env.NODE_ENV;
-			delete process.env.NODE_ENV;
+    it('should return all default configuration values', () => {
+      // Temporarily clear NODE_ENV to test defaults
+      const originalNodeEnv = process.env.NODE_ENV;
+      delete process.env.NODE_ENV;
 
 			try {
 				const config = getAllConfig();
