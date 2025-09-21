@@ -84,11 +84,8 @@ export class AttachmentDetectionService {
 			return false;
 		}
 
-		const supportedTypes = DISCORD_ATTACHMENT_CONFIG.supportedImageTypes;
-
-		return event.attachments?.types?.some(type =>
-			supportedTypes.includes(type.toLowerCase() as any),
-		) ?? false;
+		return event.attachments?.types?.some(t => isSupportedImageType(t.toLowerCase()))
+			?? false;
 	}
 
 	/**
