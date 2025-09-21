@@ -42,17 +42,32 @@ const supportCommand = {
 		.setDescription('Open a support ticket'),
 
 	/**
-	 * Executes the support command
+	 * Executes the support command to create a support ticket
 	 *
 	 * Validates the execution context and presents a ticket creation modal.
-	 * Performs the following checks:
-	 * 1. Ensures command is used in a guild with a valid channel
-	 * 2. Ensures command is not used in threads
-	 * 3. Verifies channel is not configured for forum-based tickets
-	 * 4. Checks bot permissions for thread creation
-	 * 5. Presents modal interface for ticket submission
+	 * This function performs comprehensive validation to ensure tickets can
+	 * be created successfully in the current context.
 	 *
-	 * @param interaction - The slash command interaction
+	 * Validation checks performed:
+	 * 1. Ensures command is used in a guild with a valid channel
+	 * 2. Prevents usage in threads (forum posts, private threads, etc.)
+	 * 3. Verifies channel is not configured for forum-based tickets
+	 * 4. Checks bot permissions for thread creation and management
+	 * 5. Presents modal interface for ticket submission if all checks pass
+	 *
+	 * @param interaction - The Discord slash command interaction object
+	 * @returns Promise that resolves when command execution is complete
+	 *
+	 * @example
+	 * ```typescript
+	 * // User types: /support
+	 * // Bot validates context and shows modal for ticket details
+	 * // Modal includes: ticket title, description, and email fields
+	 * ```
+	 *
+	 * @throws Will reply with error message if validation fails
+	 * @see {@link isValidatedForumChannel} for forum channel validation
+	 * @see {@link PermissionFlagsBits} for required Discord permissions
 	 */
 	async execute(interaction: ChatInputCommandInteraction): Promise<void> {
 		// Add guild and channel validation before proceeding

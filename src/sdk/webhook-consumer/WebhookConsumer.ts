@@ -56,7 +56,28 @@ export class WebhookConsumer {
 	}
 
 	/**
-	 * Initialize Redis connections
+	 * Initialize Redis connections for webhook processing
+	 *
+	 * Creates two separate Redis connections:
+	 * 1. Main client for general operations and queue management
+	 * 2. Blocking client specifically for BLPOP operations to avoid conflicts
+	 *
+	 * This separation ensures that blocking operations don't interfere with
+	 * other Redis operations and maintains connection stability.
+	 *
+	 * @returns Promise<boolean> - True if both connections succeed, throws on failure
+	 * @throws {Error} When Redis URL is missing or connection fails
+	 *
+	 * @example
+	 * ```typescript
+	 * const consumer = new WebhookConsumer({ redisUrl: 'redis://localhost:6379' });
+	 * const connected = await consumer.connect();
+	 * if (connected) {
+	 *   console.log('Webhook consumer ready');
+	 * }
+	 * ```
+	 *
+	 * @see {@link https://redis.io/commands/blpop/} for BLPOP operation details
 	 */
 	async connect(): Promise<boolean> {
 		try {
@@ -82,7 +103,21 @@ export class WebhookConsumer {
 	}
 
 	/**
-	 * Disconnect from Redis
+	 * Disconnect from Redis and clean up resources
+	 *
+	 * Safely closes both Redis connections and stops all polling operations.
+	 * This method ensures proper cleanup of timers and connections to prevent
+	 * memory leaks and connection pool exhaustion.
+	 *
+	 * @returns Promise that resolves when disconnection is complete
+	 *
+	 * @example
+	 * ```typescript
+	 * await consumer.disconnect();
+	 * console.log('Consumer safely disconnected');
+	 * ```
+	 *
+	 * @note Always call this method during application shutdown
 	 */
 	async disconnect(): Promise<void> {
 		try {
@@ -110,7 +145,24 @@ export class WebhookConsumer {
 	}
 
 	/**
-	 * Start polling for events
+	 * Start the webhook consumer and begin polling for events
+	 *
+	 * Initializes Redis connections and begins the event polling loop.
+	 * The consumer will continuously poll the Redis queue for new webhook
+	 * events and process them through the handleWebhookEvent function.
+	 *
+	 * @returns Promise that resolves when startup is complete
+	 * @throws {Error} When Redis connection fails or consumer is already running
+	 *
+	 * @example
+	 * ```typescript
+	 * const consumer = new WebhookConsumer({ redisUrl: 'redis://localhost:6379' });
+	 * await consumer.start();
+	 * console.log('Webhook consumer is now processing events');
+	 * ```
+	 *
+	 * @see {@link connect} for connection establishment
+	 * @see {@link pollForEvents} for event processing loop
 	 */
 	async start(): Promise<void> {
 		if (this.isRunning) {
@@ -127,7 +179,21 @@ export class WebhookConsumer {
 	}
 
 	/**
-	 * Stop polling for events
+	 * Stop the webhook consumer and clean up all resources
+	 *
+	 * Gracefully stops event polling and disconnects from Redis.
+	 * This method ensures all pending operations complete before
+	 * shutting down the consumer.
+	 *
+	 * @returns Promise that resolves when shutdown is complete
+	 *
+	 * @example
+	 * ```typescript
+	 * await consumer.stop();
+	 * console.log('Webhook consumer stopped gracefully');
+	 * ```
+	 *
+	 * @note Safe to call multiple times
 	 */
 	async stop(): Promise<void> {
 		this.isRunning = false;
@@ -195,8 +261,26 @@ export class WebhookConsumer {
 	}
 
 	/**
-	 * Process a single event
-	 * @param eventData - JSON string of the event
+	 * Process a single webhook event from the Redis queue
+	 *
+	 * Handles the complete event processing pipeline:
+	 * 1. Parse JSON event data
+	 * 2. Validate event structure and content
+	 * 3. Route to appropriate handler function
+	 * 4. Log processing results and any errors
+	 *
+	 * @param eventData - JSON string containing the webhook event payload
+	 * @returns Promise that resolves when event processing is complete
+	 *
+	 * @example
+	 * ```typescript
+	 * // Internal method called by pollForEvents
+	 * await this.processEvent('{"type":"message.created","data":{...}}');
+	 * ```
+	 *
+	 * @throws Logs errors but doesn't propagate to prevent queue blocking
+	 * @see {@link EventValidator.validate} for validation logic
+	 * @see {@link handleWebhookEvent} for event handling
 	 */
 	private async processEvent(eventData: string): Promise<void> {
 		try {
@@ -266,8 +350,25 @@ export class WebhookConsumer {
 	}
 
 	/**
-	 * Get connection status
-	 * @returns Status information
+	 * Get the current operational status of the webhook consumer
+	 *
+	 * Provides real-time status information about the consumer's
+	 * operational state and connection health. Useful for monitoring
+	 * and debugging connectivity issues.
+	 *
+	 * @returns Object containing detailed status information
+	 * @returns status.isRunning - Whether the consumer is actively polling
+	 * @returns status.isConnected - Whether main Redis client is connected
+	 * @returns status.isBlockingClientConnected - Whether blocking Redis client is connected
+	 * @returns status.queueName - The Redis queue name being monitored
+	 *
+	 * @example
+	 * ```typescript
+	 * const status = consumer.getStatus();
+	 * if (!status.isConnected) {
+	 *   console.log('Redis connection issue detected');
+	 * }
+	 * ```
 	 */
 	getStatus(): {
 		isRunning: boolean;
@@ -284,7 +385,33 @@ export class WebhookConsumer {
 	}
 
 	/**
-	 * Health check for monitoring
+	 * Comprehensive health check for monitoring and alerting
+	 *
+	 * Performs active health checks on all consumer components:
+	 * - Tests Redis connection with ping commands
+	 * - Verifies polling operation status
+	 * - Returns overall health assessment
+	 *
+	 * Health status levels:
+	 * - 'healthy': All systems operational
+	 * - 'degraded': Some issues but still functional
+	 * - 'unhealthy': Critical issues requiring attention
+	 *
+	 * @returns Promise<object> containing detailed health information
+	 * @returns result.status - Overall health status ('healthy'|'degraded'|'unhealthy')
+	 * @returns result.redis - Main Redis client health
+	 * @returns result.blockingRedis - Blocking Redis client health
+	 * @returns result.polling - Whether actively polling for events
+	 *
+	 * @example
+	 * ```typescript
+	 * const health = await consumer.healthCheck();
+	 * if (health.status === 'unhealthy') {
+	 *   await alertOpsTeam('Webhook consumer unhealthy', health);
+	 * }
+	 * ```
+	 *
+	 * @see {@link getStatus} for simpler status information
 	 */
 	async healthCheck(): Promise<{
 		status: 'healthy' | 'degraded' | 'unhealthy';

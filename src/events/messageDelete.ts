@@ -11,6 +11,26 @@ import { BotsStore } from '../sdk/bots-brain/BotsStore';
  */
 export const name = Events.MessageDelete;
 
+/**
+ * Executes when a message is deleted in Discord
+ *
+ * This function tracks deleted messages in the memory cache to support features
+ * like moderation logging and unthread operations that may need to reference
+ * recently deleted messages. Messages are stored with appropriate TTLs to
+ * prevent memory leaks.
+ *
+ * @param message - The Discord message that was deleted
+ * @returns Promise that resolves when message tracking is complete
+ *
+ * @example
+ * ```typescript
+ * // This function is automatically called by Discord.js when messages are deleted
+ * // It stores message metadata for 5 minutes for moderation purposes
+ * ```
+ *
+ * @note Bot messages are ignored to avoid processing automated content
+ * @see {@link BotsStore} for cache storage implementation
+ */
 export async function execute(message: Message): Promise<void> {
 	// Ignore bot messages to avoid processing automated content
 	if (message.author?.bot) return;

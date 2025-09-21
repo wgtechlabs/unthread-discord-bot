@@ -216,8 +216,32 @@ export class BotsStore {
 	}
 
 	/**
-     * Get or create singleton instance
-     */
+	 * Get or create the singleton BotsStore instance
+	 *
+	 * Implements the singleton pattern to ensure only one BotsStore instance
+	 * exists throughout the application lifecycle. This prevents multiple
+	 * database connection pools and ensures consistent storage operations.
+	 *
+	 * @param config - Configuration object required for first initialization only
+	 * @returns The singleton BotsStore instance
+	 * @throws {Error} When config is missing on first initialization
+	 *
+	 * @example
+	 * ```typescript
+	 * // First initialization
+	 * const store = BotsStore.getInstance({
+	 *   postgresUrl: 'postgresql://...',
+	 *   redisCacheUrl: 'redis://...',
+	 *   defaultCacheTtl: 3600,
+	 *   enableMetrics: true
+	 * });
+	 *
+	 * // Subsequent calls (config not needed)
+	 * const sameStore = BotsStore.getInstance();
+	 * ```
+	 *
+	 * @note The instance persists for the application lifetime
+	 */
 	public static getInstance(config?: BotsStoreConfig): BotsStore {
 		if (!BotsStore.instance) {
 			if (!config) {
@@ -229,7 +253,27 @@ export class BotsStore {
 	}
 
 	/**
-	 * Validate required environment variables for BotsStore
+	 * Validate that all required environment variables are present
+	 *
+	 * Performs comprehensive validation of environment variables needed
+	 * for BotsStore operation. This includes database connection strings,
+	 * cache configurations, and other critical settings.
+	 *
+	 * Required environment variables:
+	 * - POSTGRES_URL: PostgreSQL database connection string
+	 * - PLATFORM_REDIS_URL: Redis cache connection string for bot state
+	 *
+	 * @throws {Error} When any required environment variables are missing
+	 * @throws Includes detailed error message listing all missing variables
+	 *
+	 * @example
+	 * ```typescript
+	 * // Called internally during initialization
+	 * // Will throw detailed error if .env is incomplete
+	 * BotsStore.validateEnvironmentVariables();
+	 * ```
+	 *
+	 * @see {@link createConfigFromEnvironment} for config creation
 	 */
 	private static validateEnvironmentVariables(): void {
 		const requiredVars = [
@@ -261,7 +305,27 @@ export class BotsStore {
 	}
 
 	/**
-	 * Create configuration from validated environment variables
+	 * Create BotsStore configuration from validated environment variables
+	 *
+	 * Constructs the configuration object using environment variables
+	 * that have been validated by validateEnvironmentVariables().
+	 * Applies sensible defaults for optional configuration values.
+	 *
+	 * Configuration defaults:
+	 * - defaultCacheTtl: 3600 seconds (1 hour)
+	 * - enableMetrics: true in development, false in production
+	 *
+	 * @returns Complete BotsStore configuration object
+	 *
+	 * @example
+	 * ```typescript
+	 * // Internal usage during initialization
+	 * const config = BotsStore.createConfigFromEnvironment();
+	 * // config contains: postgresUrl, redisCacheUrl, defaultCacheTtl, enableMetrics
+	 * ```
+	 *
+	 * @see {@link validateEnvironmentVariables} for prerequisite validation
+	 * @see {@link BotsStoreConfig} for configuration interface
 	 */
 	private static createConfigFromEnvironment(): BotsStoreConfig {
 		return {
@@ -274,7 +338,32 @@ export class BotsStore {
 	}
 
 	/**
-	 * Initialize BotsStore with environment configuration
+	 * Initialize BotsStore singleton from environment configuration
+	 *
+	 * Convenience method that automatically validates environment variables,
+	 * creates configuration, and initializes the BotsStore singleton.
+	 * This is the preferred way to initialize BotsStore in production.
+	 *
+	 * Initialization process:
+	 * 1. Validates all required environment variables
+	 * 2. Creates configuration from environment
+	 * 3. Initializes singleton with configuration
+	 * 4. Sets up database and cache connections
+	 *
+	 * @returns Promise<BotsStore> - The initialized singleton instance
+	 * @throws {Error} When environment validation fails
+	 * @throws {Error} When database or cache connections fail
+	 *
+	 * @example
+	 * ```typescript
+	 * // Preferred initialization method
+	 * const store = await BotsStore.initialize();
+	 * console.log('BotsStore ready for operations');
+	 * ```
+	 *
+	 * @see {@link validateEnvironmentVariables} for validation logic
+	 * @see {@link createConfigFromEnvironment} for config creation
+	 * @see {@link getInstance} for singleton management
 	 */
 	public static async initialize(): Promise<BotsStore> {
 		// Validate required environment variables

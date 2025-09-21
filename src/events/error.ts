@@ -46,6 +46,31 @@ import { LogEngine } from '../config/logger';
  */
 export const name = Events.Error;
 export const once = false;
+
+/**
+ * Executes when an unhandled error occurs in the Discord.js client
+ *
+ * This function captures and logs all unhandled errors from the Discord.js client,
+ * including WebSocket connection failures, API errors, rate limit violations,
+ * and other lower-level issues that occur outside normal command execution.
+ *
+ * @param error - The error object containing details about what went wrong
+ * @returns void - Errors are logged but not propagated to prevent crashes
+ *
+ * @example
+ * ```typescript
+ * // This function is automatically called by Discord.js for unhandled errors
+ * // Common error types include:
+ * // - WebSocket connection issues
+ * // - API rate limit violations
+ * // - Permission denied errors
+ * // - Network connectivity problems
+ * ```
+ *
+ * @critical This is the primary error monitoring point for bot health
+ * @see {@link LogEngine} for error logging implementation
+ * @see {@link https://discordstatus.com/} for Discord API status
+ */
 export function execute(error: Error): void {
 	// Log the error with full stack trace for troubleshooting
 	LogEngine.error(`Discord.js Client Error: ${error.stack || error}`);
