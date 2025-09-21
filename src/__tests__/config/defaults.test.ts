@@ -39,11 +39,9 @@ describe('defaults configuration', () => {
 			expect(DEFAULT_CONFIG.UNTHREAD_DEFAULT_PRIORITY).toBe(5);
 		});
 
-		it('should have business logic defaults', () => {
-			expect(DEFAULT_CONFIG.DUMMY_EMAIL_DOMAIN).toBe('discord.user');
-		});
-
-		it('should provide isDevelopment helper function', () => {
+		it('should have correct DUMMY_EMAIL_DOMAIN', () => {
+			expect(DEFAULT_CONFIG.DUMMY_EMAIL_DOMAIN).toBe('discord.invalid');
+		});		it('should provide isDevelopment helper function', () => {
 			expect(typeof DEFAULT_CONFIG.isDevelopment).toBe('function');
 		});
 
@@ -255,7 +253,7 @@ describe('defaults configuration', () => {
 				expect(config.UNTHREAD_HTTP_TIMEOUT_MS).toBe(10000);
 				expect(config.WEBHOOK_POLL_INTERVAL).toBe(1000);
 				expect(config.UNTHREAD_DEFAULT_PRIORITY).toBe(5);
-				expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.user');
+				expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.invalid');
 				expect(config.DATABASE_SSL_VALIDATE).toBe(true);
 				expect(typeof config.isDevelopment).toBe('function');
 			}
@@ -286,7 +284,7 @@ describe('defaults configuration', () => {
 
 				// Non-overridden values should remain default
 				expect(config.WEBHOOK_POLL_INTERVAL).toBe(1000);
-				expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.user');
+				expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.invalid');
 			}
 			finally {
 				// Restore original environment variable values
