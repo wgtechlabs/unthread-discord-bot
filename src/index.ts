@@ -76,7 +76,7 @@ dotenv.config();
 
 import * as fs from 'fs';
 import * as path from 'node:path';
-import { Client, Collection, GatewayIntentBits, Partials, Events } from 'discord.js';
+import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import { BotConfig } from './types/discord';
 import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
@@ -198,9 +198,15 @@ async function main(): Promise<void> {
 		await validateStartupRequirements();
 
 		// Step 4: Start Discord login after validation succeeds
+		LogEngine.info('Logging in to Discord...');
 		await client.login(DISCORD_BOT_TOKEN);
 		global.discordClient = client;
 		LogEngine.info('Discord client is ready and set globally.');
+
+		// Step 5: Initialize webhook consumer after Discord client is ready
+		// This ensures deterministic startup order without race conditions
+		LogEngine.info('Initializing webhook consumer...');
+		await initializeWebhookConsumer();
 
 		LogEngine.info('🚀 Unthread Discord Bot started successfully as Redis consumer');
 	}
@@ -447,12 +453,8 @@ async function initializeWebhookConsumer(): Promise<void> {
 	}
 }
 
-// Initialize WebhookConsumer after Discord client is ready
-client.once(Events.ClientReady, async () => {
-	// Add small delay to ensure ready event handler completes
-	await new Promise(resolve => setTimeout(resolve, 100));
-	await initializeWebhookConsumer();
-});
+// WebhookConsumer initialization is now handled in main() for deterministic startup order
+// No separate ready listener needed as initialization happens after login completes
 
 /**
  * Graceful shutdown handler for WebhookConsumer
