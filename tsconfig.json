@@ -16,12 +16,23 @@
     "sourceMap": true,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
-    "types": ["node"],
+    "types": ["node", "vitest/globals"],
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"],
+      "@tests/*": ["src/__tests__/*"],
+      "@utils/*": ["src/utils/*"],
+      "@services/*": ["src/services/*"],
+      "@config/*": ["src/config/*"],
+      "@types/*": ["src/types/*"],
+      "@events/*": ["src/events/*"],
+      "@sdk/*": ["src/sdk/*"]
+    }
   },
   "include": [
     "src/**/*"
@@ -29,7 +40,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.spec.ts",
-    "**/*.test.ts"
+    "coverage"
   ]
 }

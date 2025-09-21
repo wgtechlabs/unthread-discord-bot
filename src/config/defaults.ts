@@ -60,7 +60,9 @@ export const DEFAULT_CONFIG = {
  * @returns Configuration value with type safety
  */
 export function getConfig<T>(key: string, defaultValue: T): T {
-	const envValue = process.env[key as keyof NodeJS.ProcessEnv];
+	// Handle undefined process.env gracefully
+	const env = process.env || {};
+	const envValue = env[key as keyof NodeJS.ProcessEnv];
 
 	if (envValue !== undefined) {
 		// Try to parse numeric values
@@ -134,6 +136,23 @@ interface SSLConfig {
 }
 
 /**
+ * Helper function to create SSL configuration with optional CA certificate
+ * Eliminates code duplication in SSL configuration logic
+ *
+ * @param rejectUnauthorized - Whether to reject unauthorized certificates
+ * @returns SSL configuration object with optional CA certificate
+ */
+function createSSLConfig(rejectUnauthorized: boolean): SSLConfig {
+	const config: SSLConfig = {
+		rejectUnauthorized,
+	};
+	if (process.env.DATABASE_SSL_CA) {
+		config.ca = process.env.DATABASE_SSL_CA;
+	}
+	return config;
+}
+
+/**
  * Configure SSL settings for PostgreSQL connections based on environment
  * Follows the same pattern as the Telegram bot for consistency
  *
@@ -151,57 +170,33 @@ export function getSSLConfig(isProduction: boolean): SSLConfig | false {
 
 	// Check if we're on Railway first - they use self-signed certificates
 	if (isRailwayEnvironment()) {
-		const config: SSLConfig = {
-			rejectUnauthorized: false,
-		};
-		if (process.env.DATABASE_SSL_CA) {
-			config.ca = process.env.DATABASE_SSL_CA;
-		}
-		return config;
+		return createSSLConfig(false);
 	}
 
-	// In production, validate SSL certificates for security (unless overridden above)
+	// In production, check specific SSL validation settings for security
 	if (isProduction) {
-		const config: SSLConfig = {
-			rejectUnauthorized: true,
-		};
-		if (process.env.DATABASE_SSL_CA) {
-			config.ca = process.env.DATABASE_SSL_CA;
+		// If explicitly set to 'false', enable SSL with validation
+		if (sslValidate === 'false') {
+			return createSSLConfig(true);
 		}
-		return config;
+
+		// Default for production: SSL enabled WITHOUT certificate validation for compatibility
+		return createSSLConfig(false);
 	}
 
 	// In development, check remaining SSL validation settings
 	// If set to 'true', enable SSL but disable certificate validation (common for dev)
 	if (sslValidate === 'true') {
-		const config: SSLConfig = {
-			rejectUnauthorized: false,
-		};
-		if (process.env.DATABASE_SSL_CA) {
-			config.ca = process.env.DATABASE_SSL_CA;
-		}
-		return config;
+		return createSSLConfig(false);
 	}
 
 	// If explicitly set to 'false', enable SSL with validation
 	if (sslValidate === 'false') {
-		const config: SSLConfig = {
-			rejectUnauthorized: true,
-		};
-		if (process.env.DATABASE_SSL_CA) {
-			config.ca = process.env.DATABASE_SSL_CA;
-		}
-		return config;
+		return createSSLConfig(true);
 	}
 
-	// Default for all environments: SSL enabled WITH certificate validation for security
-	const config: SSLConfig = {
-		rejectUnauthorized: true,
-	};
-	if (process.env.DATABASE_SSL_CA) {
-		config.ca = process.env.DATABASE_SSL_CA;
-	}
-	return config;
+	// Default for all environments: SSL enabled WITHOUT certificate validation for compatibility
+	return createSSLConfig(false);
 }
 
 /**
