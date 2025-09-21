@@ -351,29 +351,28 @@ docker-compose down -v
 
 ### 📊 Monitoring & Health Checks
 
-The bot provides comprehensive monitoring endpoints:
+The bot operates as a pure Redis consumer without direct HTTP endpoints. Health monitoring is handled through:
 
-- **GET /health** - Overall system health (Discord + Storage layers)
-- **GET /webhook/health** - Queue system health and metrics
-- **GET /webhook/metrics** - Detailed processing statistics
-- **POST /webhook/retry** - Manual retry of failed webhook jobs
+**Internal Health Checks:**
+- **Storage Layers**: Automatic validation of Memory (L1), Redis (L2), and PostgreSQL (L3) connectivity
+- **Discord Connection**: Real-time monitoring of Discord client connectivity
+- **Webhook Consumer**: Redis queue processing status and connection health
 
-Example health check response:
-```json
-{
-  "status": "healthy",
-  "timestamp": "2024-01-01T00:00:00.000Z",
-  "services": {
-    "discord": "connected",
-    "storage": "healthy",
-    "storage_layers": {
-      "memory": true,
-      "redis": true,
-      "postgres": true
-    }
-  }
-}
+**External Monitoring:**
+- **unthread-webhook-server**: Provides HTTP endpoints for external health checks at `http://localhost:3000/health`
+- **Docker Health Checks**: Container-level health monitoring via docker-compose
+- **Logging**: Comprehensive logging system for debugging and monitoring
+
+**Health Check Methods:**
+```typescript
+// Internal storage health check
+const health = await botsStore.healthCheck();
+
+// Webhook consumer health check  
+const consumerHealth = await webhookConsumer.healthCheck();
 ```
+
+**Note**: The bot no longer exposes direct HTTP endpoints. All webhook processing is handled through the Redis queue populated by the separate unthread-webhook-server service.
 
 ## 📦 Manual Installation
 
