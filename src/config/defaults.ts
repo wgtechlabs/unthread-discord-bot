@@ -32,7 +32,7 @@
  * @module config/defaults
  */
 
-import { LogEngine } from './logger';
+import { LogEngine } from '@wgtechlabs/log-engine';
 
 /**
  * Default configuration values for the Discord bot

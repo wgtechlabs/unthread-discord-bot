@@ -14,11 +14,16 @@
  */
 
 import { LogEngine, LogMode } from '@wgtechlabs/log-engine';
-import { DEFAULT_CONFIG } from './defaults';
+
+/**
+ * Check if we're in development mode
+ * @returns true if NODE_ENV is 'development' or undefined
+ */
+const isDevelopment = (): boolean => process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
 
 // Set the log mode based on NODE_ENV environment variable
 // In development mode (or undefined NODE_ENV), show all logs; otherwise show info and above
-const logMode = DEFAULT_CONFIG.isDevelopment() ? LogMode.DEBUG : LogMode.INFO;
+const logMode = isDevelopment() ? LogMode.DEBUG : LogMode.INFO;
 
 // Configure LogEngine with the required format settings
 LogEngine.configure({
