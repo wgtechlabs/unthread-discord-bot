@@ -8,11 +8,11 @@
  * 🏗️ ARCHITECTURE OVERVIEW FOR CONTRIBUTORS:
  * ==========================================
  * This bot follows a modular, Redis-based architecture:
- * 
+ *
  * 1. Discord Client: Handles real-time Discord events (messages, interactions)
  * 2. Redis Consumer: Consumes webhook events from Redis queue
  * 3. 3-Layer Storage: PostgreSQL (L3) + Redis (L2) + Memory (L1) via BotsStore
- * 
+ *
  * Data Flow:
  * Discord → Bot → Unthread API → Webhook Server → Redis Queue → Discord Bot
  *
@@ -417,7 +417,7 @@ let webhookConsumer: WebhookConsumer | null = null;
 
 /**
  * Initialize WebhookConsumer after Discord client is ready
- * 
+ *
  * Uses proper event-driven startup coordination instead of arbitrary timeouts.
  * Waits for the ClientReady event to ensure Discord client is fully initialized.
  */
