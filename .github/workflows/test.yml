@@ -76,9 +76,14 @@ jobs:
             !coverage/tmp/
           retention-days: 7
 
+      - name: Check test results
+        if: always()
+        id: check-test-results
+        run: echo "found=$(test -f coverage/test-results.json && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.check-test-results.outputs.found == 'true'
         with:
           name: test-results
           path: coverage/test-results.json
