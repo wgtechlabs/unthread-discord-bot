@@ -158,48 +158,51 @@ function createSSLConfig(rejectUnauthorized: boolean): SSLConfig {
 
 /**
  * Configure SSL settings for PostgreSQL connections based on environment
- * Follows the same pattern as the Telegram bot for consistency
+ * Production prioritizes security with strict SSL validation by default.
+ * Development allows flexibility with explicit configuration overrides.
  *
  * @param isProduction - Whether running in production environment
- * @returns SSL configuration object, or false to disable SSL entirely
+ * @returns SSL configuration object, or false to disable SSL entirely (dev only)
  */
 export function getSSLConfig(isProduction: boolean): SSLConfig | false {
-	// Check SSL validation setting first (applies to all environments)
+	// Check SSL validation setting first
 	const sslValidate = process.env.DATABASE_SSL_VALIDATE;
-
-	// If set to 'full', disable SSL entirely (useful for local Docker with sslmode=disable)
-	if (sslValidate === 'full') {
-		return false;
-	}
 
 	// Check if we're on Railway first - they use self-signed certificates
 	if (isRailwayEnvironment()) {
 		return createSSLConfig(false);
 	}
 
-	// In production, check specific SSL validation settings for security
+	// In production, enforce secure SSL by default
 	if (isProduction) {
-		// If explicitly set to 'false', enable SSL with validation
+		// Only allow disabling SSL validation with explicit override (not complete SSL disable)
 		if (sslValidate === 'false') {
-			return createSSLConfig(true);
+			// SSL enabled, validation disabled
+			return createSSLConfig(false);
 		}
 
-		// Default for production: SSL enabled WITHOUT certificate validation for compatibility
-		return createSSLConfig(false);
-	}
-
-	// In development, check remaining SSL validation settings
-	// If set to 'true', enable SSL but disable certificate validation (common for dev)
-	if (sslValidate === 'true') {
-		return createSSLConfig(false);
-	}
-
-	// If explicitly set to 'false', enable SSL with validation
-	if (sslValidate === 'false') {
+		// Production default: SSL enabled WITH strict certificate validation for security
 		return createSSLConfig(true);
 	}
 
-	// Default for all environments: SSL enabled WITHOUT certificate validation for compatibility
+	// In development, allow more flexibility for local development
+	// Allow complete SSL disable only in development with 'full' setting
+	if (sslValidate === 'full') {
+		// No SSL at all (development only)
+		return false;
+	}
+
+	// If set to 'true', enable SSL with strict validation
+	if (sslValidate === 'true') {
+		return createSSLConfig(true);
+	}
+
+	// If explicitly set to 'false', enable SSL but disable certificate validation (dev convenience)
+	if (sslValidate === 'false') {
+		return createSSLConfig(false);
+	}
+
+	// Development default: SSL enabled WITHOUT certificate validation for local convenience
 	return createSSLConfig(false);
 }
 

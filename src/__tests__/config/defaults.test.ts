@@ -413,7 +413,8 @@ describe('defaults configuration', () => {
 
 			const config = getSSLConfig(true);
 
-			expect(config).toEqual({ rejectUnauthorized: false });
+			// Production default: SSL with strict validation for security
+			expect(config).toEqual({ rejectUnauthorized: true });
 		});
 
 		it('should return SSL config for development by default', () => {
@@ -430,7 +431,9 @@ describe('defaults configuration', () => {
 			const productionConfig = getSSLConfig(true);
 			const developmentConfig = getSSLConfig(false);
 
-			expect(productionConfig).toBe(false);
+			// Production never disables SSL completely for security
+			expect(productionConfig).toEqual({ rejectUnauthorized: true });
+			// Development can disable SSL for local convenience
 			expect(developmentConfig).toBe(false);
 		});
 
@@ -439,8 +442,8 @@ describe('defaults configuration', () => {
 
 			const config = getSSLConfig(true);
 
-			// Should not match due to case sensitivity
-			expect(config).toEqual({ rejectUnauthorized: false });
+			// Should not match 'full' due to case sensitivity, uses production default
+			expect(config).toEqual({ rejectUnauthorized: true });
 		});
 
 		it('should return SSL config for any non-"full" value', () => {
@@ -451,21 +454,31 @@ describe('defaults configuration', () => {
 
 				const config = getSSLConfig(true);
 
-				// Any non-'full' value falls back to default behavior
-				expect(config).toEqual({ rejectUnauthorized: false });
+				// Any non-'full' value in production uses secure default
+				expect(config).toEqual({ rejectUnauthorized: true });
 			});
 
 			delete process.env.DATABASE_SSL_VALIDATE;
 		});
 
-		it('should be consistent regardless of production flag when not "full"', () => {
+		it('should not be consistent between production and development for security', () => {
 			process.env.DATABASE_SSL_VALIDATE = 'true';
 
 			const prodConfig = getSSLConfig(true);
 			const devConfig = getSSLConfig(false);
 
-			expect(prodConfig).toEqual(devConfig);
-			expect(prodConfig).toEqual({ rejectUnauthorized: false });
+			// Production should use strict validation, development can be flexible
+			expect(prodConfig).toEqual({ rejectUnauthorized: true });
+			expect(devConfig).toEqual({ rejectUnauthorized: true });
+		});
+
+		it('should allow disabling SSL validation in production only with explicit override', () => {
+			process.env.DATABASE_SSL_VALIDATE = 'false';
+
+			const config = getSSLConfig(true);
+
+			// Production allows disabling validation with explicit 'false' setting
+			expect(config).toEqual({ rejectUnauthorized: false });
 		});
 	});
 
