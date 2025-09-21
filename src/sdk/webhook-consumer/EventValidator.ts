@@ -51,15 +51,28 @@ export class EventValidator {
 			return false;
 		}
 
-		// Validate timestamp field
-		if (!eventObj.timestamp || typeof eventObj.timestamp !== 'string' || !eventObj.timestamp.trim()) {
-			LogEngine.warn('Event validation failed: Missing or invalid field "timestamp"');
+		// Validate timestamp field - handle both string (ISO) and number (Unix timestamp) formats
+		if (!eventObj.timestamp) {
+			LogEngine.warn('Event validation failed: Missing field "timestamp"');
 			return false;
 		}
 
-		// Basic timestamp sanity check
-		if (Number.isNaN(Date.parse(eventObj.timestamp))) {
-			LogEngine.warn('Event validation failed: Invalid timestamp format');
+		// Basic timestamp sanity check for both string and number formats
+		let isValidTimestamp = false;
+		if (typeof eventObj.timestamp === 'string' && eventObj.timestamp.trim()) {
+			// ISO timestamp string format
+			isValidTimestamp = !Number.isNaN(Date.parse(eventObj.timestamp));
+		}
+		else if (typeof eventObj.timestamp === 'number') {
+			// Unix timestamp number format (milliseconds)
+			isValidTimestamp = eventObj.timestamp > 0 && !Number.isNaN(new Date(eventObj.timestamp).getTime());
+		}
+
+		if (!isValidTimestamp) {
+			LogEngine.warn('Event validation failed: Invalid timestamp format', {
+				timestamp: eventObj.timestamp,
+				type: typeof eventObj.timestamp,
+			});
 			return false;
 		}
 

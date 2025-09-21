@@ -233,8 +233,8 @@ export interface WebhookPayload {
 	type: string;
 	/** Source platform that originated the event */
 	sourcePlatform: string;
-	/** ISO timestamp when the event occurred */
-	timestamp: string;
+	/** ISO timestamp when the event occurred (string) or Unix timestamp (number) */
+	timestamp: string | number;
 	/** Event-specific data payload */
 	data: UnthreadTicket | UnthreadMessage | Record<string, unknown>;
 	/** Enhanced attachment metadata for efficient processing */
