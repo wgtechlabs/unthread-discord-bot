@@ -161,6 +161,8 @@ function createSSLConfig(rejectUnauthorized: boolean): SSLConfig {
  * Production prioritizes security with strict SSL validation by default.
  * Development allows flexibility with explicit configuration overrides.
  *
+ * This follows the proven Telegram bot SSL logic for Railway compatibility.
+ *
  * @param isProduction - Whether running in production environment
  * @returns SSL configuration object, or false to disable SSL entirely (dev only)
  */
@@ -184,61 +186,83 @@ export function getSSLConfig(isProduction: boolean): SSLConfig | false {
 
 	// Check if we're on Railway first - they use self-signed certificates
 	if (isRailwayEnvironment()) {
+		LogEngine.info('Railway environment detected - using SSL with relaxed certificate validation');
+		// Accept Railway's self-signed certificates
 		return createSSLConfig(false);
 	}
 
 	// In production, enforce secure SSL by default
 	if (isProduction) {
-		// Only allow disabling SSL validation with explicit override (not complete SSL disable)
+		// Allow disabling SSL validation with explicit override
 		if (sslValidate === 'false') {
+			LogEngine.info('Production SSL validation disabled via DATABASE_SSL_VALIDATE=false');
 			// SSL enabled, validation disabled
 			return createSSLConfig(false);
 		}
 
 		// Production default: SSL enabled WITH strict certificate validation for security
+		LogEngine.debug('Production SSL with strict certificate validation enabled');
 		return createSSLConfig(true);
 	}
 
-	// In development, allow more flexibility for local development
+	// In development, check remaining SSL validation settings
 	// If set to 'true', enable SSL with strict validation
 	if (sslValidate === 'true') {
+		LogEngine.debug('Development SSL with strict validation enabled via DATABASE_SSL_VALIDATE=true');
 		return createSSLConfig(true);
 	}
 
 	// If explicitly set to 'false', enable SSL but disable certificate validation (dev convenience)
 	if (sslValidate === 'false') {
+		LogEngine.debug('Development SSL with relaxed validation enabled via DATABASE_SSL_VALIDATE=false');
 		return createSSLConfig(false);
 	}
 
-	// Development default: SSL enabled WITHOUT certificate validation for local convenience
-	return createSSLConfig(false);
+	// Development default: SSL enabled WITH strict certificate validation (secure by default)
+	LogEngine.debug('Development SSL with default strict validation enabled');
+	return createSSLConfig(true);
 }
 
 /**
  * Process PostgreSQL connection string with SSL configuration
- * Automatically adds sslmode=disable when SSL is completely disabled
+ * Automatically adds appropriate sslmode parameters based on SSL configuration
  *
  * @param connectionString - Base PostgreSQL connection string
  * @param sslConfig - SSL configuration from getSSLConfig()
  * @returns Processed connection string with SSL parameters if needed
  */
 export function processConnectionString(connectionString: string, sslConfig: SSLConfig | false): string {
-	// Auto-append sslmode=disable only when completely disabling SSL
-	if (sslConfig === false && !connectionString.includes('sslmode=')) {
-		const separator = connectionString.includes('?') ? '&' : '?';
-		const processedString = `${connectionString}${separator}sslmode=disable`;
+	// Skip if sslmode is already in the connection string
+	if (connectionString.includes('sslmode=')) {
+		return connectionString;
+	}
 
-		// Log SSL configuration change (mask credentials for security)
+	const separator = connectionString.includes('?') ? '&' : '?';
+	let processedString = connectionString;
+	let sslMode = '';
+
+	// Auto-append sslmode=disable when completely disabling SSL
+	if (sslConfig === false) {
+		sslMode = 'disable';
+		processedString = `${connectionString}${separator}sslmode=disable`;
+	}
+	// Add sslmode=require for SSL-enabled connections (Railway compatibility)
+	else if (sslConfig && typeof sslConfig === 'object') {
+		sslMode = 'require';
+		processedString = `${connectionString}${separator}sslmode=require`;
+	}
+
+	// Log SSL configuration change (mask credentials for security)
+	if (sslMode) {
 		const maskedUrl = connectionString.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
 		const maskedProcessedUrl = processedString.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
 
-		LogEngine.info('SSL disabled - added sslmode=disable to connection string', {
+		LogEngine.info(`SSL configured - added sslmode=${sslMode} to connection string`, {
 			originalUrl: maskedUrl,
 			modifiedUrl: maskedProcessedUrl,
+			isRailway: isRailwayEnvironment(),
 		});
-
-		return processedString;
 	}
 
-	return connectionString;
+	return processedString;
 }
