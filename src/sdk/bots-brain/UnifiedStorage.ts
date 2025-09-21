@@ -281,13 +281,14 @@ class PostgresStorage implements StorageLayer {
 		const sslConfig = getSSLConfig(isProduction);
 		const processedPostgresUrl = processConnectionString(postgresUrl, sslConfig);
 		
-		// Configure connection pool using the proven pattern from Telegram bot
+		// Configure connection pool with Railway-optimized timeouts
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const poolConfig: any = {
 			connectionString: processedPostgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
-			connectionTimeoutMillis: 2000,
+			// Increased to 10s for Railway managed databases
+			connectionTimeoutMillis: 10000,
 		};
 		
 		// Only add SSL config if it's not explicitly disabled

@@ -76,7 +76,7 @@ export function validateEnvironment(): void {
 	const requiredEnvVars = [
 		{ name: 'UNTHREAD_API_KEY', value: process.env.UNTHREAD_API_KEY },
 		{ name: 'UNTHREAD_SLACK_CHANNEL_ID', value: process.env.UNTHREAD_SLACK_CHANNEL_ID },
-		{ name: 'SLACK_TEAM_ID', value: process.env.SLACK_TEAM_ID },
+		{ name: 'UNTHREAD_WEBHOOK_SECRET', value: process.env.UNTHREAD_WEBHOOK_SECRET },
 	];
 
 	const missingVars = requiredEnvVars.filter(envVar => !envVar.value?.trim());
@@ -86,6 +86,15 @@ export function validateEnvironment(): void {
 		LogEngine.error(`Missing required environment variables: ${missingNames}`);
 		LogEngine.error('Please ensure all required environment variables are set before starting the application.');
 		throw new Error(`Missing required environment variables: ${missingNames}`);
+	}
+
+	// Log optional variables status for debugging
+	const slackTeamId = process.env.SLACK_TEAM_ID;
+	if (slackTeamId?.trim()) {
+		LogEngine.info('Optional SLACK_TEAM_ID is configured - file attachments enabled');
+	}
+	else {
+		LogEngine.info('Optional SLACK_TEAM_ID not configured - file attachments will be limited');
 	}
 
 	LogEngine.info('Unthread environment validation passed - all required variables are set');
