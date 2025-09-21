@@ -165,8 +165,22 @@ function createSSLConfig(rejectUnauthorized: boolean): SSLConfig {
  * @returns SSL configuration object, or false to disable SSL entirely (dev only)
  */
 export function getSSLConfig(isProduction: boolean): SSLConfig | false {
-	// Check SSL validation setting first
+	// Check SSL validation setting first (applies to ALL environments)
 	const sslValidate = process.env.DATABASE_SSL_VALIDATE;
+
+	// Debug logging to understand SSL configuration
+	LogEngine.debug('SSL Configuration Debug', {
+		sslValidate,
+		isProduction,
+		nodeEnv: process.env.NODE_ENV,
+		isRailway: isRailwayEnvironment(),
+	});
+
+	// If set to 'full', disable SSL entirely (highest priority - works in all environments)
+	if (sslValidate === 'full') {
+		LogEngine.info('SSL completely disabled - DATABASE_SSL_VALIDATE=full detected');
+		return false;
+	}
 
 	// Check if we're on Railway first - they use self-signed certificates
 	if (isRailwayEnvironment()) {
@@ -186,12 +200,6 @@ export function getSSLConfig(isProduction: boolean): SSLConfig | false {
 	}
 
 	// In development, allow more flexibility for local development
-	// Allow complete SSL disable only in development with 'full' setting
-	if (sslValidate === 'full') {
-		// No SSL at all (development only)
-		return false;
-	}
-
 	// If set to 'true', enable SSL with strict validation
 	if (sslValidate === 'true') {
 		return createSSLConfig(true);

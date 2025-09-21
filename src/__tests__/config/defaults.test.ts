@@ -431,9 +431,9 @@ describe('defaults configuration', () => {
 			const productionConfig = getSSLConfig(true);
 			const developmentConfig = getSSLConfig(false);
 
-			// Production never disables SSL completely for security
-			expect(productionConfig).toEqual({ rejectUnauthorized: true });
-			// Development can disable SSL for local convenience
+			// Both production and development disable SSL completely when "full" is set
+			// This is highest priority setting for containers that don't support SSL
+			expect(productionConfig).toBe(false);
 			expect(developmentConfig).toBe(false);
 		});
 

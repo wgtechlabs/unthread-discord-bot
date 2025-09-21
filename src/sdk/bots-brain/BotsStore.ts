@@ -204,13 +204,21 @@ export class BotsStore {
 		const sslConfig = getSSLConfig(isProduction);
 		const processedPostgresUrl = processConnectionString(config.postgresUrl, sslConfig);
 		
-		this.pool = new Pool({
+		// Configure connection pool using the proven pattern from Telegram bot
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const poolConfig: any = {
 			connectionString: processedPostgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
 			connectionTimeoutMillis: 2000,
-			ssl: sslConfig,
-		});
+		};
+		
+		// Only add SSL config if it's not explicitly disabled
+		if (sslConfig !== false) {
+			poolConfig.ssl = sslConfig;
+		}
+		
+		this.pool = new Pool(poolConfig);
 
 		LogEngine.info('BotsStore initialized with UnifiedStorage backend');
 	}

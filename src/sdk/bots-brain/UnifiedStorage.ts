@@ -5,7 +5,7 @@
  * high-performance data access with automatic fallback capabilities:
  *
  * 🏗️ ARCHITECTURE FOR CONTRIBUTORS:
- * =================================
+ * ================================
  * Layer 1 (L1): In-Memory Cache - Ultra-fast access for frequently used data
  * Layer 2 (L2): Redis Cache - Persistent cache across application restarts
  * Layer 3 (L3): PostgreSQL Database - Permanent storage and source of truth
@@ -281,13 +281,21 @@ class PostgresStorage implements StorageLayer {
 		const sslConfig = getSSLConfig(isProduction);
 		const processedPostgresUrl = processConnectionString(postgresUrl, sslConfig);
 		
-		this.pool = new Pool({
+		// Configure connection pool using the proven pattern from Telegram bot
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const poolConfig: any = {
 			connectionString: processedPostgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
 			connectionTimeoutMillis: 2000,
-			ssl: sslConfig,
-		});
+		};
+		
+		// Only add SSL config if it's not explicitly disabled
+		if (sslConfig !== false) {
+			poolConfig.ssl = sslConfig;
+		}
+		
+		this.pool = new Pool(poolConfig);
 		this.initializeConnection();
 	}
 

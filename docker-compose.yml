@@ -49,10 +49,8 @@ services:
   # cross-repository management and standardized tooling.
   server:
     build: .  # Build from local Dockerfile instead of pulling from Docker Hub
-    environment:
-      NODE_ENV: production
     env_file:
-      - .env  # Contains bot tokens, API keys, and database URLs
+      - .env  # Contains bot tokens, API keys, and database URLs (including NODE_ENV)
     depends_on:
       postgres-platform:
         condition: service_healthy  # Wait for database to be ready
