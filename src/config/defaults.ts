@@ -50,10 +50,12 @@ export const DEFAULT_CONFIG = {
 	UNTHREAD_DEFAULT_PRIORITY: 5,
 	DUMMY_EMAIL_DOMAIN: 'discord.invalid',
 	DATABASE_SSL_VALIDATE: true,
-
-	// Environment detection helper
-	isDevelopment: (): boolean => process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,
 } as const;
+
+/**
+ * Environment detection helper - computed at module load time
+ */
+export const isDevelopment: boolean = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
 
 /**
  * Get configuration value with environment override support
@@ -97,7 +99,7 @@ export function getAllConfig() {
 		UNTHREAD_DEFAULT_PRIORITY: getConfig('UNTHREAD_DEFAULT_PRIORITY', DEFAULT_CONFIG.UNTHREAD_DEFAULT_PRIORITY),
 		DUMMY_EMAIL_DOMAIN: getConfig('DUMMY_EMAIL_DOMAIN', DEFAULT_CONFIG.DUMMY_EMAIL_DOMAIN),
 		DATABASE_SSL_VALIDATE: getConfig('DATABASE_SSL_VALIDATE', DEFAULT_CONFIG.DATABASE_SSL_VALIDATE),
-		isDevelopment: DEFAULT_CONFIG.isDevelopment,
+		isDevelopment,
 	};
 }
 

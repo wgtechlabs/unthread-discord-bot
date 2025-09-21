@@ -47,7 +47,7 @@ import { Pool } from 'pg';
 import { UnifiedStorage } from './UnifiedStorage';
 import { LogEngine } from '../../config/logger';
 import { ThreadTicketMapping } from '../../types/discord';
-import { DEFAULT_CONFIG, getSSLConfig, processConnectionString } from '../../config/defaults';
+import { getSSLConfig, processConnectionString, isDevelopment } from '../../config/defaults';
 
 /**
  * Safely converts a Date object or ISO string to ISO string
@@ -333,7 +333,7 @@ export class BotsStore {
 			redisCacheUrl: process.env.PLATFORM_REDIS_URL!,
 			// 1 hour default cache
 			defaultCacheTtl: 3600,
-			enableMetrics: DEFAULT_CONFIG.isDevelopment(),
+			enableMetrics: isDevelopment,
 		};
 	}
 

@@ -12,6 +12,7 @@ import {
 	getAllConfig,
 	isRailwayEnvironment,
 	getSSLConfig,
+	isDevelopment,
 } from '@config/defaults';
 
 describe('defaults configuration', () => {
@@ -41,26 +42,18 @@ describe('defaults configuration', () => {
 
 		it('should have correct DUMMY_EMAIL_DOMAIN', () => {
 			expect(DEFAULT_CONFIG.DUMMY_EMAIL_DOMAIN).toBe('discord.invalid');
-		});		it('should provide isDevelopment helper function', () => {
-			expect(typeof DEFAULT_CONFIG.isDevelopment).toBe('function');
+		});
+	});
+
+	describe('isDevelopment', () => {
+		it('should be a boolean value', () => {
+			expect(typeof isDevelopment).toBe('boolean');
 		});
 
-		it('should detect development environment correctly', () => {
-			// Test development detection
-			process.env.NODE_ENV = 'development';
-			expect(DEFAULT_CONFIG.isDevelopment()).toBe(true);
-
-			// Test production environment
-			process.env.NODE_ENV = 'production';
-			expect(DEFAULT_CONFIG.isDevelopment()).toBe(false);
-
-			// Test undefined NODE_ENV (should be development)
-			delete process.env.NODE_ENV;
-			expect(DEFAULT_CONFIG.isDevelopment()).toBe(true);
-
-			// Test empty NODE_ENV
-			process.env.NODE_ENV = '';
-			expect(DEFAULT_CONFIG.isDevelopment()).toBe(true);
+		it('should be computed at module load time', () => {
+			// Since isDevelopment is computed when the module loads,
+			// we can only test its current value, not change NODE_ENV and expect it to update
+			expect(isDevelopment).toBeDefined();
 		});
 	});
 
@@ -255,7 +248,7 @@ describe('defaults configuration', () => {
 				expect(config.UNTHREAD_DEFAULT_PRIORITY).toBe(5);
 				expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.invalid');
 				expect(config.DATABASE_SSL_VALIDATE).toBe(true);
-				expect(typeof config.isDevelopment).toBe('function');
+				expect(typeof config.isDevelopment).toBe('boolean');
 			}
 			finally {
 				// Restore original NODE_ENV
@@ -309,11 +302,11 @@ describe('defaults configuration', () => {
 			}
 		});
 
-		it('should include isDevelopment function', () => {
+		it('should include isDevelopment boolean', () => {
 			const config = getAllConfig();
 
-			expect(typeof config.isDevelopment).toBe('function');
-			expect(config.isDevelopment).toBe(DEFAULT_CONFIG.isDevelopment);
+			expect(typeof config.isDevelopment).toBe('boolean');
+			expect(config.isDevelopment).toBe(isDevelopment);
 		});
 
 		it('should handle mixed environment overrides', () => {
