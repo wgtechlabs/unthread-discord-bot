@@ -17,10 +17,21 @@ import {
 describe('withRetry', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
+		// Create spies for LogEngine methods to enable assertions
+		vi.spyOn(LogEngine, 'info').mockImplementation(() => {});
+		vi.spyOn(LogEngine, 'debug').mockImplementation(() => {});
+		vi.spyOn(LogEngine, 'error').mockImplementation(() => {});
 	});
 
 	afterEach(() => {
+		// Run any pending timers before cleanup
+		vi.runOnlyPendingTimers();
+		// Restore real timers
 		vi.useRealTimers();
+		// Restore all mocks and spies
+		vi.restoreAllMocks();
+		// Clear all mock call history
+		vi.clearAllMocks();
 	});
 	describe('Successful Operations', () => {
 		it('should return result immediately for successful operation', async () => {
