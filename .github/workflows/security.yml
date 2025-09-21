@@ -24,7 +24,7 @@ env:
 
 jobs:
   docker-scout-analysis:
-    name: Docker Scout Analysis (Layer 2)
+    name: Docker Scout Analysis
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     permissions:
@@ -91,7 +91,7 @@ jobs:
           category: 'docker-scout-dev'
 
   pre-release-security:
-    name: Pre-Release Security Gate (Layer 3)
+    name: Pre-Release Security Gate
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
     permissions:

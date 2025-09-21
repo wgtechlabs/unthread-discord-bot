@@ -36,7 +36,7 @@ jobs:
       - name: Run linter
         run: yarn lint
 
-      - name: Run Trivy security scan (Layer 1)
+      - name: Run Trivy security scan
         uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'fs'
@@ -58,7 +58,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Type Checking**: Passed" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Linting**: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "🔒 **Security Scan**: Completed (Layer 1 - Dependencies)" >> $GITHUB_STEP_SUMMARY
+          echo "🔒 **Security Scan**: Completed (Dependencies)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🛡️ Security Scanning:" >> $GITHUB_STEP_SUMMARY
           echo "- **Trivy Filesystem Scan**: Dependencies and source code vulnerabilities" >> $GITHUB_STEP_SUMMARY
