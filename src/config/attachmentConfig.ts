@@ -87,8 +87,17 @@ export function getFileExtensionFromMimeType(mimeType: string): string {
 }
 
 /**
+ * Normalizes MIME type by extracting base type and converting to lowercase
+ * Handles cases like "IMAGE/PNG; charset=utf-8" -> "image/png"
+ */
+export function normalizeContentType(contentType: string): string {
+	return contentType.split(';')[0].trim().toLowerCase();
+}
+
+/**
  * Validates if MIME type is supported
  */
 export function isSupportedImageType(mimeType: string): mimeType is SupportedImageType {
-	return DISCORD_ATTACHMENT_CONFIG.supportedImageTypes.includes(mimeType as SupportedImageType);
+	const normalized = normalizeContentType(mimeType);
+	return DISCORD_ATTACHMENT_CONFIG.supportedImageTypes.includes(normalized as SupportedImageType);
 }

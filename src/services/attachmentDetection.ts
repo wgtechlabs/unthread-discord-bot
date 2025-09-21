@@ -15,7 +15,7 @@
  */
 
 import { Collection, Attachment } from 'discord.js';
-import { DISCORD_ATTACHMENT_CONFIG, isSupportedImageType } from '../config/attachmentConfig';
+import { DISCORD_ATTACHMENT_CONFIG, isSupportedImageType, normalizeContentType } from '../config/attachmentConfig';
 import { AttachmentValidationResult } from '../types/attachments';
 import { EnhancedWebhookEvent } from '../types/unthread';
 import { LogEngine } from '../config/logger';
@@ -281,8 +281,9 @@ export class AttachmentDetectionService {
 				return false;
 			}
 
+			const normalized = normalizeContentType(attachment.contentType);
 			if (!isSupportedImageType(attachment.contentType)) {
-				LogEngine.debug(`Attachment ${attachment.name} has unsupported type ${attachment.contentType}, skipping`);
+				LogEngine.debug(`Attachment ${attachment.name} has unsupported type ${normalized} (original: ${attachment.contentType}), skipping`);
 				return false;
 			}
 
@@ -330,6 +331,8 @@ export class AttachmentDetectionService {
 
 		// Check if file type is supported
 		if (!isSupportedImageType(attachment.contentType)) {
+			const normalized = normalizeContentType(attachment.contentType);
+			LogEngine.debug(`Attachment validation failed: unsupported type ${normalized} (original: ${attachment.contentType})`);
 			return {
 				isValid: false,
 				error: DISCORD_ATTACHMENT_CONFIG.errorMessages.unsupportedFileType,
