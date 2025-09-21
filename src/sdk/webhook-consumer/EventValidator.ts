@@ -27,9 +27,39 @@ export class EventValidator {
 
 		const eventObj = event as Record<string, unknown>;
 
-		// Required fields validation - check for 'type' field (actual webhook format)
-		if (!eventObj.type || typeof eventObj.type !== 'string') {
-			LogEngine.warn('Event validation failed: Missing or invalid event type');
+		// Validate platform field
+		if (!eventObj.platform || typeof eventObj.platform !== 'string' || !eventObj.platform.trim()) {
+			LogEngine.warn('Event validation failed: Missing or invalid field "platform"');
+			return false;
+		}
+
+		// Validate targetPlatform field
+		if (!eventObj.targetPlatform || typeof eventObj.targetPlatform !== 'string' || !eventObj.targetPlatform.trim()) {
+			LogEngine.warn('Event validation failed: Missing or invalid field "targetPlatform"');
+			return false;
+		}
+
+		// Validate type field
+		if (!eventObj.type || typeof eventObj.type !== 'string' || !eventObj.type.trim()) {
+			LogEngine.warn('Event validation failed: Missing or invalid field "type"');
+			return false;
+		}
+
+		// Validate sourcePlatform field
+		if (!eventObj.sourcePlatform || typeof eventObj.sourcePlatform !== 'string' || !eventObj.sourcePlatform.trim()) {
+			LogEngine.warn('Event validation failed: Missing or invalid field "sourcePlatform"');
+			return false;
+		}
+
+		// Validate timestamp field
+		if (!eventObj.timestamp || typeof eventObj.timestamp !== 'string' || !eventObj.timestamp.trim()) {
+			LogEngine.warn('Event validation failed: Missing or invalid field "timestamp"');
+			return false;
+		}
+
+		// Basic timestamp sanity check
+		if (Number.isNaN(Date.parse(eventObj.timestamp))) {
+			LogEngine.warn('Event validation failed: Invalid timestamp format');
 			return false;
 		}
 
@@ -39,8 +69,8 @@ export class EventValidator {
 		}
 
 		// Validate supported event types (updated to match actual webhook server output)
-		const supportedEvents = ['message_created', 'conversation_updated', 'conversation_created'];
-		if (!supportedEvents.includes(eventObj.type)) {
+		const supportedEvents = new Set(['message_created', 'conversation_updated', 'conversation_created']);
+		if (!supportedEvents.has(eventObj.type)) {
 			LogEngine.debug(`Unsupported event type: ${eventObj.type}`);
 			return false;
 		}
@@ -92,8 +122,9 @@ export class EventValidator {
 			return true;
 		}
 
-		// Other events (like conversation.created) are valid but may not need processing
-		return true;
+		// Event type not explicitly handled but passed validation - this shouldn't happen
+		LogEngine.warn(`Event type '${eventObj.type}' passed validation but has no specific handler`);
+		return false;
 	}
 
 	/**
