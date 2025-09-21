@@ -10,7 +10,7 @@ on:
       - 'yarn.lock'
       - 'tsconfig.json'
       - 'vitest.config.ts'
-      - '.github/workflows/tests.yml'
+      - '.github/workflows/test.yml'
   pull_request:
     branches: [dev]
     paths:
@@ -19,7 +19,7 @@ on:
       - 'yarn.lock'
       - 'tsconfig.json'
       - 'vitest.config.ts'
-      - '.github/workflows/tests.yml'
+      - '.github/workflows/test.yml'
 
 env:
   NODE_VERSION: '22'
