@@ -32,6 +32,8 @@
  * @module config/defaults
  */
 
+import { LogEngine } from './logger';
+
 /**
  * Default configuration values for the Discord bot
  */
@@ -217,7 +219,7 @@ export function processConnectionString(connectionString: string, sslConfig: SSL
 		const maskedUrl = connectionString.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
 		const maskedProcessedUrl = processedString.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
 
-		console.log('SSL disabled - added sslmode=disable to connection string', {
+		LogEngine.info('SSL disabled - added sslmode=disable to connection string', {
 			originalUrl: maskedUrl,
 			modifiedUrl: maskedProcessedUrl,
 		});

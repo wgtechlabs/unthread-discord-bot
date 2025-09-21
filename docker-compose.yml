@@ -67,7 +67,7 @@ services:
   # WEBHOOK SERVER  
   # =============================================================================
   # Handles incoming webhooks from Unthread and queues them for processing
-  unthread-webhook-server:
+  webhook-server:
     image: wgtechlabs/unthread-webhook-server:latest
     ports:
       - "3000:3000"  # Expose webhook endpoint
