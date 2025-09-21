@@ -1,5 +1,5 @@
 ---
-name: Tests
+name: Test
 
 on:
   push:
@@ -25,8 +25,8 @@ env:
   NODE_VERSION: '22'
 
 jobs:
-  test:
-    name: Test Suite
+  testing:
+    name: Testing
     runs-on: ubuntu-latest
 
     steps:
