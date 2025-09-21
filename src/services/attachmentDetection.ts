@@ -105,25 +105,29 @@ export class AttachmentDetectionService {
 	}
 
 	/**
-	 * Size validation using pre-calculated metadata
-	 * No need to iterate through files for size calculation
+	 * Size validation using individual file size checks
+	 * Discord's 8MB limit applies per file, not total size
 	 */
 	static isWithinSizeLimit(event: EnhancedWebhookEvent, maxSizeBytes: number): boolean {
 		if (!this.hasAttachments(event)) {
 			return true;
 		}
-		return (event.attachments?.totalSize ?? 0) <= maxSizeBytes;
+		const files = event.data.files ?? [];
+		if (files.length === 0) return true;
+		return files.every(f => f.size <= maxSizeBytes);
 	}
 
 	/**
-	 * Check if files exceed size limits
+	 * Check if any individual file exceeds size limits
 	 * Enables specific messaging for oversized files
 	 */
 	static isOversized(event: EnhancedWebhookEvent, maxSizeBytes: number): boolean {
 		if (!this.hasAttachments(event)) {
 			return false;
 		}
-		return (event.attachments?.totalSize ?? 0) > maxSizeBytes;
+		const files = event.data.files ?? [];
+		if (files.length === 0) return false;
+		return files.some(f => f.size > maxSizeBytes);
 	}
 
 	/**
