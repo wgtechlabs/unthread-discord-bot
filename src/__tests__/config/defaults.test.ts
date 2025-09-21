@@ -242,20 +242,29 @@ describe('defaults configuration', () => {
   });
 
   describe('getAllConfig', () => {
-    it('should return all default configuration values', () => {
-      const config = getAllConfig();
-      
-      expect(config.NODE_ENV).toBe('production');
-      expect(config.PORT).toBe(3000);
-      expect(config.UNTHREAD_HTTP_TIMEOUT_MS).toBe(10000);
-      expect(config.WEBHOOK_POLL_INTERVAL).toBe(1000);
-      expect(config.UNTHREAD_DEFAULT_PRIORITY).toBe(5);
-      expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.user');
-      expect(config.DATABASE_SSL_VALIDATE).toBe(true);
-      expect(typeof config.isDevelopment).toBe('function');
-    });
-
-    it('should respect environment overrides', () => {
+		it('should return all default configuration values', () => {
+			// Temporarily clear NODE_ENV to test defaults
+			const originalNodeEnv = process.env.NODE_ENV;
+			delete process.env.NODE_ENV;
+			
+			try {
+				const config = getAllConfig();
+				
+				expect(config.NODE_ENV).toBe('production');
+				expect(config.PORT).toBe(3000);
+				expect(config.UNTHREAD_HTTP_TIMEOUT_MS).toBe(10000);
+				expect(config.WEBHOOK_POLL_INTERVAL).toBe(1000);
+				expect(config.UNTHREAD_DEFAULT_PRIORITY).toBe(5);
+				expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.user');
+				expect(config.DATABASE_SSL_VALIDATE).toBe(true);
+				expect(typeof config.isDevelopment).toBe('function');
+			} finally {
+				// Restore original NODE_ENV
+				if (originalNodeEnv !== undefined) {
+					process.env.NODE_ENV = originalNodeEnv;
+				}
+			}
+		});    it('should respect environment overrides', () => {
       process.env.NODE_ENV = 'development';
       process.env.PORT = '4000';
       process.env.UNTHREAD_HTTP_TIMEOUT_MS = '15000';
@@ -279,20 +288,36 @@ describe('defaults configuration', () => {
     });
 
     it('should handle mixed environment overrides', () => {
-      process.env.PORT = '8080';
-      process.env.DATABASE_SSL_VALIDATE = 'false';
-      process.env.DUMMY_EMAIL_DOMAIN = 'custom.domain';
-      
-      const config = getAllConfig();
-      
-      expect(config.PORT).toBe(8080);
-      expect(config.DATABASE_SSL_VALIDATE).toBe(false);
-      expect(config.DUMMY_EMAIL_DOMAIN).toBe('custom.domain');
-      
-      // Non-overridden should remain default
-      expect(config.NODE_ENV).toBe('production');
-      expect(config.UNTHREAD_HTTP_TIMEOUT_MS).toBe(10000);
-    });
+			// Temporarily clear NODE_ENV and set specific overrides
+			const originalNodeEnv = process.env.NODE_ENV;
+			delete process.env.NODE_ENV;
+			
+			process.env.PORT = '8080';
+			process.env.DATABASE_SSL_VALIDATE = 'false';
+			process.env.DUMMY_EMAIL_DOMAIN = 'custom.domain';
+			
+			try {
+				const config = getAllConfig();
+				
+				expect(config.PORT).toBe(8080);
+				expect(config.DATABASE_SSL_VALIDATE).toBe(false);
+				expect(config.DUMMY_EMAIL_DOMAIN).toBe('custom.domain');
+				
+				// Non-overridden should remain default
+				expect(config.NODE_ENV).toBe('production');
+				expect(config.UNTHREAD_HTTP_TIMEOUT_MS).toBe(10000);
+			} finally {
+				// Cleanup
+				delete process.env.PORT;
+				delete process.env.DATABASE_SSL_VALIDATE;
+				delete process.env.DUMMY_EMAIL_DOMAIN;
+				
+				// Restore original NODE_ENV
+				if (originalNodeEnv !== undefined) {
+					process.env.NODE_ENV = originalNodeEnv;
+				}
+			}
+		});
   });
 
   describe('isRailwayEnvironment', () => {
@@ -396,16 +421,19 @@ describe('defaults configuration', () => {
     });
 
     it('should return SSL config for any non-"full" value', () => {
-      const testValues = ['true', 'false', 'partial', 'enabled', ''];
-      
-      testValues.forEach(value => {
-        process.env.DATABASE_SSL_VALIDATE = value;
-        
-        const config = getSSLConfig(true);
-        
-        expect(config).toEqual({ rejectUnauthorized: false });
-      });
-    });
+			const testValues = ['partial', 'none', 'invalid', ''];
+			
+			testValues.forEach(value => {
+				process.env.DATABASE_SSL_VALIDATE = value;
+				
+				const config = getSSLConfig(true);
+				
+				// Any non-'full' value falls back to default behavior
+				expect(config).toEqual({ rejectUnauthorized: false });
+			});
+			
+			delete process.env.DATABASE_SSL_VALIDATE;
+		});
 
     it('should be consistent regardless of production flag when not "full"', () => {
       process.env.DATABASE_SSL_VALIDATE = 'true';

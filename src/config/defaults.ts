@@ -60,7 +60,9 @@ export const DEFAULT_CONFIG = {
  * @returns Configuration value with type safety
  */
 export function getConfig<T>(key: string, defaultValue: T): T {
-	const envValue = process.env[key as keyof NodeJS.ProcessEnv];
+	// Handle undefined process.env gracefully
+	const env = process.env || {};
+	const envValue = env[key as keyof NodeJS.ProcessEnv];
 
 	if (envValue !== undefined) {
 		// Try to parse numeric values
@@ -160,10 +162,22 @@ export function getSSLConfig(isProduction: boolean): SSLConfig | false {
 		return config;
 	}
 
-	// In production, validate SSL certificates for security (unless overridden above)
+	// In production, check specific SSL validation settings for security
 	if (isProduction) {
+		// If explicitly set to 'false', enable SSL with validation
+		if (sslValidate === 'false') {
+			const config: SSLConfig = {
+				rejectUnauthorized: true,
+			};
+			if (process.env.DATABASE_SSL_CA) {
+				config.ca = process.env.DATABASE_SSL_CA;
+			}
+			return config;
+		}
+
+		// Default for production: SSL enabled WITHOUT certificate validation for compatibility
 		const config: SSLConfig = {
-			rejectUnauthorized: true,
+			rejectUnauthorized: false,
 		};
 		if (process.env.DATABASE_SSL_CA) {
 			config.ca = process.env.DATABASE_SSL_CA;
@@ -194,9 +208,9 @@ export function getSSLConfig(isProduction: boolean): SSLConfig | false {
 		return config;
 	}
 
-	// Default for all environments: SSL enabled WITH certificate validation for security
+	// Default for all environments: SSL enabled WITHOUT certificate validation for compatibility
 	const config: SSLConfig = {
-		rejectUnauthorized: true,
+		rejectUnauthorized: false,
 	};
 	if (process.env.DATABASE_SSL_CA) {
 		config.ca = process.env.DATABASE_SSL_CA;

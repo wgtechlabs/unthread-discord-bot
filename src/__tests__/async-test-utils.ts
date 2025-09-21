@@ -52,22 +52,22 @@ export interface WaitOptions {
  * ```
  */
 export async function waitForCondition(
-  condition: () => boolean | Promise<boolean>,
-  options: WaitOptions = {}
+	condition: () => boolean | Promise<boolean>,
+	options: WaitOptions = {},
 ): Promise<void> {
-  const { timeout = 5000, interval = 50, timeoutMessage } = options;
-  const startTime = Date.now();
+	const { timeout = 5000, interval = 50, timeoutMessage } = options;
+	const startTime = Date.now();
 
-  while (Date.now() - startTime < timeout) {
-    const result = await condition();
-    if (result) {
-      return;
-    }
-    await sleep(interval);
-  }
+	while (Date.now() - startTime < timeout) {
+		const result = await condition();
+		if (result) {
+			return;
+		}
+		await sleep(interval);
+	}
 
-  const message = timeoutMessage || `Condition not met within ${timeout}ms`;
-  throw new Error(message);
+	const message = timeoutMessage || `Condition not met within ${timeout}ms`;
+	throw new Error(message);
 }
 
 /**
@@ -83,7 +83,7 @@ export async function waitForCondition(
  * ```
  */
 export async function waitFor(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
@@ -101,7 +101,7 @@ export const sleep = waitFor;
  * ```
  */
 export async function nextTick(): Promise<void> {
-  return new Promise(resolve => setImmediate(resolve));
+	return new Promise(resolve => setImmediate(resolve));
 }
 
 // =============================================================================
@@ -122,13 +122,13 @@ export async function nextTick(): Promise<void> {
  * ```
  */
 export function createDelayedMock<T>(
-  resolveValue: T,
-  delay: number
+	resolveValue: T,
+	delay: number,
 ): ReturnType<typeof vi.fn> {
-  return vi.fn().mockImplementation(async () => {
-    await waitFor(delay);
-    return resolveValue;
-  });
+	return vi.fn().mockImplementation(async () => {
+		await waitFor(delay);
+		return resolveValue;
+	});
 }
 
 /**
@@ -145,13 +145,13 @@ export function createDelayedMock<T>(
  * ```
  */
 export function createDelayedErrorMock(
-  error: Error,
-  delay: number
+	error: Error,
+	delay: number,
 ): ReturnType<typeof vi.fn> {
-  return vi.fn().mockImplementation(async () => {
-    await waitFor(delay);
-    throw error;
-  });
+	return vi.fn().mockImplementation(async () => {
+		await waitFor(delay);
+		throw error;
+	});
 }
 
 /**
@@ -170,12 +170,12 @@ export function createDelayedErrorMock(
  * ```
  */
 export function createSequentialMock<T>(values: T[]): ReturnType<typeof vi.fn> {
-  let callCount = 0;
-  return vi.fn().mockImplementation(() => {
-    const value = values[callCount % values.length];
-    callCount++;
-    return value;
-  });
+	let callCount = 0;
+	return vi.fn().mockImplementation(() => {
+		const value = values[callCount % values.length];
+		callCount++;
+		return value;
+	});
 }
 
 /**
@@ -195,18 +195,18 @@ export function createSequentialMock<T>(values: T[]): ReturnType<typeof vi.fn> {
  * ```
  */
 export function createEventualSuccessMock<T>(
-  successValue: T,
-  failureCount: number,
-  error: Error = new Error('Temporary failure')
+	successValue: T,
+	failureCount: number,
+	error: Error = new Error('Temporary failure'),
 ): ReturnType<typeof vi.fn> {
-  let attempts = 0;
-  return vi.fn().mockImplementation(async () => {
-    attempts++;
-    if (attempts <= failureCount) {
-      throw error;
-    }
-    return successValue;
-  });
+	let attempts = 0;
+	return vi.fn().mockImplementation(async () => {
+		attempts++;
+		if (attempts <= failureCount) {
+			throw error;
+		}
+		return successValue;
+	});
 }
 
 // =============================================================================
@@ -223,7 +223,7 @@ export interface ControlledPromise<T> {
   /** Function to resolve the promise */
   resolve: (value: T) => void;
   /** Function to reject the promise */
-  reject: (reason?: any) => void;
+  reject: (reason?: unknown) => void;
   /** Whether the promise has been settled */
   isSettled: boolean;
 }
@@ -236,40 +236,40 @@ export interface ControlledPromise<T> {
  * @example
  * ```typescript
  * const controlled = createControlledPromise<string>();
- * 
+ *
  * // Start async operation
  * const resultPromise = myAsyncFunction(controlled.promise);
- * 
+ *
  * // Verify intermediate state
  * expect(controlled.isSettled).toBe(false);
- * 
+ *
  * // Manually resolve when ready
  * controlled.resolve('test result');
  * const result = await resultPromise;
  * ```
  */
 export function createControlledPromise<T>(): ControlledPromise<T> {
-  let resolveFunction: (value: T) => void;
-  let rejectFunction: (reason?: any) => void;
-  let settled = false;
+	let resolveFunction: (value: T) => void;
+	let rejectFunction: (reason?: unknown) => void;
+	let settled = false;
 
-  const promise = new Promise<T>((resolve, reject) => {
-    resolveFunction = (value: T) => {
-      settled = true;
-      resolve(value);
-    };
-    rejectFunction = (reason?: any) => {
-      settled = true;
-      reject(reason);
-    };
-  });
+	const promise = new Promise<T>((resolve, reject) => {
+		resolveFunction = (value: T) => {
+			settled = true;
+			resolve(value);
+		};
+		rejectFunction = (reason?: unknown) => {
+			settled = true;
+			reject(reason);
+		};
+	});
 
-  return {
-    promise,
-    resolve: resolveFunction!,
-    reject: rejectFunction!,
-    get isSettled() { return settled; }
-  };
+	return {
+		promise,
+		resolve: resolveFunction!,
+		reject: rejectFunction!,
+		get isSettled() { return settled; },
+	};
 }
 
 // =============================================================================
@@ -285,7 +285,7 @@ export interface MockFetchResponse {
   /** Response headers (optional) */
   headers?: Record<string, string>;
   /** Response body (will be JSON.stringify'd if object) */
-  body?: any;
+  body?: unknown;
   /** Whether response is ok (default: status < 400) */
   ok?: boolean;
   /** Delay before response in milliseconds (default: 0) */
@@ -310,56 +310,56 @@ export interface MockFetchResponse {
  *     body: { error: 'Server error' }
  *   }
  * });
- * 
+ *
  * global.fetch = mockFetch;
  * ```
  */
 export function createFetchMock(
-  responses: Record<string, MockFetchResponse>
+	responses: Record<string, MockFetchResponse>,
 ): ReturnType<typeof vi.fn> {
-  return vi.fn().mockImplementation(async (url: string | URL, _options?: any) => {
-    const urlString = typeof url === 'string' ? url : url.toString();
-    
-    // Find matching response pattern
-    let matchedResponse: MockFetchResponse | undefined;
-    for (const [pattern, response] of Object.entries(responses)) {
-      if (urlString.includes(pattern) || new RegExp(pattern).test(urlString)) {
-        matchedResponse = response;
-        break;
-      }
-    }
-    
-    // Default response if no pattern matches
-    if (!matchedResponse) {
-      matchedResponse = { status: 404, body: { error: 'Not found' } };
-    }
-    
-    const {
-      status = 200,
-      headers = {},
-      body = {},
-      ok = status < 400,
-      delay = 0
-    } = matchedResponse;
-    
-    // Add delay if specified
-    if (delay > 0) {
-      await waitFor(delay);
-    }
-    
-    // Create response body
-    const responseBody = typeof body === 'string' ? body : JSON.stringify(body);
-    
-    return {
-      ok,
-      status,
-      headers: new Headers(headers),
-      json: vi.fn().mockResolvedValue(typeof body === 'string' ? JSON.parse(body) : body),
-      text: vi.fn().mockResolvedValue(responseBody),
-      blob: vi.fn().mockResolvedValue(new Blob([responseBody])),
-      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0))
-    };
-  });
+	return vi.fn().mockImplementation(async (url: string | URL, _options?: any) => {
+		const urlString = typeof url === 'string' ? url : url.toString();
+
+		// Find matching response pattern
+		let matchedResponse: MockFetchResponse | undefined;
+		for (const [pattern, response] of Object.entries(responses)) {
+			if (urlString.includes(pattern) || new RegExp(pattern).test(urlString)) {
+				matchedResponse = response;
+				break;
+			}
+		}
+
+		// Default response if no pattern matches
+		if (!matchedResponse) {
+			matchedResponse = { status: 404, body: { error: 'Not found' } };
+		}
+
+		const {
+			status = 200,
+			headers = {},
+			body = {},
+			ok = status < 400,
+			delay = 0,
+		} = matchedResponse;
+
+		// Add delay if specified
+		if (delay > 0) {
+			await waitFor(delay);
+		}
+
+		// Create response body
+		const responseBody = typeof body === 'string' ? body : JSON.stringify(body);
+
+		return {
+			ok,
+			status,
+			headers: new Headers(headers),
+			json: vi.fn().mockResolvedValue(typeof body === 'string' ? JSON.parse(body) : body),
+			text: vi.fn().mockResolvedValue(responseBody),
+			blob: vi.fn().mockResolvedValue(new Blob([responseBody])),
+			arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
+		};
+	});
 }
 
 /**
@@ -369,7 +369,7 @@ export function createFetchMock(
  * @returns Mock fetch function
  */
 export function createSimpleFetchMock(response: MockFetchResponse): ReturnType<typeof vi.fn> {
-  return createFetchMock({ '.*': response });
+	return createFetchMock({ '.*': response });
 }
 
 // =============================================================================
@@ -384,16 +384,17 @@ export function createSimpleFetchMock(response: MockFetchResponse): ReturnType<t
  * @example
  * ```typescript
  * vi.useFakeTimers();
- * 
+ *
  * const delayed = setTimeout(() => console.log('done'), 1000);
  * await advanceTimersAndWait(1000);
- * 
+ *
  * vi.useRealTimers();
  * ```
  */
 export async function advanceTimersAndWait(ms: number): Promise<void> {
-  vi.advanceTimersByTime(ms);
-  await nextTick(); // Allow any scheduled promises to resolve
+	vi.advanceTimersByTime(ms);
+	// Allow any scheduled promises to resolve
+	await nextTick();
 }
 
 /**
@@ -402,16 +403,16 @@ export async function advanceTimersAndWait(ms: number): Promise<void> {
  * @example
  * ```typescript
  * vi.useFakeTimers();
- * 
+ *
  * setTimeout(() => console.log('done'), 1000);
  * await runAllTimersAndWait();
- * 
+ *
  * vi.useRealTimers();
  * ```
  */
 export async function runAllTimersAndWait(): Promise<void> {
-  vi.runAllTimers();
-  await nextTick();
+	vi.runAllTimers();
+	await nextTick();
 }
 
 // =============================================================================
@@ -428,30 +429,30 @@ export async function runAllTimersAndWait(): Promise<void> {
  * @example
  * ```typescript
  * const mockFn = vi.fn();
- * 
+ *
  * // Trigger async operation that should call mockFn
  * triggerAsyncOperation();
- * 
+ *
  * // Wait for mock to be called with expected args
  * await expectMockCalledWith(mockFn, ['expected', 'args']);
  * ```
  */
 export async function expectMockCalledWith(
-  mockFn: ReturnType<typeof vi.fn>,
-  expectedArgs: any[],
-  options: WaitOptions = {}
+	mockFn: ReturnType<typeof vi.fn>,
+	expectedArgs: any[],
+	options: WaitOptions = {},
 ): Promise<void> {
-  await waitForCondition(
-    () => mockFn.mock.calls.some(call => 
-      call.length === expectedArgs.length && 
-      call.every((arg, index) => arg === expectedArgs[index])
-    ),
-    {
-      ...options,
-      timeoutMessage: options.timeoutMessage || 
-        `Mock was not called with expected arguments: ${JSON.stringify(expectedArgs)}`
-    }
-  );
+	await waitForCondition(
+		() => mockFn.mock.calls.some(call =>
+			call.length === expectedArgs.length &&
+      call.every((arg, index) => arg === expectedArgs[index]),
+		),
+		{
+			...options,
+			timeoutMessage: options.timeoutMessage ||
+        `Mock was not called with expected arguments: ${JSON.stringify(expectedArgs)}`,
+		},
+	);
 }
 
 /**
@@ -462,18 +463,18 @@ export async function expectMockCalledWith(
  * @param options - Wait options
  */
 export async function expectMockCallCount(
-  mockFn: ReturnType<typeof vi.fn>,
-  expectedCalls: number,
-  options: WaitOptions = {}
+	mockFn: ReturnType<typeof vi.fn>,
+	expectedCalls: number,
+	options: WaitOptions = {},
 ): Promise<void> {
-  await waitForCondition(
-    () => mockFn.mock.calls.length === expectedCalls,
-    {
-      ...options,
-      timeoutMessage: options.timeoutMessage || 
-        `Expected ${expectedCalls} calls, but got ${mockFn.mock.calls.length}`
-    }
-  );
+	await waitForCondition(
+		() => mockFn.mock.calls.length === expectedCalls,
+		{
+			...options,
+			timeoutMessage: options.timeoutMessage ||
+        `Expected ${expectedCalls} calls, but got ${mockFn.mock.calls.length}`,
+		},
+	);
 }
 
 // =============================================================================
@@ -485,19 +486,19 @@ export * from 'vitest';
 
 // Export common patterns as defaults
 export default {
-  waitFor,
-  waitForCondition,
-  sleep,
-  nextTick,
-  createDelayedMock,
-  createDelayedErrorMock,
-  createSequentialMock,
-  createEventualSuccessMock,
-  createControlledPromise,
-  createFetchMock,
-  createSimpleFetchMock,
-  advanceTimersAndWait,
-  runAllTimersAndWait,
-  expectMockCalledWith,
-  expectMockCallCount
+	waitFor,
+	waitForCondition,
+	sleep,
+	nextTick,
+	createDelayedMock,
+	createDelayedErrorMock,
+	createSequentialMock,
+	createEventualSuccessMock,
+	createControlledPromise,
+	createFetchMock,
+	createSimpleFetchMock,
+	advanceTimersAndWait,
+	runAllTimersAndWait,
+	expectMockCalledWith,
+	expectMockCallCount,
 };

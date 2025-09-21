@@ -89,7 +89,7 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 		return false;
 	}
 
-	// Check for exact content match
+	// Check for exact content match (case-sensitive)
 	const exactDuplicate = messages.some(msg => msg.content === trimmedContent);
 	if (exactDuplicate) {
 		LogEngine.debug('Exact duplicate message detected');
@@ -100,20 +100,32 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 	// Only apply fuzzy matching for messages with sufficient content
 	if (trimmedContent.length >= 10) {
 		const contentDuplicate = messages.some(msg => {
-			// Normalize whitespace for comparison
-			const strippedMsg = msg.content.replace(/\s+/g, ' ').trim();
-			const strippedNewContent = trimmedContent.replace(/\s+/g, ' ').trim();
-
-			// Only consider it a duplicate if one contains the other AND
-			// they're relatively close in length (to avoid false positives)
-			if (strippedMsg.includes(strippedNewContent) &&
-				strippedMsg.length <= strippedNewContent.length * 1.5) {
-				return true;
+			// First check if this is just a case difference (no fuzzy matching for that)
+			const originalContent = msg.content.trim();
+			if (originalContent.toLowerCase() === trimmedContent.toLowerCase() && originalContent !== trimmedContent) {
+				return false;
 			}
 
-			if (strippedNewContent.includes(strippedMsg) &&
-				strippedNewContent.length <= strippedMsg.length * 1.5) {
-				return true;
+			// Normalize whitespace and case for fuzzy comparison
+			const strippedMsg = msg.content.replace(/\s+/g, ' ').trim().toLowerCase();
+			const strippedNewContent = trimmedContent.replace(/\s+/g, ' ').trim().toLowerCase();
+
+			// Check if new content is contained in existing message
+			if (strippedMsg.includes(strippedNewContent)) {
+				// Ensure reasonable length ratio to avoid false positives
+				const ratio = strippedNewContent.length / strippedMsg.length;
+				if (ratio >= 0.3) {
+					return true;
+				}
+			}
+
+			// Check if existing message is contained in new content
+			if (strippedNewContent.includes(strippedMsg)) {
+				// Ensure reasonable length ratio to avoid false positives
+				const ratio = strippedMsg.length / strippedNewContent.length;
+				if (ratio >= 0.3) {
+					return true;
+				}
 			}
 
 			return false;
@@ -154,24 +166,32 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 function removeAttachmentSection(messageContent: string): string {
 	if (!messageContent) return '';
 
-	// Enhanced patterns for attachment sections - handles multiple formats
+	// Split content into sections and filter out attachment sections
+	const sections = messageContent.split(/\n\n/);
+	const filteredSections = sections.filter(section => {
+		// Remove sections that start with "Attachments:"
+		return !section.trim().startsWith('Attachments:');
+	});
+
+	// Join the remaining sections back together
+	const processedContent = filteredSections.join('\n\n');
+
+	// Also remove inline attachment patterns
 	const attachmentPatterns = [
-		// Pattern 1: Attachments: <url|file_name>
-		/\n\nAttachments: <[^>]+>/g,
-		// Pattern 2: Attachments: [file_name](url)
-		/\n\nAttachments: \[[^\]]+\]\([^)]+\)/g,
-		// Pattern 3: General attachment section with any content after "Attachments:"
-		/\n\nAttachments: .+$/g,
+		// Inline attachments in angle brackets with pipe separator
+		/ <[^>|]+\|[^>]+>/g,
+		// Markdown-style attachment links preceded by "and"
+		/ and \[[^\]]+\]\([^)]+\)/g,
+		// Standalone markdown attachment links
+		/ \[[^\]]+\]\([^)]+\)/g,
 	];
 
-	let processedContent = messageContent;
-
-	// Apply all patterns to remove various attachment formats
+	let finalContent = processedContent;
 	for (const pattern of attachmentPatterns) {
-		processedContent = processedContent.replace(pattern, '');
+		finalContent = finalContent.replace(pattern, '');
 	}
 
-	return processedContent.trim();
+	return finalContent.trim();
 }
 
 /**
