@@ -48,7 +48,7 @@ export const DEFAULT_CONFIG = {
 
 	// Business Logic (sensible defaults)
 	UNTHREAD_DEFAULT_PRIORITY: 5,
-	DUMMY_EMAIL_DOMAIN: 'discord.user',
+	DUMMY_EMAIL_DOMAIN: 'discord.invalid',
 	DATABASE_SSL_VALIDATE: true,
 
 	// Environment detection helper
