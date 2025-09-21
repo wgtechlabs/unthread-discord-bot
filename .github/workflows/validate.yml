@@ -8,7 +8,6 @@ on:
 
 env:
   NODE_VERSION: '22'
-  COVERAGE_TARGET: '30'
 
 jobs:
   validating:
@@ -37,123 +36,21 @@ jobs:
       - name: Run linter
         run: yarn lint
 
-      - name: Run tests with coverage
-        run: yarn test:coverage
-
-      - name: Generate coverage report
-        id: coverage
-        run: |
-          # Extract coverage percentages from coverage summary
-          if [ -f coverage/coverage-summary.json ]; then
-            STATEMENTS=$(node -p "JSON.parse(require('fs').readFileSync('coverage/coverage-summary.json', 'utf8')).total.statements.pct")
-            BRANCHES=$(node -p "JSON.parse(require('fs').readFileSync('coverage/coverage-summary.json', 'utf8')).total.branches.pct")
-            FUNCTIONS=$(node -p "JSON.parse(require('fs').readFileSync('coverage/coverage-summary.json', 'utf8')).total.functions.pct")
-            LINES=$(node -p "JSON.parse(require('fs').readFileSync('coverage/coverage-summary.json', 'utf8')).total.lines.pct")
-            
-            echo "statements=${STATEMENTS}" >> $GITHUB_OUTPUT
-            echo "branches=${BRANCHES}" >> $GITHUB_OUTPUT
-            echo "functions=${FUNCTIONS}" >> $GITHUB_OUTPUT
-            echo "lines=${LINES}" >> $GITHUB_OUTPUT
-            
-            # Determine overall status
-            OVERALL=$(echo "($STATEMENTS + $BRANCHES + $FUNCTIONS + $LINES) / 4" | bc -l | cut -d. -f1)
-            echo "overall=${OVERALL}" >> $GITHUB_OUTPUT
-            
-            # Check if target is met
-            if (( $(echo "$OVERALL >= $COVERAGE_TARGET" | bc -l) )); then
-              echo "target_met=true" >> $GITHUB_OUTPUT
-              echo "status_emoji=✅" >> $GITHUB_OUTPUT
-            else
-              echo "target_met=false" >> $GITHUB_OUTPUT
-              echo "status_emoji=⚠️" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "Coverage file not found"
-            echo "statements=0" >> $GITHUB_OUTPUT
-            echo "branches=0" >> $GITHUB_OUTPUT
-            echo "functions=0" >> $GITHUB_OUTPUT
-            echo "lines=0" >> $GITHUB_OUTPUT
-            echo "overall=0" >> $GITHUB_OUTPUT
-            echo "target_met=false" >> $GITHUB_OUTPUT
-            echo "status_emoji=❌" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Comment PR with coverage
-        uses: actions/github-script@v7
+      - name: Run Trivy security scan (Layer 1)
+        uses: aquasecurity/trivy-action@0.28.0
         with:
-          script: |
-            const statements = '${{ steps.coverage.outputs.statements }}';
-            const branches = '${{ steps.coverage.outputs.branches }}';
-            const functions = '${{ steps.coverage.outputs.functions }}';
-            const lines = '${{ steps.coverage.outputs.lines }}';
-            const overall = '${{ steps.coverage.outputs.overall }}';
-            const targetMet = '${{ steps.coverage.outputs.target_met }}' === 'true';
-            const statusEmoji = '${{ steps.coverage.outputs.status_emoji }}';
-            const target = '${{ env.COVERAGE_TARGET }}';
-            
-            const coverageComment = `## ${statusEmoji} Test Coverage Report
-            
-            **Overall Coverage: ${overall}%** (Target: ${target}%)
-            
-            | Metric | Coverage | Status |
-            |--------|----------|--------|
-            | Statements | ${statements}% | ${statements >= target ? '✅' : '⚠️'} |
-            | Branches | ${branches}% | ${branches >= target ? '✅' : '⚠️'} |
-            | Functions | ${functions}% | ${functions >= target ? '✅' : '⚠️'} |
-            | Lines | ${lines}% | ${lines >= target ? '✅' : '⚠️'} |
-            
-            ${targetMet 
-              ? '🎉 **Great work!** Coverage target has been met.' 
-              : `📈 **Room for improvement:** Coverage is below the ${target}% target, but this is informational only.`
-            }
-            
-            ### 📊 Coverage Details
-            - **Target**: ${target}% (informational, not enforced)
-            - **Status**: ${targetMet ? 'Target met' : 'Below target'}
-            - **Trend**: ${overall}% total coverage
-            
-            > 💡 **Note**: Coverage requirements are tracked for quality insights but do not block PR merging.
-            `;
-            
-            // Check if there's already a coverage comment
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            
-            const botComment = comments.find(comment => 
-              comment.user.type === 'Bot' && 
-              comment.body.includes('Test Coverage Report')
-            );
-            
-            if (botComment) {
-              // Update existing comment
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: coverageComment
-              });
-            } else {
-              // Create new comment
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: coverageComment
-              });
-            }
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-validate.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
 
-      - name: Upload coverage for analysis
-        uses: codecov/codecov-action@v5
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('trivy-validate.sarif') != ''
         with:
-          files: ./coverage/lcov.info
-          flags: pr-validation
-          name: pr-coverage-${{ github.event.pull_request.number }}
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          sarif_file: 'trivy-validate.sarif'
+          category: 'dependency-scan'
 
       - name: Validation summary
         run: |
@@ -161,17 +58,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Type Checking**: Passed" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Linting**: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Tests**: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.coverage.outputs.status_emoji }} **Coverage**: ${{ steps.coverage.outputs.overall }}% (Target: ${{ env.COVERAGE_TARGET }}%)" >> $GITHUB_STEP_SUMMARY
+          echo "🔒 **Security Scan**: Completed (Layer 1 - Dependencies)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📋 Coverage Breakdown:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Statements**: ${{ steps.coverage.outputs.statements }}%" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branches**: ${{ steps.coverage.outputs.branches }}%" >> $GITHUB_STEP_SUMMARY
-          echo "- **Functions**: ${{ steps.coverage.outputs.functions }}%" >> $GITHUB_STEP_SUMMARY
-          echo "- **Lines**: ${{ steps.coverage.outputs.lines }}%" >> $GITHUB_STEP_SUMMARY
+          echo "### 🛡️ Security Scanning:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trivy Filesystem Scan**: Dependencies and source code vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "- **Severity Levels**: Critical, High, Medium" >> $GITHUB_STEP_SUMMARY
+          echo "- **Results**: Available in Security → Code scanning alerts" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.coverage.outputs.target_met }}" = "true" ]; then
-            echo "🎉 **All validations passed!** This PR is ready for review." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "📈 **PR is ready for review** (coverage below target is informational only)." >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "🎉 **All validations passed!** This PR is ready for review." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "- Check test results in the Test workflow" >> $GITHUB_STEP_SUMMARY
+          echo "- Review security scan results in Security tab" >> $GITHUB_STEP_SUMMARY

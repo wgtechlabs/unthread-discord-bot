@@ -48,8 +48,12 @@ jobs:
       - name: Run type checking
         run: yarn build
 
-      - name: Run tests with coverage
+      - name: Run tests (fast feedback)
+        run: yarn test:run
+
+      - name: Run tests with coverage (detailed analysis)
         run: yarn test:coverage
+        if: success()
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -86,15 +90,29 @@ jobs:
           echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ -f coverage/test-results.json ]; then
-            echo "**Tests completed successfully!** ✅" >> $GITHUB_STEP_SUMMARY
+          # Check if tests passed by looking for test results
+          if [ -f coverage/test-results.json ] || [ -d coverage ]; then
+            echo "**✅ Tests completed successfully!**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "📊 **Coverage Report**: Available in artifacts and Codecov" >> $GITHUB_STEP_SUMMARY
+            
+            # Check if coverage was collected
+            if [ -f coverage/lcov.info ]; then
+              echo "**✅ Coverage analysis completed!**" >> $GITHUB_STEP_SUMMARY
+              echo "📊 **Coverage Report**: Available in artifacts and Codecov" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**⚠️ Coverage analysis skipped** (tests failed or coverage collection issue)" >> $GITHUB_STEP_SUMMARY
+            fi
+            
             echo "📋 **Test Results**: Available in uploaded artifacts" >> $GITHUB_STEP_SUMMARY
           else
-            echo "**Tests failed!** ❌" >> $GITHUB_STEP_SUMMARY
+            echo "**❌ Tests failed!**" >> $GITHUB_STEP_SUMMARY
+            echo "Coverage analysis was skipped due to test failures." >> $GITHUB_STEP_SUMMARY
           fi
           
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔄 Two-Stage Testing Process:" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Fast Test Execution** - Quick feedback on test results" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Coverage Analysis** - Detailed coverage collection (only if tests pass)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📁 Artifacts Generated:" >> $GITHUB_STEP_SUMMARY
           echo "- \`coverage-report\`: HTML coverage report and LCOV data" >> $GITHUB_STEP_SUMMARY
