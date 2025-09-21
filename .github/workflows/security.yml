@@ -142,12 +142,13 @@ jobs:
 
       - name: Run Trivy container security scan
         uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true  # Allow workflow to continue for Docker Scout comparison
         with:
           image-ref: ${{ env.REGISTRY_DOCKERHUB }}:pr-${{ github.event.number }}-${{ steps.meta.outputs.short_sha }}
           format: 'sarif'
           output: 'trivy-prerelease.sarif'
           severity: 'CRITICAL,HIGH'
-          exit-code: '1'  # Fail workflow on critical/high vulnerabilities
+          exit-code: '1'  # Still record the failure for security visibility
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
@@ -156,16 +157,44 @@ jobs:
           sarif_file: 'trivy-prerelease.sarif'
           category: 'pre-release-scan'
 
-      - name: Docker Scout comparison with production
+      - name: Check if production image exists
+        id: check-prod
+        run: |
+          if docker manifest inspect ${{ env.REGISTRY_DOCKERHUB }}:latest >/dev/null 2>&1; then
+            echo "comparison_target=${{ env.REGISTRY_DOCKERHUB }}:latest" >> $GITHUB_OUTPUT
+            echo "target_found=true" >> $GITHUB_OUTPUT
+          elif docker manifest inspect ${{ env.REGISTRY_DOCKERHUB }}:main >/dev/null 2>&1; then
+            echo "comparison_target=${{ env.REGISTRY_DOCKERHUB }}:main" >> $GITHUB_OUTPUT
+            echo "target_found=true" >> $GITHUB_OUTPUT
+          else
+            echo "comparison_target=${{ env.REGISTRY_DOCKERHUB }}:dev" >> $GITHUB_OUTPUT
+            echo "target_found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Docker Scout comparison with baseline
         uses: docker/scout-action@v1
         if: always()
         with:
           command: compare
           image: ${{ env.REGISTRY_DOCKERHUB }}:pr-${{ github.event.number }}-${{ steps.meta.outputs.short_sha }}
-          to: ${{ env.REGISTRY_DOCKERHUB }}:latest
+          to: ${{ steps.check-prod.outputs.comparison_target }}
           ignore-unchanged: true
           only-severities: critical,high
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          summary: true
+          write-comment: true
+
+      - name: Security Gate - Fail on Critical Vulnerabilities
+        if: always() && hashFiles('trivy-prerelease.sarif') != ''
+        run: |
+          echo "Checking for critical vulnerabilities in Trivy results..."
+          if grep -q '"level": "error"' trivy-prerelease.sarif 2>/dev/null; then
+            echo "❌ CRITICAL/HIGH vulnerabilities detected. This PR cannot be merged until security issues are resolved."
+            echo "Review the Security tab in GitHub for detailed vulnerability information."
+            exit 1
+          else
+            echo "✅ No critical vulnerabilities found. Security gate passed."
+          fi
 
   scheduled-security:
     name: Scheduled Security Audit
