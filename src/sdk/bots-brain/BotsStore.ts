@@ -548,11 +548,11 @@ export class BotsStore {
 			return cached.data;
 		}
 
-		// Query database (excluding soft-deleted records)
+		// Query database
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM customers WHERE discord_id = $1 AND deleted_at IS NULL',
+					'SELECT * FROM customers WHERE discord_id = $1',
 					[discordId],
 				);
 			});
@@ -590,11 +590,11 @@ export class BotsStore {
 			return cached.data;
 		}
 
-		// Query database (excluding soft-deleted records)
+		// Query database
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM customers WHERE unthread_customer_id = $1 AND deleted_at IS NULL',
+					'SELECT * FROM customers WHERE unthread_customer_id = $1',
 					[unthreadCustomerId],
 				);
 			});
@@ -690,7 +690,7 @@ export class BotsStore {
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM thread_ticket_mappings WHERE discord_thread_id = $1 AND deleted_at IS NULL',
+					'SELECT * FROM thread_ticket_mappings WHERE discord_thread_id = $1',
 					[discordThreadId],
 				);
 			});
@@ -732,7 +732,7 @@ export class BotsStore {
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM thread_ticket_mappings WHERE unthread_ticket_id = $1 AND deleted_at IS NULL',
+					'SELECT * FROM thread_ticket_mappings WHERE unthread_ticket_id = $1',
 					[unthreadTicketId],
 				);
 			});
@@ -867,17 +867,16 @@ export class BotsStore {
 	// ==================== SOFT DELETE OPERATIONS ====================
 
 	/**
-	 * Soft delete a customer by setting deleted_at timestamp
-	 * This preserves data for audit trails and recovery purposes
+	 * Delete a customer permanently
+	 * Note: Schema doesn't support soft deletes
 	 */
 	async softDeleteCustomer(discordId: string): Promise<boolean> {
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					`UPDATE customers 
-					 SET deleted_at = NOW(), updated_at = NOW() 
-					 WHERE discord_id = $1 AND deleted_at IS NULL
-					 RETURNING id`,
+					`DELETE FROM customers 
+					 WHERE discord_id = $1
+					 RETURNING discord_id`,
 					[discordId],
 				);
 			});
@@ -901,16 +900,16 @@ export class BotsStore {
 	}
 
 	/**
-	 * Soft delete a thread-ticket mapping by setting deleted_at timestamp
+	 * Delete a thread-ticket mapping permanently
+	 * Note: Schema doesn't support soft deletes
 	 */
 	async softDeleteMapping(discordThreadId: string): Promise<boolean> {
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					`UPDATE thread_ticket_mappings 
-					 SET deleted_at = NOW(), updated_at = NOW() 
-					 WHERE discord_thread_id = $1 AND deleted_at IS NULL
-					 RETURNING id`,
+					`DELETE FROM thread_ticket_mappings 
+					 WHERE discord_thread_id = $1
+					 RETURNING discord_thread_id`,
 					[discordThreadId],
 				);
 			});
@@ -934,68 +933,18 @@ export class BotsStore {
 	}
 
 	/**
-	 * Restore a soft-deleted customer by clearing deleted_at timestamp
+	 * Restore customer functionality disabled - schema doesn't support soft deletes
 	 */
-	async restoreCustomer(discordId: string): Promise<boolean> {
-		try {
-			const result = await withDbClient(this.pool, async (client) => {
-				return await client.query(
-					`UPDATE customers 
-					 SET deleted_at = NULL, updated_at = NOW() 
-					 WHERE discord_id = $1 AND deleted_at IS NOT NULL
-					 RETURNING id`,
-					[discordId],
-				);
-			});
-
-			if (result.rows.length > 0) {
-				// Invalidate cache to force fresh data
-				const cacheKey = `customer:discord:${discordId}`;
-				await this.storage.delete(cacheKey);
-
-				LogEngine.info(`Customer restored: ${discordId}`);
-				return true;
-			}
-
-			LogEngine.warn(`Customer not found in soft-deleted state: ${discordId}`);
-			return false;
-		}
-		catch (error) {
-			LogEngine.error('Failed to restore customer:', error);
-			throw error;
-		}
+	async restoreCustomer(_discordId: string): Promise<boolean> {
+		LogEngine.warn('Restore customer not supported - schema uses hard deletes');
+		return false;
 	}
 
 	/**
-	 * Restore a soft-deleted mapping by clearing deleted_at timestamp
+	 * Restore mapping functionality disabled - schema doesn't support soft deletes
 	 */
-	async restoreMapping(discordThreadId: string): Promise<boolean> {
-		try {
-			const result = await withDbClient(this.pool, async (client) => {
-				return await client.query(
-					`UPDATE thread_ticket_mappings 
-					 SET deleted_at = NULL, updated_at = NOW() 
-					 WHERE discord_thread_id = $1 AND deleted_at IS NOT NULL
-					 RETURNING id`,
-					[discordThreadId],
-				);
-			});
-
-			if (result.rows.length > 0) {
-				// Invalidate cache to force fresh data
-				const threadCacheKey = `mapping:thread:${discordThreadId}`;
-				await this.storage.delete(threadCacheKey);
-
-				LogEngine.info(`Mapping restored: ${discordThreadId}`);
-				return true;
-			}
-
-			LogEngine.warn(`Mapping not found in soft-deleted state: ${discordThreadId}`);
-			return false;
-		}
-		catch (error) {
-			LogEngine.error('Failed to restore mapping:', error);
-			throw error;
-		}
+	async restoreMapping(_discordThreadId: string): Promise<boolean> {
+		LogEngine.warn('Restore mapping not supported - schema uses hard deletes');
+		return false;
 	}
 }
