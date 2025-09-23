@@ -44,10 +44,15 @@
 
 import { User } from 'discord.js';
 import { Pool } from 'pg';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 import { UnifiedStorage } from './UnifiedStorage';
 import { LogEngine } from '../../config/logger';
 import { ThreadTicketMapping } from '../../types/discord';
 import { getSSLConfig, processConnectionString, isDevelopment } from '../../config/defaults';
+
+// Declare __dirname for CommonJS compatibility
+declare const __dirname: string;
 
 /**
  * Safely converts a Date object or ISO string to ISO string
@@ -829,12 +834,16 @@ export class BotsStore {
 	async healthCheck(): Promise<Record<string, boolean>> {
 		const storageHealth = await this.storage.healthCheck();
 
-		// Test database connection
+		// Test database connection and ensure schema exists
 		let dbHealth = false;
 		try {
 			await withDbClient(this.pool, async (client) => {
 				await client.query('SELECT 1');
 			});
+			
+			// Check if we need to run schema setup
+			await this.ensureSchema();
+			
 			dbHealth = true;
 		}
 		catch (error) {
@@ -845,6 +854,94 @@ export class BotsStore {
 			...storageHealth,
 			database_pool: dbHealth,
 		};
+	}
+
+	/**
+	 * Ensure database schema exists (auto-setup for Railway deployment)
+	 * Following the pattern from Telegram bot implementation
+	 */
+	private async ensureSchema(): Promise<void> {
+		try {
+			// Check if required tables exist
+			const tableCheck = await withDbClient(this.pool, async (client) => {
+				return await client.query(`
+					SELECT table_name 
+					FROM information_schema.tables 
+					WHERE table_schema = 'public' 
+					AND table_name IN ('customers', 'thread_ticket_mappings', 'storage_cache')
+				`);
+			});
+
+			const requiredTables = ['customers', 'thread_ticket_mappings', 'storage_cache'];
+			const foundTables = tableCheck.rows.map((row: { table_name: string }) => row.table_name);
+			const missingTables = requiredTables.filter(table => !foundTables.includes(table));
+
+			if (missingTables.length > 0) {
+				LogEngine.info('Database tables missing - setting up automatically...', {
+					missing: missingTables,
+				});
+				await this.initializeSchema();
+			}
+			else {
+				LogEngine.info('Database schema verified', {
+					tablesFound: foundTables,
+					botsBrainReady: foundTables.includes('storage_cache'),
+				});
+			}
+		}
+		catch (error) {
+			const err = error as Error;
+			LogEngine.error('Error checking database schema', {
+				error: err.message,
+				stack: err.stack,
+			});
+			throw error;
+		}
+	}
+
+	/**
+	 * Initialize database schema from schema.sql file
+	 * Following the pattern from Telegram bot implementation
+	 */
+	private async initializeSchema(): Promise<void> {
+		try {
+			LogEngine.info('Starting database schema initialization...');
+
+			// Use relative path from the compiled JavaScript file location in dist/
+			const schemaPath = path.join(__dirname, '../../database/schema.sql');
+			
+			// Check if schema file exists asynchronously
+			try {
+				await fs.promises.access(schemaPath, fs.constants.F_OK);
+			}
+			catch {
+				throw new Error(`Schema file not found: ${schemaPath}`);
+			}
+
+			// Read schema file asynchronously
+			// eslint-disable-next-line security/detect-non-literal-fs-filename -- Schema path is safe, built from known dirname
+			const schema = await fs.promises.readFile(schemaPath, 'utf8');
+			LogEngine.debug('Schema file loaded', {
+				path: schemaPath,
+				size: schema.length,
+			});
+
+			// Execute schema
+			await withDbClient(this.pool, async (client) => {
+				await client.query(schema);
+			});
+			
+			LogEngine.info('Database schema created successfully');
+
+		}
+		catch (error) {
+			const err = error as Error;
+			LogEngine.error('Failed to initialize database schema', {
+				error: err.message,
+				stack: err.stack,
+			});
+			throw error;
+		}
 	}
 
 	/**
