@@ -48,6 +48,11 @@ export class WebhookConsumer {
 	private isRunning: boolean = false;
 	private pollTimer: NodeJS.Timeout | null = null;
 
+	// Throttling for debug logs to reduce noise
+	private lastNoEventsLog: number = 0;
+	// 5 minutes in milliseconds
+	private readonly NO_EVENTS_LOG_INTERVAL = 5 * 60 * 1000;
+
 	constructor(config: WebhookConsumerConfig) {
 		this.redisUrl = config.redisUrl;
 		this.queueName = config.queueName || 'unthread-events';
@@ -233,7 +238,11 @@ export class WebhookConsumer {
 		}
 
 		try {
-			LogEngine.debug(`Polling Redis queue: ${this.queueName}`);
+			// Only log polling activity every 5 minutes to reduce noise
+			const now = Date.now();
+			if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
+				LogEngine.debug(`Polling Redis queue: ${this.queueName}`);
+			}
 
 			// Check queue length first for debugging
 			if (this.redisClient?.isOpen) {
@@ -250,9 +259,13 @@ export class WebhookConsumer {
 				LogEngine.info(`Received event from queue: ${this.queueName}`);
 				const eventData = result.element;
 				await this.processEvent(eventData);
+				return;
 			}
-			else {
-				LogEngine.debug(`No events in queue: ${this.queueName}`);
+
+			// Only log "no events" message every 5 minutes to reduce noise
+			if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
+				LogEngine.debug(`No events in queue: ${this.queueName} (next log in 5 minutes)`);
+				this.lastNoEventsLog = now;
 			}
 		}
 		catch (error) {
