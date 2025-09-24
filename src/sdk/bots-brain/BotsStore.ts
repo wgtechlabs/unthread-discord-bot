@@ -933,23 +933,23 @@ export class BotsStore {
 				size: schema.length,
 			});
 
-			// Execute schema - split into individual statements for PostgreSQL compatibility
+			// Execute schema with transaction safety (addressing CodeRabbit security concern)
 			await withDbClient(this.pool, async (client) => {
-				// Split schema into individual statements and filter out empty ones
-				const statements = schema
-					.split(';')
-					.map(stmt => stmt.trim())
-					.filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+				// For now, execute as single block - safer than naive splitting
+				// TODO: Implement parser-aware SQL splitting for complex schemas with functions
+				LogEngine.debug('Executing schema as transaction block for safety');
 
-				LogEngine.debug('Executing schema statements', {
-					statementCount: statements.length,
-				});
-
-				// Execute each statement individually
-				for (const statement of statements) {
-					if (statement.trim()) {
-						await client.query(statement + ';');
-					}
+				// Execute schema in a transaction for all-or-nothing safety
+				await client.query('BEGIN');
+				try {
+					await client.query(schema);
+					await client.query('COMMIT');
+					LogEngine.debug('Schema transaction committed successfully');
+				}
+				catch (error) {
+					await client.query('ROLLBACK');
+					LogEngine.error('Schema transaction rolled back due to error', { error });
+					throw error;
 				}
 			});
 			
