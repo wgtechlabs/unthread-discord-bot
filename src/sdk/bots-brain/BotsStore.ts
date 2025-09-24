@@ -44,10 +44,15 @@
 
 import { User } from 'discord.js';
 import { Pool } from 'pg';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 import { UnifiedStorage } from './UnifiedStorage';
 import { LogEngine } from '../../config/logger';
 import { ThreadTicketMapping } from '../../types/discord';
 import { getSSLConfig, processConnectionString, isDevelopment } from '../../config/defaults';
+
+// Declare __dirname for CommonJS compatibility
+declare const __dirname: string;
 
 /**
  * Safely converts a Date object or ISO string to ISO string
@@ -210,7 +215,8 @@ export class BotsStore {
 			connectionString: processedPostgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
-			connectionTimeoutMillis: 2000,
+			// Increased to 10s for Railway managed databases (matching UnifiedStorage)
+			connectionTimeoutMillis: 10000,
 		};
 		
 		// Only add SSL config if it's not explicitly disabled
@@ -548,11 +554,11 @@ export class BotsStore {
 			return cached.data;
 		}
 
-		// Query database (excluding soft-deleted records)
+		// Query database
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM customers WHERE discord_id = $1 AND deleted_at IS NULL',
+					'SELECT * FROM customers WHERE discord_id = $1',
 					[discordId],
 				);
 			});
@@ -590,11 +596,11 @@ export class BotsStore {
 			return cached.data;
 		}
 
-		// Query database (excluding soft-deleted records)
+		// Query database
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM customers WHERE unthread_customer_id = $1 AND deleted_at IS NULL',
+					'SELECT * FROM customers WHERE unthread_customer_id = $1',
 					[unthreadCustomerId],
 				);
 			});
@@ -690,7 +696,7 @@ export class BotsStore {
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM thread_ticket_mappings WHERE discord_thread_id = $1 AND deleted_at IS NULL',
+					'SELECT * FROM thread_ticket_mappings WHERE discord_thread_id = $1',
 					[discordThreadId],
 				);
 			});
@@ -732,7 +738,7 @@ export class BotsStore {
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					'SELECT * FROM thread_ticket_mappings WHERE unthread_ticket_id = $1 AND deleted_at IS NULL',
+					'SELECT * FROM thread_ticket_mappings WHERE unthread_ticket_id = $1',
 					[unthreadTicketId],
 				);
 			});
@@ -829,12 +835,16 @@ export class BotsStore {
 	async healthCheck(): Promise<Record<string, boolean>> {
 		const storageHealth = await this.storage.healthCheck();
 
-		// Test database connection
+		// Test database connection and ensure schema exists
 		let dbHealth = false;
 		try {
 			await withDbClient(this.pool, async (client) => {
 				await client.query('SELECT 1');
 			});
+			
+			// Check if we need to run schema setup
+			await this.ensureSchema();
+			
 			dbHealth = true;
 		}
 		catch (error) {
@@ -845,6 +855,115 @@ export class BotsStore {
 			...storageHealth,
 			database_pool: dbHealth,
 		};
+	}
+
+	/**
+	 * Ensure database schema exists (auto-setup for Railway deployment)
+	 * Following the pattern from Telegram bot implementation
+	 */
+	private async ensureSchema(): Promise<void> {
+		try {
+			// Check if required tables exist
+			const tableCheck = await withDbClient(this.pool, async (client) => {
+				return await client.query(`
+					SELECT table_name 
+					FROM information_schema.tables 
+					WHERE table_schema = 'public' 
+					AND table_name IN ('customers', 'thread_ticket_mappings', 'storage_cache')
+				`);
+			});
+
+			const requiredTables = ['customers', 'thread_ticket_mappings', 'storage_cache'];
+			const foundTables = tableCheck.rows.map((row: { table_name: string }) => row.table_name);
+			const missingTables = requiredTables.filter(table => !foundTables.includes(table));
+
+			if (missingTables.length > 0) {
+				LogEngine.info('Database tables missing - setting up automatically...', {
+					missing: missingTables,
+				});
+				await this.initializeSchema();
+			}
+			else {
+				LogEngine.info('Database schema verified', {
+					tablesFound: foundTables,
+					botsBrainReady: foundTables.includes('storage_cache'),
+				});
+			}
+		}
+		catch (error) {
+			const err = error as Error;
+			LogEngine.error('Error checking database schema', {
+				error: err.message,
+				stack: err.stack,
+			});
+			throw error;
+		}
+	}
+
+	/**
+	 * Initialize database schema from schema.sql file
+	 * Following the proven pattern from Telegram bot implementation
+	 *
+	 * 🚀 Railway Deployment Compatible:
+	 * - Schema file copied during Docker build: dist/database/schema.sql
+	 * - Path resolution from dist/sdk/bots-brain/ to dist/database/
+	 * - Works with Railway's container file system restrictions
+	 */
+	private async initializeSchema(): Promise<void> {
+		try {
+			LogEngine.info('Starting database schema initialization...');
+
+			// Path from dist/sdk/bots-brain/ to dist/database/schema.sql
+			// Matches the Dockerfile copy: dist/database/schema.sql
+			const schemaPath = path.join(__dirname, '../../database/schema.sql');
+			
+			// Check if schema file exists asynchronously
+			try {
+				await fs.promises.access(schemaPath, fs.constants.F_OK);
+			}
+			catch {
+				throw new Error(`Schema file not found: ${schemaPath}`);
+			}
+
+			// Read schema file asynchronously
+			// eslint-disable-next-line security/detect-non-literal-fs-filename -- Schema path is safe, built from known dirname
+			const schema = await fs.promises.readFile(schemaPath, 'utf8');
+			LogEngine.debug('Schema file loaded', {
+				path: schemaPath,
+				size: schema.length,
+			});
+
+			// Execute schema - split into individual statements for PostgreSQL compatibility
+			await withDbClient(this.pool, async (client) => {
+				// Split schema into individual statements and filter out empty ones
+				const statements = schema
+					.split(';')
+					.map(stmt => stmt.trim())
+					.filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+
+				LogEngine.debug('Executing schema statements', {
+					statementCount: statements.length,
+				});
+
+				// Execute each statement individually
+				for (const statement of statements) {
+					if (statement.trim()) {
+						await client.query(statement + ';');
+					}
+				}
+			});
+			
+			LogEngine.info('Database schema created successfully');
+
+		}
+		catch (error) {
+			const err = error as Error;
+			LogEngine.error('Failed to initialize database schema', {
+				error: err.message,
+				stack: err.stack,
+			});
+			throw error;
+		}
 	}
 
 	/**
@@ -867,17 +986,16 @@ export class BotsStore {
 	// ==================== SOFT DELETE OPERATIONS ====================
 
 	/**
-	 * Soft delete a customer by setting deleted_at timestamp
-	 * This preserves data for audit trails and recovery purposes
+	 * Delete a customer permanently
+	 * Note: Schema doesn't support soft deletes
 	 */
 	async softDeleteCustomer(discordId: string): Promise<boolean> {
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					`UPDATE customers 
-					 SET deleted_at = NOW(), updated_at = NOW() 
-					 WHERE discord_id = $1 AND deleted_at IS NULL
-					 RETURNING id`,
+					`DELETE FROM customers 
+					 WHERE discord_id = $1
+					 RETURNING discord_id`,
 					[discordId],
 				);
 			});
@@ -901,16 +1019,16 @@ export class BotsStore {
 	}
 
 	/**
-	 * Soft delete a thread-ticket mapping by setting deleted_at timestamp
+	 * Delete a thread-ticket mapping permanently
+	 * Note: Schema doesn't support soft deletes
 	 */
 	async softDeleteMapping(discordThreadId: string): Promise<boolean> {
 		try {
 			const result = await withDbClient(this.pool, async (client) => {
 				return await client.query(
-					`UPDATE thread_ticket_mappings 
-					 SET deleted_at = NOW(), updated_at = NOW() 
-					 WHERE discord_thread_id = $1 AND deleted_at IS NULL
-					 RETURNING id`,
+					`DELETE FROM thread_ticket_mappings 
+					 WHERE discord_thread_id = $1
+					 RETURNING discord_thread_id`,
 					[discordThreadId],
 				);
 			});
@@ -934,68 +1052,18 @@ export class BotsStore {
 	}
 
 	/**
-	 * Restore a soft-deleted customer by clearing deleted_at timestamp
+	 * Restore customer functionality disabled - schema doesn't support soft deletes
 	 */
-	async restoreCustomer(discordId: string): Promise<boolean> {
-		try {
-			const result = await withDbClient(this.pool, async (client) => {
-				return await client.query(
-					`UPDATE customers 
-					 SET deleted_at = NULL, updated_at = NOW() 
-					 WHERE discord_id = $1 AND deleted_at IS NOT NULL
-					 RETURNING id`,
-					[discordId],
-				);
-			});
-
-			if (result.rows.length > 0) {
-				// Invalidate cache to force fresh data
-				const cacheKey = `customer:discord:${discordId}`;
-				await this.storage.delete(cacheKey);
-
-				LogEngine.info(`Customer restored: ${discordId}`);
-				return true;
-			}
-
-			LogEngine.warn(`Customer not found in soft-deleted state: ${discordId}`);
-			return false;
-		}
-		catch (error) {
-			LogEngine.error('Failed to restore customer:', error);
-			throw error;
-		}
+	async restoreCustomer(_discordId: string): Promise<boolean> {
+		LogEngine.warn('Restore customer not supported - schema uses hard deletes');
+		return false;
 	}
 
 	/**
-	 * Restore a soft-deleted mapping by clearing deleted_at timestamp
+	 * Restore mapping functionality disabled - schema doesn't support soft deletes
 	 */
-	async restoreMapping(discordThreadId: string): Promise<boolean> {
-		try {
-			const result = await withDbClient(this.pool, async (client) => {
-				return await client.query(
-					`UPDATE thread_ticket_mappings 
-					 SET deleted_at = NULL, updated_at = NOW() 
-					 WHERE discord_thread_id = $1 AND deleted_at IS NOT NULL
-					 RETURNING id`,
-					[discordThreadId],
-				);
-			});
-
-			if (result.rows.length > 0) {
-				// Invalidate cache to force fresh data
-				const threadCacheKey = `mapping:thread:${discordThreadId}`;
-				await this.storage.delete(threadCacheKey);
-
-				LogEngine.info(`Mapping restored: ${discordThreadId}`);
-				return true;
-			}
-
-			LogEngine.warn(`Mapping not found in soft-deleted state: ${discordThreadId}`);
-			return false;
-		}
-		catch (error) {
-			LogEngine.error('Failed to restore mapping:', error);
-			throw error;
-		}
+	async restoreMapping(_discordThreadId: string): Promise<boolean> {
+		LogEngine.warn('Restore mapping not supported - schema uses hard deletes');
+		return false;
 	}
 }

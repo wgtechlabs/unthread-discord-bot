@@ -1,12 +1,12 @@
 {
   "name": "unthread-discord-bot",
   "description": "A simple official discord bot integration for unthread.io ticketing system.",
-  "version": "1.0.1",
+  "version": "1.0.4",
   "private": true,
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "yarn build && yarn node dist/index.js",
+    "start": "yarn build && yarn node dist/deploy_commands.js && yarn node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
     "deploycommand": "yarn build && yarn node dist/deploy_commands.js",
     "lint": "eslint src/**/*.ts",
