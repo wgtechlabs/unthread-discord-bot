@@ -127,7 +127,7 @@ describe('botUtils', () => {
 
 			const footer = getBotFooter();
 
-			expect(footer).toBe('Support Bot v1.0.1');
+			expect(footer).toBe('Support Bot v1.0.4');
 			expect(footer).toMatch(/^Support Bot v\d+\.\d+\.\d+/);
 		});
 
@@ -140,7 +140,7 @@ describe('botUtils', () => {
 
 			const footer = getBotFooter();
 
-			expect(footer).toBe('ticket-bot v1.0.1');
+			expect(footer).toBe('ticket-bot v1.0.4');
 			expect(footer).toMatch(/^ticket-bot v\d+\.\d+\.\d+/);
 		});
 
@@ -149,7 +149,7 @@ describe('botUtils', () => {
 
 			const footer = getBotFooter();
 
-			expect(footer).toBe('Unthread Discord Bot v1.0.1');
+			expect(footer).toBe('Unthread Discord Bot v1.0.4');
 			expect(footer).toMatch(/^Unthread Discord Bot v\d+\.\d+\.\d+/);
 		});
 
@@ -189,7 +189,7 @@ describe('botUtils', () => {
 
 			const footer = getBotFooter();
 
-			expect(footer).toBe('Bot-With-Dashes & Symbols! v1.0.1');
+			expect(footer).toBe('Bot-With-Dashes & Symbols! v1.0.4');
 			expect(footer).toContain('Bot-With-Dashes & Symbols!');
 		});
 
@@ -202,7 +202,7 @@ describe('botUtils', () => {
 
 			const footer = getBotFooter();
 
-			expect(footer).toBe('🤖 Unicode Bot 🚀 v1.0.1');
+			expect(footer).toBe('🤖 Unicode Bot 🚀 v1.0.4');
 			expect(footer).toContain('🤖');
 			expect(footer).toContain('🚀');
 		});
@@ -292,7 +292,7 @@ describe('botUtils', () => {
 
 			expect(displayName).toBe(botName);
 			expect(footer).toContain(botName);
-			expect(footer).toBe(`${botName} v1.0.1`);
+			expect(footer).toBe(`${botName} v1.0.4`);
 		});
 
 		it('should handle rapid client state changes', () => {
@@ -332,7 +332,7 @@ describe('botUtils', () => {
 
 			expect(name).toBe('minimal-bot');
 			expect(displayName).toBe('minimal-bot');
-			expect(footer).toBe('minimal-bot v1.0.1');
+			expect(footer).toBe('minimal-bot v1.0.4');
 		});
 
 		it('should handle undefined properties gracefully', () => {
@@ -349,7 +349,7 @@ describe('botUtils', () => {
 
 			expect(name).toBe('Unthread Discord Bot');
 			expect(displayName).toBe('Unthread Discord Bot');
-			expect(footer).toBe('Unthread Discord Bot v1.0.1');
+			expect(footer).toBe('Unthread Discord Bot v1.0.4');
 		});
 	});
 
@@ -369,7 +369,7 @@ describe('botUtils', () => {
 			const footer = getBotFooter();
 
 			expect(name).toBe('Unthread Support Bot');
-			expect(footer).toBe('Unthread Support Bot v1.0.1');
+			expect(footer).toBe('Unthread Support Bot v1.0.4');
 		});
 
 		it('should work during bot initialization', () => {
@@ -377,13 +377,13 @@ describe('botUtils', () => {
 			(global as any).discordClient = null;
 
 			expect(getBotName()).toBe('Unthread Discord Bot');
-			expect(getBotFooter()).toBe('Unthread Discord Bot v1.0.1');
+			expect(getBotFooter()).toBe('Unthread Discord Bot v1.0.4');
 
 			// After client connects but user not yet set
 			(global as any).discordClient = {};
 
 			expect(getBotName()).toBe('Unthread Discord Bot');
-			expect(getBotFooter()).toBe('Unthread Discord Bot v1.0.1');
+			expect(getBotFooter()).toBe('Unthread Discord Bot v1.0.4');
 
 			// After user becomes available
 			(global as any).discordClient = {
@@ -393,7 +393,7 @@ describe('botUtils', () => {
 			};
 
 			expect(getBotName()).toBe('newly-connected-bot');
-			expect(getBotFooter()).toBe('newly-connected-bot v1.0.1');
+			expect(getBotFooter()).toBe('newly-connected-bot v1.0.4');
 		});
 
 		it('should work in development environment', () => {
@@ -408,7 +408,7 @@ describe('botUtils', () => {
 			const footer = getBotFooter();
 
 			expect(name).toBe('Dev Bot [LOCAL]');
-			expect(footer).toBe('Dev Bot [LOCAL] v1.0.1');
+			expect(footer).toBe('Dev Bot [LOCAL] v1.0.4');
 			expect(footer).toContain('[LOCAL]');
 		});
 	});
@@ -452,7 +452,7 @@ describe('botUtils', () => {
 			const footer = getBotFooter();
 
 			expect(name).toBe(longName);
-			expect(footer).toBe(`${longName} v1.0.1`);
+			expect(footer).toBe(`${longName} v1.0.4`);
 			expect(footer.length).toBeGreaterThan(1000);
 		});
 	});
