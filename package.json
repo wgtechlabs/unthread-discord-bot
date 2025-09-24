@@ -6,7 +6,9 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "yarn build && yarn node dist/deploy_commands.js && yarn node dist/index.js",
+    "predeploy": "yarn build && yarn deploycommand",
+    "start": "node dist/index.js",
+    "start:full": "yarn build && yarn deploycommand && yarn start",
     "dev": "nodemon --exec ts-node src/index.ts",
     "deploycommand": "yarn build && yarn node dist/deploy_commands.js",
     "lint": "eslint src/**/*.ts",
