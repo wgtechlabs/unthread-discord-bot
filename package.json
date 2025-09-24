@@ -1,7 +1,7 @@
 {
   "name": "unthread-discord-bot",
   "description": "A simple official discord bot integration for unthread.io ticketing system.",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "main": "dist/index.js",
   "scripts": {

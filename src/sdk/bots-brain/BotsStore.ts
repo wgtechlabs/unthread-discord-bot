@@ -901,13 +901,19 @@ export class BotsStore {
 
 	/**
 	 * Initialize database schema from schema.sql file
-	 * Following the pattern from Telegram bot implementation
+	 * Following the proven pattern from Telegram bot implementation
+	 *
+	 * 🚀 Railway Deployment Compatible:
+	 * - Schema file copied during Docker build: dist/database/schema.sql
+	 * - Path resolution from dist/sdk/bots-brain/ to dist/database/
+	 * - Works with Railway's container file system restrictions
 	 */
 	private async initializeSchema(): Promise<void> {
 		try {
 			LogEngine.info('Starting database schema initialization...');
 
-			// Use relative path from the compiled JavaScript file location in dist/
+			// Path from dist/sdk/bots-brain/ to dist/database/schema.sql
+			// Matches the Dockerfile copy: dist/database/schema.sql
 			const schemaPath = path.join(__dirname, '../../database/schema.sql');
 			
 			// Check if schema file exists asynchronously

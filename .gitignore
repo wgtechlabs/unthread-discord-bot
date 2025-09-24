@@ -140,3 +140,7 @@ dist
 
 # VS Code settings
 .vscode/settings.json
+
+# environment variables
+.env.*
+!.env.example
