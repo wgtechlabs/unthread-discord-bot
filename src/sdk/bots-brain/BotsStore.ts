@@ -215,8 +215,10 @@ export class BotsStore {
 			connectionString: processedPostgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
-			// Increased to 10s for Railway managed databases (matching UnifiedStorage)
-			connectionTimeoutMillis: 10000,
+			// Increased to 30s for Railway managed databases (schema operations)
+			connectionTimeoutMillis: 30000,
+			// Add query timeout for Railway compatibility - 60 seconds for complex schema operations
+			query_timeout: 60000,
 		};
 		
 		// Only add SSL config if it's not explicitly disabled
@@ -863,40 +865,55 @@ export class BotsStore {
 	 */
 	private async ensureSchema(): Promise<void> {
 		try {
-			// Check if required tables exist
-			const tableCheck = await withDbClient(this.pool, async (client) => {
-				return await client.query(`
-					SELECT table_name 
-					FROM information_schema.tables 
-					WHERE table_schema = 'public' 
-					AND table_name IN ('customers', 'thread_ticket_mappings', 'storage_cache')
-				`);
-			});
-
-			const requiredTables = ['customers', 'thread_ticket_mappings', 'storage_cache'];
-			const foundTables = tableCheck.rows.map((row: { table_name: string }) => row.table_name);
-			const missingTables = requiredTables.filter(table => !foundTables.includes(table));
-
-			if (missingTables.length > 0) {
-				LogEngine.info('Database tables missing - setting up automatically...', {
-					missing: missingTables,
-				});
-				await this.initializeSchema();
-			}
-			else {
-				LogEngine.info('Database schema verified', {
-					tablesFound: foundTables,
-					botsBrainReady: foundTables.includes('storage_cache'),
-				});
-			}
+			// Wrap schema operations with timeout for Railway compatibility - 2 minutes total timeout
+			const schemaTimeout = 120000;
+			await Promise.race([
+				this.performSchemaCheck(),
+				new Promise((_, reject) =>
+					setTimeout(() => reject(new Error('Schema operation timed out after 2 minutes')), schemaTimeout),
+				),
+			]);
 		}
 		catch (error) {
 			const err = error as Error;
-			LogEngine.error('Error checking database schema', {
+			LogEngine.error('Error during schema operations', {
 				error: err.message,
 				stack: err.stack,
 			});
 			throw error;
+		}
+	}
+
+	/**
+	 * Perform the actual schema check and initialization
+	 * Separated for timeout handling
+	 */
+	private async performSchemaCheck(): Promise<void> {
+		// Check if required tables exist
+		const tableCheck = await withDbClient(this.pool, async (client) => {
+			return await client.query(`
+				SELECT table_name 
+				FROM information_schema.tables 
+				WHERE table_schema = 'public' 
+				AND table_name IN ('customers', 'thread_ticket_mappings', 'storage_cache')
+			`);
+		});
+
+		const requiredTables = ['customers', 'thread_ticket_mappings', 'storage_cache'];
+		const foundTables = tableCheck.rows.map((row: { table_name: string }) => row.table_name);
+		const missingTables = requiredTables.filter(table => !foundTables.includes(table));
+
+		if (missingTables.length > 0) {
+			LogEngine.info('Database tables missing - setting up automatically...', {
+				missing: missingTables,
+			});
+			await this.initializeSchema();
+		}
+		else {
+			LogEngine.info('Database schema verified', {
+				tablesFound: foundTables,
+				botsBrainReady: foundTables.includes('storage_cache'),
+			});
 		}
 	}
 
@@ -908,6 +925,7 @@ export class BotsStore {
 	 * - Schema file copied during Docker build: dist/database/schema.sql
 	 * - Path resolution from dist/sdk/bots-brain/ to dist/database/
 	 * - Works with Railway's container file system restrictions
+	 * - Individual statement execution for better Railway timeout handling
 	 */
 	private async initializeSchema(): Promise<void> {
 		try {
@@ -933,25 +951,8 @@ export class BotsStore {
 				size: schema.length,
 			});
 
-			// Execute schema with transaction safety (addressing CodeRabbit security concern)
-			await withDbClient(this.pool, async (client) => {
-				// For now, execute as single block - safer than naive splitting
-				// TODO: Implement parser-aware SQL splitting for complex schemas with functions
-				LogEngine.debug('Executing schema as transaction block for safety');
-
-				// Execute schema in a transaction for all-or-nothing safety
-				await client.query('BEGIN');
-				try {
-					await client.query(schema);
-					await client.query('COMMIT');
-					LogEngine.debug('Schema transaction committed successfully');
-				}
-				catch (error) {
-					await client.query('ROLLBACK');
-					LogEngine.error('Schema transaction rolled back due to error', { error });
-					throw error;
-				}
-			});
+			// Execute schema with individual statements for Railway compatibility
+			await this.executeSchemaStatements(schema);
 			
 			LogEngine.info('Database schema created successfully');
 
@@ -964,6 +965,97 @@ export class BotsStore {
 			});
 			throw error;
 		}
+	}
+
+	/**
+	 * Execute schema statements individually with timeout handling
+	 * Optimized for Railway managed PostgreSQL deployment
+	 */
+	private async executeSchemaStatements(schema: string): Promise<void> {
+		// Split schema into individual statements, handling complex cases
+		const statements = this.parseSchemaStatements(schema);
+		
+		LogEngine.info(`Executing ${statements.length} schema statements individually for Railway compatibility`);
+
+		await withDbClient(this.pool, async (client) => {
+			// Set statement timeout for Railway compatibility - 60 seconds
+			await client.query('SET statement_timeout = 60000');
+			
+			let executedCount = 0;
+			
+			for (const statement of statements) {
+				if (statement.trim().length === 0) continue;
+				
+				try {
+					LogEngine.debug(`Executing statement ${executedCount + 1}/${statements.length}`);
+					await client.query(statement);
+					executedCount++;
+				}
+				catch (error) {
+					LogEngine.error(`Failed to execute schema statement ${executedCount + 1}:`, {
+						error: error instanceof Error ? error.message : String(error),
+						statement: statement.substring(0, 200) + (statement.length > 200 ? '...' : ''),
+					});
+					throw error;
+				}
+			}
+			
+			LogEngine.info(`Successfully executed ${executedCount} schema statements`);
+		});
+	}
+
+	/**
+	 * Parse schema SQL into individual executable statements
+	 * Handles functions, triggers, and multi-line statements properly
+	 */
+	private parseSchemaStatements(schema: string): string[] {
+		// Remove comments and normalize whitespace
+		const cleanSchema = schema
+			.split('\n')
+			.map(line => line.replace(/--.*$/, '').trim())
+			.filter(line => line.length > 0)
+			.join('\n');
+
+		// Split by semicolons, but handle function definitions
+		const statements: string[] = [];
+		let currentStatement = '';
+		let inFunction = false;
+		let dollarQuoteTag = '';
+
+		const lines = cleanSchema.split('\n');
+		
+		for (const line of lines) {
+			const trimmedLine = line.trim();
+			
+			// Check for function start
+			if (trimmedLine.includes('$$') && !inFunction) {
+				inFunction = true;
+				dollarQuoteTag = '$$';
+			}
+			
+			currentStatement += line + '\n';
+			
+			// Check for function end
+			if (inFunction && trimmedLine.includes(dollarQuoteTag) && trimmedLine !== dollarQuoteTag + ' language \'plpgsql\';') {
+				inFunction = false;
+				dollarQuoteTag = '';
+			}
+			
+			// Statement complete if we hit semicolon and not in function
+			if (trimmedLine.endsWith(';') && !inFunction) {
+				if (currentStatement.trim().length > 0) {
+					statements.push(currentStatement.trim());
+				}
+				currentStatement = '';
+			}
+		}
+		
+		// Add any remaining statement
+		if (currentStatement.trim().length > 0) {
+			statements.push(currentStatement.trim());
+		}
+		
+		return statements;
 	}
 
 	/**
