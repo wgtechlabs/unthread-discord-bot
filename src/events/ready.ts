@@ -24,8 +24,10 @@ import { Events, ActivityType, Client } from 'discord.js';
 import * as packageJSON from '../../package.json';
 import { LogEngine } from '../config/logger';
 import channelUtils from '../utils/channelUtils';
+import { deployCommandsIfNeeded } from '../utils/commandDeployment';
 
 const { getValidatedForumChannelIds } = channelUtils;
+
 
 /**
  * Ready event handler
@@ -52,6 +54,9 @@ const readyEvent = {
 
 		// Log successful initialization with version information for monitoring
 		LogEngine.info(`Logged in as ${bot.user?.displayName || bot.user?.username} @ v${packageJSON.version}`);
+
+		// Deploy Discord slash commands using smart deployment utility
+		await deployCommandsIfNeeded(bot);
 
 		// Validate forum channel configuration on startup
 		try {

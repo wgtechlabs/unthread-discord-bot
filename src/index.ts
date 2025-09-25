@@ -132,6 +132,7 @@ async function validateStartupRequirements(): Promise<void> {
 	}
 }
 
+
 /**
  * Main startup function
  *
