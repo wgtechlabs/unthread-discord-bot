@@ -108,20 +108,6 @@ vi.mock('discord.js', () => {
 		commands: new Map(),
 	};
 
-	const mockEmbedBuilder = {
-		setTitle: vi.fn().mockReturnThis(),
-		setDescription: vi.fn().mockReturnThis(),
-		setColor: vi.fn().mockReturnThis(),
-		setFooter: vi.fn().mockReturnThis(),
-		setTimestamp: vi.fn().mockReturnThis(),
-		addFields: vi.fn().mockReturnThis(),
-		setAuthor: vi.fn().mockReturnThis(),
-		setImage: vi.fn().mockReturnThis(),
-		setThumbnail: vi.fn().mockReturnThis(),
-		setURL: vi.fn().mockReturnThis(),
-		toJSON: vi.fn().mockReturnValue({}),
-	};
-
 	const mockCollection = Map;
 
 	return {
@@ -140,7 +126,44 @@ vi.mock('discord.js', () => {
 			ThreadCreate: 'threadCreate',
 			Error: 'error',
 		},
-		EmbedBuilder: vi.fn(() => mockEmbedBuilder),
+		EmbedBuilder: vi.fn(() => ({
+			data: {
+				color: 0xEB1A1A,
+				title: '',
+				description: '',
+				footer: { text: '' },
+				timestamp: new Date().toISOString(),
+				fields: [],
+			},
+			setTitle: vi.fn().mockImplementation(function(title) { this.data.title = title; return this; }),
+			setDescription: vi.fn().mockImplementation(function(description) { this.data.description = description; return this; }),
+			setColor: vi.fn().mockImplementation(function(color) { this.data.color = color; return this; }),
+			setFooter: vi.fn().mockImplementation(function(footer) { this.data.footer = footer; return this; }),
+			setTimestamp: vi.fn().mockImplementation(function(timestamp) { this.data.timestamp = timestamp || new Date().toISOString(); return this; }),
+			addFields: vi.fn().mockImplementation(function(...fields) { this.data.fields.push(...fields); return this; }),
+			setAuthor: vi.fn().mockReturnThis(),
+			setImage: vi.fn().mockReturnThis(),
+			setThumbnail: vi.fn().mockReturnThis(),
+			setURL: vi.fn().mockReturnThis(),
+			toJSON: vi.fn().mockReturnValue({}),
+		})),
+		SlashCommandBuilder: vi.fn(() => ({
+			data: { name: '', description: '', options: [] },
+			setName: vi.fn().mockImplementation(function(name) { this.data.name = name; this.name = name; return this; }),
+			setDescription: vi.fn().mockImplementation(function(description) { this.data.description = description; this.description = description; return this; }),
+			addStringOption: vi.fn().mockReturnThis(),
+			addIntegerOption: vi.fn().mockReturnThis(),
+			addBooleanOption: vi.fn().mockReturnThis(),
+			addUserOption: vi.fn().mockReturnThis(),
+			addChannelOption: vi.fn().mockReturnThis(),
+			addRoleOption: vi.fn().mockReturnThis(),
+			addMentionableOption: vi.fn().mockReturnThis(),
+			addNumberOption: vi.fn().mockReturnThis(),
+			addAttachmentOption: vi.fn().mockReturnThis(),
+			toJSON: vi.fn().mockImplementation(function() { return this.data; }),
+			name: '',
+			description: '',
+		})),
 		Collection: mockCollection,
 		ChannelType: {
 			GuildText: 0,
