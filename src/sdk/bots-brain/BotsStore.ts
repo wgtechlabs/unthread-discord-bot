@@ -978,83 +978,173 @@ export class BotsStore {
 		LogEngine.info(`Executing ${statements.length} schema statements individually for Railway compatibility`);
 
 		await withDbClient(this.pool, async (client) => {
-			// Set statement timeout for Railway compatibility - 60 seconds
-			await client.query('SET statement_timeout = 60000');
-			
-			let executedCount = 0;
-			
-			for (const statement of statements) {
-				if (statement.trim().length === 0) continue;
-				
-				try {
+			await client.query('BEGIN');
+			try {
+				// Limit this transaction only
+				await client.query('SET LOCAL statement_timeout = \'60s\'');
+
+				let executedCount = 0;
+
+				for (const statement of statements) {
+					if (statement.trim().length === 0) continue;
+
 					LogEngine.debug(`Executing statement ${executedCount + 1}/${statements.length}`);
 					await client.query(statement);
 					executedCount++;
 				}
-				catch (error) {
-					LogEngine.error(`Failed to execute schema statement ${executedCount + 1}:`, {
-						error: error instanceof Error ? error.message : String(error),
-						statement: statement.substring(0, 200) + (statement.length > 200 ? '...' : ''),
-					});
-					throw error;
-				}
+
+				await client.query('COMMIT');
+				LogEngine.info(`Successfully executed ${executedCount} schema statements`);
 			}
-			
-			LogEngine.info(`Successfully executed ${executedCount} schema statements`);
+			catch (error) {
+				await client.query('ROLLBACK');
+				throw error;
+			}
 		});
 	}
 
 	/**
 	 * Parse schema SQL into individual executable statements
-	 * Handles functions, triggers, and multi-line statements properly
+	 * Secure state-machine implementation that properly handles quotes, dollar tags, and comments
 	 */
 	private parseSchemaStatements(schema: string): string[] {
-		// Remove comments and normalize whitespace
-		const cleanSchema = schema
-			.split('\n')
-			.map(line => line.replace(/--.*$/, '').trim())
-			.filter(line => line.length > 0)
-			.join('\n');
-
-		// Split by semicolons, but handle function definitions
 		const statements: string[] = [];
-		let currentStatement = '';
-		let inFunction = false;
-		let dollarQuoteTag = '';
+		let buffer = '';
+		let i = 0;
+		let inSingleQuote = false;
+		let inDoubleQuote = false;
+		let inLineComment = false;
+		let inBlockComment = false;
+		let dollarTag: string | null = null;
 
-		const lines = cleanSchema.split('\n');
-		
-		for (const line of lines) {
-			const trimmedLine = line.trim();
-			
-			// Check for function start
-			if (trimmedLine.includes('$$') && !inFunction) {
-				inFunction = true;
-				dollarQuoteTag = '$$';
+		const flush = () => {
+			const trimmed = buffer.trim();
+			if (trimmed.length > 0) {
+				statements.push(trimmed);
 			}
-			
-			currentStatement += line + '\n';
-			
-			// Check for function end
-			if (inFunction && trimmedLine.includes(dollarQuoteTag) && trimmedLine !== dollarQuoteTag + ' language \'plpgsql\';') {
-				inFunction = false;
-				dollarQuoteTag = '';
+			buffer = '';
+		};
+
+		while (i < schema.length) {
+			// Safe array access with bounds checking
+			const ch = i < schema.length ? schema.charAt(i) : '';
+			const next = i + 1 < schema.length ? schema.charAt(i + 1) : '';
+
+			if (inLineComment) {
+				buffer += ch;
+				if (ch === '\n') inLineComment = false;
+				i++;
+				continue;
 			}
-			
-			// Statement complete if we hit semicolon and not in function
-			if (trimmedLine.endsWith(';') && !inFunction) {
-				if (currentStatement.trim().length > 0) {
-					statements.push(currentStatement.trim());
+
+			if (inBlockComment) {
+				buffer += ch;
+				if (ch === '*' && next === '/') {
+					buffer += next;
+					i += 2;
+					inBlockComment = false;
 				}
-				currentStatement = '';
+				else {
+					i++;
+				}
+				continue;
 			}
+
+			if (dollarTag !== null) {
+				buffer += ch;
+				if (ch === '$') {
+					const tail = schema.slice(i, i + dollarTag.length + 2);
+					if (tail === `$${dollarTag}$`) {
+						buffer += schema.slice(i + 1, i + dollarTag.length + 2);
+						i += dollarTag.length + 2;
+						dollarTag = null;
+						continue;
+					}
+				}
+				i++;
+				continue;
+			}
+
+			if (inSingleQuote) {
+				buffer += ch;
+				if (ch === '\'' && next === '\'') {
+					buffer += next;
+					i += 2;
+					continue;
+				}
+				if (ch === '\'') inSingleQuote = false;
+				i++;
+				continue;
+			}
+
+			if (inDoubleQuote) {
+				buffer += ch;
+				if (ch === '"' && next === '"') {
+					buffer += next;
+					i += 2;
+					continue;
+				}
+				if (ch === '"') inDoubleQuote = false;
+				i++;
+				continue;
+			}
+
+			if (ch === '-' && next === '-') {
+				buffer += ch + next;
+				i += 2;
+				inLineComment = true;
+				continue;
+			}
+
+			if (ch === '/' && next === '*') {
+				buffer += ch + next;
+				i += 2;
+				inBlockComment = true;
+				continue;
+			}
+
+			if (ch === '\'') {
+				buffer += ch;
+				inSingleQuote = true;
+				i++;
+				continue;
+			}
+
+			if (ch === '"') {
+				buffer += ch;
+				inDoubleQuote = true;
+				i++;
+				continue;
+			}
+
+			if (ch === '$') {
+				let j = i + 1;
+				// Safe character validation with bounds checking
+				while (j < schema.length && /[A-Za-z0-9_]/.test(schema.charAt(j))) j++;
+				// Safe array access with bounds checking
+				if (j < schema.length && schema.charAt(j) === '$') {
+					dollarTag = schema.slice(i + 1, j);
+					buffer += schema.slice(i, j + 1);
+					i = j + 1;
+					continue;
+				}
+			}
+
+			if (ch === ';') {
+				buffer += ch;
+				flush();
+				i++;
+				continue;
+			}
+
+			buffer += ch;
+			i++;
 		}
-		
-		// Add any remaining statement
-		if (currentStatement.trim().length > 0) {
-			statements.push(currentStatement.trim());
+
+		if (buffer.trim().length > 0) {
+			flush();
 		}
-		
+
 		return statements;
 	}
 
