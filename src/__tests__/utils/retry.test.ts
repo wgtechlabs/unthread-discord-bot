@@ -62,29 +62,49 @@ describe('withRetry', () => {
 		});
 	});
 
-	describe.skip('Retry Logic', () => {
-		it('should retry failed operations up to maxAttempts', async () => {
-			const operation = createEventualSuccessMock('success', 2);
+	describe('Retry Logic', () => {
+		// Use real timers for these tests to handle actual delays
+		beforeEach(() => {
+			vi.useRealTimers();
+		});
 
-			const retryPromise = withRetry(operation, { 
-				maxAttempts: 3,
-				baseDelayMs: 100,
+		afterEach(() => {
+			vi.useFakeTimers();
+		});
+
+		it('should retry failed operations up to maxAttempts', async () => {
+			let attemptCount = 0;
+			const operation = vi.fn().mockImplementation(() => {
+				attemptCount++;
+				if (attemptCount < 3) {
+					return Promise.reject(new Error('Temporary failure'));
+				}
+				return Promise.resolve('success');
 			});
 
-			// Advance timers to handle the retry delays
-			await advanceTimersAndWait(100); // First retry delay
-			await advanceTimersAndWait(200); // Second retry delay
-
-			const result = await retryPromise;
+			const result = await withRetry(operation, { 
+				maxAttempts: 3,
+				baseDelayMs: 1, // Very short delay for testing
+			});
 
 			expect(result).toBe('success');
 			expect(operation).toHaveBeenCalledTimes(3);
 		});
 
 		it('should log success message after retry', async () => {
-			const operation = createEventualSuccessMock('success', 1);
+			let attemptCount = 0;
+			const operation = vi.fn().mockImplementation(() => {
+				attemptCount++;
+				if (attemptCount < 2) {
+					return Promise.reject(new Error('Temporary failure'));
+				}
+				return Promise.resolve('success');
+			});
 
-			await withRetry(operation, { operationName: 'retry-test' });
+			await withRetry(operation, { 
+				operationName: 'retry-test',
+				baseDelayMs: 1,
+			});
 
 			expect(LogEngine.info).toHaveBeenCalledWith('retry-test succeeded on attempt 2');
 		});
@@ -93,7 +113,7 @@ describe('withRetry', () => {
 			const error = new Error('Persistent failure');
 			const operation = vi.fn().mockRejectedValue(error);
 
-			await expect(withRetry(operation, { maxAttempts: 3 })).rejects.toThrow(
+			await expect(withRetry(operation, { maxAttempts: 3, baseDelayMs: 1 })).rejects.toThrow(
 				'operation failed after 3 attempts: Persistent failure',
 			);
 
@@ -105,7 +125,7 @@ describe('withRetry', () => {
 			const operation = vi.fn().mockRejectedValue(originalError);
 
 			try {
-				await withRetry(operation, { maxAttempts: 2 });
+				await withRetry(operation, { maxAttempts: 2, baseDelayMs: 1 });
 			}
 			catch (error) {
 				expect(error).toBeInstanceOf(Error);
@@ -114,34 +134,61 @@ describe('withRetry', () => {
 		});
 	});
 
-	describe.skip('Backoff Strategy', () => {
-		it('should use linear backoff with baseDelayMs', async () => {
+	describe('Backoff Strategy', () => {
+		// Use real timers for these tests to handle actual delays
+		beforeEach(() => {
+			vi.useRealTimers();
+		});
+
+		afterEach(() => {
 			vi.useFakeTimers();
+		});
 
-			const operation = createEventualSuccessMock('success', 2);
-			const baseDelay = 100;
-
-			const promise = withRetry(operation, {
-				maxAttempts: 3,
-				baseDelayMs: baseDelay,
+		it('should use linear backoff with baseDelayMs', async () => {
+			let attemptCount = 0;
+			const operation = vi.fn().mockImplementation(() => {
+				attemptCount++;
+				if (attemptCount < 3) {
+					return Promise.reject(new Error('Temporary failure'));
+				}
+				return Promise.resolve('success');
 			});
 
-			// Allow the test to complete quickly with fake timers
-			await advanceTimersAndWait(0);
-			await advanceTimersAndWait(baseDelay);
-			await advanceTimersAndWait(baseDelay * 2);
+			const result = await withRetry(operation, {
+				maxAttempts: 3,
+				baseDelayMs: 1, // Very short for testing
+				exponentialBackoff: false,
+			});
 
-			const result = await promise;
 			expect(result).toBe('success');
 			expect(operation).toHaveBeenCalledTimes(3);
+		});
 
+		it('should use exponential backoff when enabled', async () => {
+			let attemptCount = 0;
+			const operation = vi.fn().mockImplementation(() => {
+				attemptCount++;
+				if (attemptCount < 3) {
+					return Promise.reject(new Error('Temporary failure'));
+				}
+				return Promise.resolve('success');
+			});
+
+			const result = await withRetry(operation, {
+				maxAttempts: 3,
+				baseDelayMs: 1, // Very short for testing
+				exponentialBackoff: true,
+			});
+
+			expect(result).toBe('success');
+			expect(operation).toHaveBeenCalledTimes(3);
 		});
 
 		it('should not delay before the last attempt fails', async () => {
 			const operation = vi.fn().mockRejectedValue(new Error('Always fails'));
 
 			try {
-				await withRetry(operation, { maxAttempts: 2, baseDelayMs: 50 });
+				await withRetry(operation, { maxAttempts: 2, baseDelayMs: 1 });
 			}
 			catch (error) {
 				// Test passes if it doesn't time out
