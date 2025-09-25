@@ -164,6 +164,27 @@ vi.mock('discord.js', () => {
 			name: '',
 			description: '',
 		})),
+		ModalBuilder: vi.fn(() => ({
+			setCustomId: vi.fn().mockReturnThis(),
+			setTitle: vi.fn().mockReturnThis(),
+			addComponents: vi.fn().mockReturnThis(),
+		})),
+		TextInputBuilder: vi.fn(() => ({
+			setCustomId: vi.fn().mockReturnThis(),
+			setLabel: vi.fn().mockReturnThis(),
+			setPlaceholder: vi.fn().mockReturnThis(),
+			setStyle: vi.fn().mockReturnThis(),
+			setRequired: vi.fn().mockReturnThis(),
+			setMinLength: vi.fn().mockReturnThis(),
+			setMaxLength: vi.fn().mockReturnThis(),
+		})),
+		ActionRowBuilder: vi.fn(() => ({
+			addComponents: vi.fn().mockReturnThis(),
+		})),
+		TextInputStyle: {
+			Short: 1,
+			Paragraph: 2,
+		},
 		Collection: mockCollection,
 		ChannelType: {
 			GuildText: 0,
