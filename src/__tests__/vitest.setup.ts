@@ -217,6 +217,18 @@ vi.mock('discord.js', () => {
 			ManageMessages: BigInt(8192),
 			ReadMessageHistory: BigInt(65536),
 			UseExternalEmojis: BigInt(262144),
+			ManageThreads: BigInt(268435456),
+			CreatePrivateThreads: BigInt(137438953472),
+			SendMessagesInThreads: BigInt(274877906944),
+			ViewChannel: BigInt(1024),
+		},
+		ActivityType: {
+			Playing: 0,
+			Streaming: 1,
+			Listening: 2,
+			Watching: 3,
+			Custom: 4,
+			Competing: 5,
 		},
 	};
 });
