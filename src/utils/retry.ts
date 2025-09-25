@@ -37,6 +37,7 @@ interface RetryOptions {
 	maxAttempts?: number;
 	baseDelayMs?: number;
 	operationName?: string;
+	exponentialBackoff?: boolean;
 }
 
 /**
@@ -48,7 +49,7 @@ interface RetryOptions {
  * @throws Error if all retry attempts fail
  *
  * @example
- * // Fetch data with retry
+ * // Fetch data with retry using linear backoff
  * const result = await withRetry(
  *   async () => {
  *     const response = await fetch('https://api.example.com/data');
@@ -56,6 +57,16 @@ interface RetryOptions {
  *     return await response.json();
  *   },
  *   { operationName: 'API data fetch' }
+ * );
+ *
+ * // Critical operation with exponential backoff
+ * await withRetry(
+ *   async () => await deployCommands(),
+ *   {
+ *     operationName: 'Discord command deployment',
+ *     exponentialBackoff: true,
+ *     maxAttempts: 3
+ *   }
  * );
  */
 async function withRetry<T>(
@@ -66,6 +77,7 @@ async function withRetry<T>(
 		maxAttempts = 5,
 		baseDelayMs = 3000,
 		operationName = 'operation',
+		exponentialBackoff = false,
 	} = options;
 
 	let attempt = 0;
@@ -90,8 +102,10 @@ async function withRetry<T>(
 			LogEngine.debug(`Attempt ${attempt + 1} failed: ${lastError.message}`);
 
 			if (attempt < maxAttempts - 1) {
-				// Calculate delay with linear backoff
-				const delayMs = baseDelayMs * (attempt + 1);
+				// Calculate delay with linear or exponential backoff
+				const delayMs = exponentialBackoff
+					? baseDelayMs * Math.pow(2, attempt)
+					: baseDelayMs * (attempt + 1);
 				LogEngine.info(`Retrying in ${delayMs / 1000}s... (attempt ${attempt + 1}/${maxAttempts})`);
 				await new Promise(resolve => setTimeout(resolve, delayMs));
 			}

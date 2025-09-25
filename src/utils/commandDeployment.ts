@@ -25,6 +25,36 @@ unchanged: string[];
 }
 
 /**
+ * Normalize command payload by removing Discord metadata fields
+ * This prevents false positives in comparisons due to Discord-added metadata
+ *
+ * @param command - Raw command object from Discord API or local definition
+ * @returns Normalized command object for comparison
+ */
+function normalizeCommand(command: Record<string, unknown>): string {
+	const normalized = { ...command };
+
+	// Remove Discord metadata that changes on every deployment
+	delete normalized.id;
+	delete normalized.application_id;
+	delete normalized.version;
+	delete normalized.default_member_permissions;
+	delete normalized.dm_permission;
+
+	// Sort options array if present to ensure consistent comparison
+	// Create a shallow copy to avoid mutating the original array
+	if (Array.isArray(normalized.options)) {
+		normalized.options = [...normalized.options].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+			const aName = typeof a.name === 'string' ? a.name : '';
+			const bName = typeof b.name === 'string' ? b.name : '';
+			return aName.localeCompare(bName);
+		});
+	}
+
+	return JSON.stringify(normalized);
+}
+
+/**
  * Compare local commands with Discord registered commands
  *
  * @param localCommands - Commands loaded from local files
@@ -43,15 +73,15 @@ function compareCommands(
 		unchanged: [],
 	};
 
-	// Create maps for easier comparison
+	// Create maps for easier comparison using normalized commands
 	const localMap = new Map(localCommands.map(cmd => [
 		(cmd as { name: string }).name,
-		JSON.stringify(cmd),
+		normalizeCommand(cmd),
 	]));
 
 	const discordMap = new Map(discordCommands.map(cmd => [
 		(cmd as { name: string }).name,
-		JSON.stringify(cmd),
+		normalizeCommand(cmd),
 	]));
 
 	// Check for added or modified commands

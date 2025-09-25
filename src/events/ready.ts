@@ -25,6 +25,7 @@ import * as packageJSON from '../../package.json';
 import { LogEngine } from '../config/logger';
 import channelUtils from '../utils/channelUtils';
 import { deployCommandsIfNeeded } from '../utils/commandDeployment';
+import { withRetry } from '../utils/retry';
 
 const { getValidatedForumChannelIds } = channelUtils;
 
@@ -55,8 +56,20 @@ const readyEvent = {
 		// Log successful initialization with version information for monitoring
 		LogEngine.info(`Logged in as ${bot.user?.displayName || bot.user?.username} @ v${packageJSON.version}`);
 
-		// Deploy Discord slash commands using smart deployment utility
-		await deployCommandsIfNeeded(bot);
+		// Deploy Discord slash commands using smart deployment utility with retry strategy
+		// This ensures command registration is guaranteed or the bot fails definitively
+		// Uses exponential backoff: 2s, 4s, 8s for critical startup operations
+		await withRetry(
+			async () => {
+				await deployCommandsIfNeeded(bot);
+			},
+			{
+				operationName: 'Discord command deployment',
+				exponentialBackoff: true,
+				maxAttempts: 3,
+				baseDelayMs: 2000,
+			},
+		);
 
 		// Validate forum channel configuration on startup
 		try {
