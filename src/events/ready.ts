@@ -59,17 +59,23 @@ const readyEvent = {
 		// Deploy Discord slash commands using smart deployment utility with retry strategy
 		// This ensures command registration is guaranteed or the bot fails definitively
 		// Uses exponential backoff: 2s, 4s, 8s for critical startup operations
-		await withRetry(
-			async () => {
-				await deployCommandsIfNeeded(bot);
-			},
-			{
-				operationName: 'Discord command deployment',
-				exponentialBackoff: true,
-				maxAttempts: 3,
-				baseDelayMs: 2000,
-			},
-		);
+		try {
+			await withRetry(
+				async () => {
+					await deployCommandsIfNeeded(bot);
+				},
+				{
+					operationName: 'Discord command deployment',
+					exponentialBackoff: true,
+					maxAttempts: 3,
+					baseDelayMs: 2000,
+				},
+			);
+		}
+		catch (deployError) {
+			LogEngine.error('Critical failure: Discord command deployment failed after all retry attempts. Bot startup aborted.', deployError);
+			process.exit(1);
+		}
 
 		// Validate forum channel configuration on startup
 		try {

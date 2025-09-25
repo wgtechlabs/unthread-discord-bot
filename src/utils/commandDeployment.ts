@@ -184,7 +184,7 @@ export async function deployCommandsIfNeeded(client: Client): Promise<boolean> {
 	}
 	catch (error) {
 		LogEngine.error('Failed to deploy commands to Discord:', error);
-		// Don't throw - bot can still function without command registration
-		return false;
+		// Rethrow the error so retry logic can handle it
+		throw error;
 	}
 }
