@@ -11,19 +11,23 @@ import { AttachmentHandler } from '../../utils/attachmentHandler';
 import { FileBuffer, AttachmentProcessingResult } from '../../types/attachments';
 import { DISCORD_ATTACHMENT_CONFIG } from '../../config/attachmentConfig';
 
-// Mock dependencies
-const mockFetch = vi.fn();
+// Mock dependencies using vi.hoisted to ensure proper hoisting
+const { mockFetch, mockSendMessageWithAttachmentsToUnthread, mockAttachmentDetectionService } = vi.hoisted(() => {
+  const mockFetch = vi.fn();
+  const mockSendMessageWithAttachmentsToUnthread = vi.fn();
+  const mockAttachmentDetectionService = {
+    validateAttachments: vi.fn(),
+    makeProcessingDecision: vi.fn(),
+  };
+  return { mockFetch, mockSendMessageWithAttachmentsToUnthread, mockAttachmentDetectionService };
+});
+
 global.fetch = mockFetch;
 
-const mockSendMessageWithAttachmentsToUnthread = vi.fn();
 vi.mock('../../services/unthread', () => ({
   sendMessageWithAttachmentsToUnthread: mockSendMessageWithAttachmentsToUnthread,
 }));
 
-const mockAttachmentDetectionService = {
-  validateAttachments: vi.fn(),
-  makeProcessingDecision: vi.fn(),
-};
 vi.mock('../../services/attachmentDetection', () => ({
   AttachmentDetectionService: mockAttachmentDetectionService,
 }));

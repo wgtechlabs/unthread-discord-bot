@@ -8,45 +8,49 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ThreadChannel, Message, User } from 'discord.js';
 import {
-  MappingNotFoundError,
-  findDiscordThreadByTicketIdWithRetry,
-  findDiscordThreadByTicketId,
-  fetchStarterMessage,
-  ThreadTicketMapping,
+	MappingNotFoundError,
+	findDiscordThreadByTicketIdWithRetry,
+	findDiscordThreadByTicketId,
+	fetchStarterMessage,
+	ThreadTicketMapping,
 } from '../../utils/threadUtils';
 
-// Mock dependencies
-const mockBotsStore = {
-  getBotData: vi.fn(),
-  setBotData: vi.fn(),
-  getBotConfig: vi.fn(),
-  setBotConfig: vi.fn(),
-};
+// Mock dependencies using vi.hoisted to ensure proper hoisting
+const { mockBotsStore, mockDiscordClient, mockLogEngine } = vi.hoisted(() => {
+	const mockBotsStore = {
+		getBotData: vi.fn(),
+		setBotData: vi.fn(),
+		getBotConfig: vi.fn(),
+		setBotConfig: vi.fn(),
+	};
 
-const mockDiscordClient = {
-  channels: {
-    fetch: vi.fn(),
-  },
-};
+	const mockDiscordClient = {
+		channels: {
+			fetch: vi.fn(),
+		},
+	};
 
-const mockLogEngine = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
-};
+	const mockLogEngine = {
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn(),
+		debug: vi.fn(),
+	};
+
+	return { mockBotsStore, mockDiscordClient, mockLogEngine };
+});
 
 // Setup global mocks
-global.discordClient = mockDiscordClient;
+(global as any).discordClient = mockDiscordClient;
 
 vi.mock('../../sdk/bots-brain/BotsStore', () => ({
-  BotsStore: {
-    getInstance: vi.fn(() => mockBotsStore),
-  },
+	BotsStore: {
+		getInstance: vi.fn(() => mockBotsStore),
+	},
 }));
 
 vi.mock('../../config/logger', () => ({
-  LogEngine: mockLogEngine,
+	LogEngine: mockLogEngine,
 }));
 
 // Create mock thread
