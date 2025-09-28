@@ -10,6 +10,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { data as pingData, execute as pingExecute } from '../../../commands/utilities/ping';
 
+// Test constants
+const MOCK_WEBSOCKET_PING = 45; // Default WebSocket ping value for tests
+
 describe('Ping Command', () => {
 	let mockInteraction: Partial<ChatInputCommandInteraction>;
 	let mockSentMessage: any;
@@ -27,7 +30,7 @@ describe('Ping Command', () => {
 		// Create mock client with WebSocket
 		mockClient = {
 			ws: {
-				ping: 45, // Mock WebSocket ping
+				ping: MOCK_WEBSOCKET_PING, // Mock WebSocket ping
 			},
 		};
 

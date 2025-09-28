@@ -38,6 +38,9 @@ process.env.PORT = '3000';
 // DISCORD.JS MOCKING
 // =============================================================================
 
+// Constants for test configurations
+const MOCK_WEBSOCKET_PING = 45; // Default WebSocket ping value for tests
+
 // Mock Discord.js Client and related classes
 vi.mock('discord.js', () => {
 	const mockUser = {
@@ -101,7 +104,7 @@ vi.mock('discord.js', () => {
 			fetch: vi.fn().mockResolvedValue(mockChannel),
 		},
 		ws: {
-			ping: 45, // Mock WebSocket ping
+			ping: MOCK_WEBSOCKET_PING, // Mock WebSocket ping
 		},
 		login: vi.fn().mockResolvedValue('test_token'),
 		on: vi.fn(),
