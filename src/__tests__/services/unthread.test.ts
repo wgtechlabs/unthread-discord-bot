@@ -70,9 +70,15 @@ describe('Unthread Service', () => {
 	let mockGetOrCreateCustomer: any;
 	let mockGetCustomerByDiscordId: any;
 	let mockBotsStore: any;
+	let originalFetch: typeof global.fetch;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
+		
+		// Store original fetch and set up mock
+		originalFetch = global.fetch;
+		mockFetch = vi.fn();
+		global.fetch = mockFetch as any;
 		
 		// Get the mocked modules
 		const { getOrCreateCustomer, getCustomerByDiscordId } = await import('../../utils/customerUtils');
@@ -108,14 +114,12 @@ describe('Unthread Service', () => {
 			system: false,
 			tag: 'testuser#0001',
 		} as User;
-
-		// Set up fetch mock
-		mockFetch = global.fetch as any;
-		mockFetch.mockClear();
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
+		// Restore original fetch to prevent test pollution
+		global.fetch = originalFetch;
 	});
 
 	describe('Environment Validation', () => {
@@ -658,7 +662,7 @@ describe('Unthread Service', () => {
 				
 				try {
 					// Mock fetch to properly handle abort signal
-					mockFetch.mockImplementation((url, options) => {
+					mockFetch.mockImplementation((url: string, options: any) => {
 						return new Promise((resolve, reject) => {
 							const signal = options?.signal;
 							if (signal) {
@@ -787,7 +791,7 @@ describe('Unthread Service', () => {
 				
 				try {
 					// Mock fetch to properly handle abort signal
-					mockFetch.mockImplementation((url, options) => {
+					mockFetch.mockImplementation((url: string, options: any) => {
 						return new Promise((resolve, reject) => {
 							const signal = options?.signal;
 							if (signal) {
