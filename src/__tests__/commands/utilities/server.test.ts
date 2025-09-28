@@ -338,11 +338,11 @@ describe('Server Command', () => {
 	});
 
 	describe('Error Scenarios', () => {
-		it('should handle reply failure gracefully', async () => {
-			mockInteraction.reply = vi.fn().mockRejectedValue(new Error('Reply failed'));
+it('should propagate reply failure', async () => {
+  mockInteraction.reply = vi.fn().mockRejectedValue(new Error('Reply failed'));
 
-			await expect(serverExecute(mockInteraction as ChatInputCommandInteraction)).rejects.toThrow('Reply failed');
-		});
+  await expect(serverExecute(mockInteraction as ChatInputCommandInteraction)).rejects.toThrow('Reply failed');
+});
 
 		it('should handle missing guild properties gracefully', async () => {
 			// Remove properties one by one
