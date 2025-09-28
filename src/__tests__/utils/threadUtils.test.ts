@@ -74,15 +74,19 @@ describe('threadUtils', () => {
 		vi.useFakeTimers();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		// Restore all mocks and spies
 		vi.restoreAllMocks();
 		// Clear all mock call history
 		vi.clearAllMocks();
-		// Reset global Discord client
-		(global as any).discordClient = undefined;
 		// Restore real timers
 		vi.useRealTimers();
+		
+		// Reset global Discord client
+		(global as any).discordClient = undefined;
+		
+		// Wait a bit to ensure any remaining async operations complete
+		await new Promise(resolve => setTimeout(resolve, 10));
 	});
 
 	describe('MappingNotFoundError', () => {
@@ -532,13 +536,16 @@ describe('threadUtils', () => {
 				.mockResolvedValueOnce(null)
 				.mockRejectedValueOnce(new Error('Discord client error'));
 
+			// Start the promise and let it run
 			const resultPromise = findDiscordThreadByTicketIdWithRetry('ticket_123', {
 				maxAttempts: 3,
 				baseDelayMs: 50,
 			});
 
-			await vi.advanceTimersByTimeAsync(100);
+			// Allow enough time for the first attempt and retry
+			await vi.advanceTimersByTimeAsync(200);
 
+			// Now properly handle the rejection
 			await expect(resultPromise).rejects.toThrow('Discord client error');
 
 			// Should have made 2 attempts
@@ -550,17 +557,22 @@ describe('threadUtils', () => {
 		it('should provide detailed context for race condition scenarios', async () => {
 			mockBotsStore.getMappingByTicketId.mockResolvedValue(null);
 
+			// Start the promise but capture it properly
 			const resultPromise = findDiscordThreadByTicketIdWithRetry('ticket_123', {
 				maxAttempts: 2,
 				maxRetryWindow: 5000, // 5 seconds - enough time to be considered a race condition
 				baseDelayMs: 100,
 			});
 
+			// Allow time for retries to complete
 			await vi.advanceTimersByTimeAsync(1000);
 
+			// Properly await the rejection
+			await expect(resultPromise).rejects.toThrow(/No Discord thread found/);
+
+			// Check the enhanced error properties
 			try {
 				await resultPromise;
-				expect.fail('Expected promise to reject');
 			} catch (error: any) {
 				expect(error).toHaveProperty('context');
 				expect(error.context).toMatchObject({
@@ -579,12 +591,17 @@ describe('threadUtils', () => {
 		it('should create error context with proper structure', async () => {
 			mockBotsStore.getMappingByTicketId.mockResolvedValue(null);
 
+			const errorPromise = findDiscordThreadByTicketIdWithRetry('ticket_123', {
+				maxAttempts: 1,
+				baseDelayMs: 0,
+			});
+
+			// Properly await and handle the rejection
+			await expect(errorPromise).rejects.toThrow(/No Discord thread found/);
+
+			// Test the error structure separately
 			try {
-				await findDiscordThreadByTicketIdWithRetry('ticket_123', {
-					maxAttempts: 1,
-					baseDelayMs: 0,
-				});
-				expect.fail('Expected promise to reject');
+				await errorPromise;
 			} catch (error: any) {
 				expect(error).toHaveProperty('context');
 				expect(error.context).toHaveProperty('ticketId', 'ticket_123');

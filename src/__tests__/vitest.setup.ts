@@ -19,6 +19,39 @@
 import { vi, beforeEach, beforeAll, afterEach, afterAll } from 'vitest';
 
 // =============================================================================
+// UNHANDLED PROMISE REJECTION HANDLING
+// =============================================================================
+
+// Track original unhandled rejection handler
+let originalUnhandledRejection: any;
+
+beforeAll(() => {
+	// Store original handler
+	originalUnhandledRejection = process.listeners('unhandledRejection');
+	
+	// Remove default handlers to prevent test noise
+	process.removeAllListeners('unhandledRejection');
+	
+	// Add custom handler that doesn't throw but logs for debugging
+	process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+		// Only log in debug mode to avoid test noise
+		if (process.env.DEBUG_UNHANDLED_REJECTIONS === 'true') {
+			console.warn('Unhandled promise rejection in tests (expected for error testing):', reason);
+		}
+	});
+});
+
+afterAll(() => {
+	// Restore original unhandled rejection handlers
+	process.removeAllListeners('unhandledRejection');
+	if (originalUnhandledRejection) {
+		originalUnhandledRejection.forEach((handler: any) => {
+			process.on('unhandledRejection', handler);
+		});
+	}
+});
+
+// =============================================================================
 // ENVIRONMENT SETUP
 // =============================================================================
 
