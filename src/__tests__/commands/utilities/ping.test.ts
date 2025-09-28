@@ -21,7 +21,7 @@ describe('Ping Command', () => {
 
 		// Create mock sent message
 		mockSentMessage = {
-			createdTimestamp: 1640995800, // Mock timestamp (already in milliseconds equivalent)
+			createdTimestamp: 1640995800, // Mock timestamp (in seconds since epoch)
 		};
 
 		// Create mock client with WebSocket
