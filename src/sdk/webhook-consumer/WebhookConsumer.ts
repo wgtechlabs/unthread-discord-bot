@@ -1,18 +1,67 @@
 /**
- * Webhook Consumer - Clean Redis Queue Consumer
- *
- * Simple Redis-based queue consumer that processes webhook events from the Unthread
- * platform and routes them to appropriate handlers. Based on the proven pattern
- * from the unthread-telegram-bot.
- *
- * Features:
- * - Polls Redis queue for incoming webhook events
- * - Validates event structure and content
- * - Routes events to existing handleWebhookEvent function
- * - Reliable delivery with error handling
- * - Connection management with automatic reconnection
- *
+ * Webhook Consumer - Redis Queue Processing System
+ * 
+ * @description 
+ * Redis-based queue consumer for processing webhook events from Unthread platform.
+ * Provides reliable event processing with validation, error handling, and automatic
+ * reconnection. Based on proven patterns from unthread-telegram-bot architecture.
+ * 
  * @module sdk/webhook-consumer/WebhookConsumer
+ * @since 1.0.0
+ * 
+ * @keyFunctions
+ * - start(): Initiates Redis queue polling and event processing
+ * - stop(): Gracefully shuts down consumer and closes Redis connections
+ * - processEvent(): Validates and routes webhook events to handlers
+ * - pollQueue(): Main queue polling loop with blocking Redis operations
+ * 
+ * @commonIssues
+ * - Redis connection failures: Network issues or authentication problems
+ * - Event validation errors: Malformed webhook payloads from Unthread
+ * - Processing timeouts: Handler functions taking too long to complete
+ * - Memory leaks: Polling timer not properly cleaned up on shutdown
+ * - Queue backlog: Events accumulating faster than processing capacity
+ * 
+ * @troubleshooting
+ * - Verify WEBHOOK_REDIS_URL connection string and Redis server availability
+ * - Monitor EventValidator output for payload structure issues
+ * - Check handleWebhookEvent execution time and implement timeouts
+ * - Use LogEngine output to track queue depth and processing rates
+ * - Implement circuit breaker pattern for failing webhook handlers
+ * - Monitor Redis memory usage during high event volumes
+ * 
+ * @performance
+ * - Blocking Redis operations (BLPOP) for efficient queue polling
+ * - Separate Redis clients for blocking and non-blocking operations
+ * - Configurable poll intervals to balance responsiveness and resource usage
+ * - Event validation before expensive processing operations
+ * - Graceful shutdown prevents data loss during restarts
+ * 
+ * @dependencies Redis client, LogEngine, EventValidator, Unthread service handlers
+ * 
+ * @example Basic Usage
+ * ```typescript
+ * const consumer = new WebhookConsumer({
+ *   redisUrl: 'redis://localhost:6379',
+ *   queueName: 'webhook:events',
+ *   pollInterval: 1000
+ * });
+ * await consumer.start();
+ * ```
+ * 
+ * @example Advanced Usage
+ * ```typescript
+ * // Production configuration with error handling
+ * const consumer = new WebhookConsumer({
+ *   redisUrl: process.env.WEBHOOK_REDIS_URL!,
+ *   queueName: 'unthread:webhooks',
+ *   pollInterval: 500
+ * });
+ * 
+ * process.on('SIGTERM', async () => {
+ *   await consumer.stop();
+ * });
+ * ```
  */
 
 import { createClient, RedisClientType } from 'redis';
@@ -31,10 +80,20 @@ export interface WebhookConsumerConfig {
 }
 
 /**
- * WebhookConsumer - Simple Redis queue consumer for Unthread webhook events
- *
- * Replaces the complex BullMQ implementation with a simple, direct Redis consumption
- * pattern that matches the proven architecture used in the telegram bot.
+ * Redis-based webhook event consumer with reliable processing and error handling
+ * 
+ * @class WebhookConsumer
+ * @description Processes webhook events from Redis queue using blocking operations for efficiency.
+ * Replaces complex BullMQ implementation with direct Redis consumption pattern.
+ * 
+ * @example
+ * ```typescript
+ * const consumer = new WebhookConsumer({
+ *   redisUrl: 'redis://localhost:6379',
+ *   queueName: 'webhook:events'
+ * });
+ * await consumer.start();
+ * ```
  */
 export class WebhookConsumer {
 	private redisUrl: string;

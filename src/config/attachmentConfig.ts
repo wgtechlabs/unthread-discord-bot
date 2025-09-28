@@ -1,10 +1,63 @@
 /**
- * Discord Attachment Configuration
+ * Discord Attachment Configuration - File Processing Settings
  *
- * Configuration constants for Discord attachment processing and validation.
- * Based on Discord free tier limits and supported image formats.
+ * @description
+ * Centralized configuration for Discord attachment processing including file size
+ * limits, supported formats, retry logic, and user-facing error messages.
+ * Based on Discord platform limitations and optimal user experience practices.
  *
  * @module config/attachmentConfig
+ * @since 1.0.0
+ *
+ * @keyFunctions
+ * - DISCORD_ATTACHMENT_CONFIG: Main configuration object with all attachment settings
+ * - isSupportedImageType(): Validates image MIME types against supported formats
+ * - normalizeContentType(): Standardizes content-type headers for consistent processing
+ *
+ * @commonIssues
+ * - File size limit exceeded: Users try to upload files larger than 8MB Discord limit
+ * - Unsupported formats: Users upload non-image files or unsupported image types
+ * - Upload timeouts: Large files or slow connections cause timeout failures
+ * - Retry exhaustion: Multiple failed upload attempts due to network issues
+ * - Content-type mismatches: Servers return inconsistent MIME type headers
+ *
+ * @troubleshooting
+ * - Monitor file sizes against maxFileSize limit (8MB for Discord free tier)
+ * - Check supportedImageTypes array for format compatibility
+ * - Adjust uploadTimeout for users with slower connections
+ * - Review retry configuration for appropriate attempt limits and delays
+ * - Validate content-type normalization for edge cases
+ * - Use error messages for clear user guidance on resolution steps
+ *
+ * @performance
+ * - File size validation prevents unnecessary processing of oversized files
+ * - Supported format checking optimized with const assertion
+ * - Retry logic uses exponential backoff to avoid overwhelming services
+ * - Upload timeout prevents hanging operations
+ *
+ * @dependencies None (pure configuration constants)
+ *
+ * @example Basic Usage
+ * ```typescript
+ * const config = DISCORD_ATTACHMENT_CONFIG;
+ * if (fileSize > config.maxFileSize) {
+ *   throw new Error(config.errorMessages.fileTooLarge);
+ * }
+ * ```
+ *
+ * @example Advanced Usage
+ * ```typescript
+ * // Upload with retry logic
+ * for (let attempt = 1; attempt <= config.retry.maxAttempts; attempt++) {
+ *   try {
+ *     await uploadFile(file);
+ *     break;
+ *   } catch (error) {
+ *     if (attempt === config.retry.maxAttempts) throw error;
+ *     await delay(config.retry.baseDelay * attempt);
+ *   }
+ * }
+ * ```
  */
 
 /**
