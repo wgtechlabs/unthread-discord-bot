@@ -650,7 +650,7 @@ describe('defaults configuration', () => {
 			const connectionString = 'postgresql://user:pass@host:5432/db';
 			
 			// Test with null-ish SSL config that doesn't match our conditions
-			const result1 = processConnectionString(connectionString, null as any);
+			const result1 = processConnectionString(connectionString, undefined);
 			expect(result1).toBe(connectionString);
 		});
 
