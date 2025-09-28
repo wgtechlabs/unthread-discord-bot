@@ -71,6 +71,9 @@ process.env.PORT = '3000';
 // DISCORD.JS MOCKING
 // =============================================================================
 
+// Constants for test configurations
+const MOCK_WEBSOCKET_PING = 45; // Default WebSocket ping value for tests
+
 // Mock Discord.js Client and related classes
 vi.mock('discord.js', () => {
 	const mockUser = {
@@ -133,26 +136,15 @@ vi.mock('discord.js', () => {
 			cache: new Map([['test_channel_id', mockChannel]]),
 			fetch: vi.fn().mockResolvedValue(mockChannel),
 		},
+		ws: {
+			ping: MOCK_WEBSOCKET_PING, // Mock WebSocket ping
+		},
 		login: vi.fn().mockResolvedValue('test_token'),
 		on: vi.fn(),
 		once: vi.fn(),
 		emit: vi.fn(),
 		destroy: vi.fn().mockResolvedValue({}),
 		commands: new Map(),
-	};
-
-	const mockEmbedBuilder = {
-		setTitle: vi.fn().mockReturnThis(),
-		setDescription: vi.fn().mockReturnThis(),
-		setColor: vi.fn().mockReturnThis(),
-		setFooter: vi.fn().mockReturnThis(),
-		setTimestamp: vi.fn().mockReturnThis(),
-		addFields: vi.fn().mockReturnThis(),
-		setAuthor: vi.fn().mockReturnThis(),
-		setImage: vi.fn().mockReturnThis(),
-		setThumbnail: vi.fn().mockReturnThis(),
-		setURL: vi.fn().mockReturnThis(),
-		toJSON: vi.fn().mockReturnValue({}),
 	};
 
 	const mockCollection = Map;
@@ -197,6 +189,10 @@ vi.mock('discord.js', () => {
 			GuildDirectory: 14,
 			GuildForum: 15,
 		},
+		TextInputStyle: {
+			Short: 1,
+			Paragraph: 2,
+		},
 		AttachmentBuilder: vi.fn().mockImplementation((buffer, name) => ({
 			attachment: buffer,
 			name: name,
@@ -214,6 +210,10 @@ vi.mock('discord.js', () => {
 			ManageMessages: BigInt(8192),
 			ReadMessageHistory: BigInt(65536),
 			UseExternalEmojis: BigInt(262144),
+			ManageThreads: BigInt(268435456),
+			CreatePrivateThreads: BigInt(17179869184),
+			SendMessagesInThreads: BigInt(274877906944),
+			ViewChannel: BigInt(1024),
 		},
 	};
 });
