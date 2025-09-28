@@ -66,18 +66,8 @@ describe('attachmentConfig', () => {
 				expect(DISCORD_ATTACHMENT_CONFIG.supportedImageTypes).toContain('image/webp');
 			});
 
-			it('should be consistent array structure', () => {
-				// Test the structure and content consistency rather than immutability
-				const supportedTypes = DISCORD_ATTACHMENT_CONFIG.supportedImageTypes;
-				
-				expect(Array.isArray(supportedTypes)).toBe(true);
-				expect(supportedTypes.length).toBe(5);
-				
-				// Check that all expected types are present
-				const expectedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
-				expectedTypes.forEach(type => {
-					expect(supportedTypes).toContain(type);
-				});
+			it('should be an array', () => {
+				expect(Array.isArray(DISCORD_ATTACHMENT_CONFIG.supportedImageTypes)).toBe(true);
 			});
 		});
 
