@@ -188,15 +188,14 @@ Ask an admin to grant these permissions or use \`/support\` in an authorized cha
 			const channelUtils = await import('../../../utils/channelUtils');
 			vi.mocked(channelUtils.default.isValidatedForumChannel).mockResolvedValue(false);
 
-			const mockPermissionsIn = vi.fn().mockReturnValue({
-				has: vi.fn().mockReturnValue(true),
-			});
+			const hasSpy = vi.fn().mockReturnValue(true);
+			const mockPermissionsIn = vi.fn().mockReturnValue({ has: hasSpy });
 			mockBotMember.permissionsIn = mockPermissionsIn;
 
 			await supportCommand.execute(mockInteraction as ChatInputCommandInteraction);
 
 			expect(mockPermissionsIn).toHaveBeenCalledWith(mockChannel);
-			expect(mockPermissionsIn().has).toHaveBeenCalledWith([
+			expect(hasSpy).toHaveBeenCalledWith([
 				PermissionFlagsBits.ManageThreads,
 				PermissionFlagsBits.CreatePrivateThreads,
 				PermissionFlagsBits.SendMessages,
