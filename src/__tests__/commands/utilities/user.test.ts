@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction, GuildMember, User } from 'discord.js';
+import { ChatInputCommandInteraction, GuildMember, User } from 'discord.js';
 import { data as userData, execute as userExecute } from '../../../commands/utilities/user';
 
 describe('User Command', () => {
