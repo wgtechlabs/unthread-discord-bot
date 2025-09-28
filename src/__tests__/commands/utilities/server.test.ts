@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction, Guild } from 'discord.js';
+import { ChatInputCommandInteraction, Guild } from 'discord.js';
 import { data as serverData, execute as serverExecute } from '../../../commands/utilities/server';
 
 describe('Server Command', () => {
