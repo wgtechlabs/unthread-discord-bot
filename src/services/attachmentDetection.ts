@@ -1,17 +1,61 @@
 /**
- * Attachment Detection Service
- *
- * Enhanced metadata-driven attachment detection using proven patterns from the Unthread Telegram bot.
- * Replaces Discord.js Collection-based logic with webhook metadata processing for improved reliability.
- *
- * Key Features:
- * - Metadata-first approach for instant decisions without file iteration
- * - Processing decision pipeline: oversized → unsupported → supported images
- * - File size validation using pre-calculated metadata
- * - Trust-but-verify consistency validation
- * - Discord-specific adaptations for channel routing and message formatting
- *
+ * Attachment Detection Service - Metadata-Driven Processing
+ * 
+ * @description 
+ * Enhanced attachment detection system using metadata-first approach for improved
+ * reliability and performance. Processes webhook events to determine attachment
+ * handling strategy without iterating through file collections.
+ * 
  * @module services/attachmentDetection
+ * @since 1.0.0
+ * 
+ * @keyFunctions
+ * - shouldProcessEvent(): Validates if event requires attachment processing
+ * - getProcessingDecision(): Central attachment handling decision pipeline
+ * - hasAttachments(): Quick metadata-based attachment detection
+ * - isOversized(): File size validation using pre-calculated metadata
+ * - hasSupportedImages(): Identifies processable image attachments
+ * 
+ * @commonIssues
+ * - Metadata inconsistency: Webhook metadata doesn't match actual files
+ * - Size calculation errors: Incorrect total size or file count
+ * - Type detection failures: Unsupported or misidentified file types
+ * - Processing decision conflicts: Multiple conditions trigger simultaneously
+ * - Discord limits: Files exceed Discord's attachment size restrictions
+ * 
+ * @troubleshooting
+ * - Validate webhook event structure and metadata presence
+ * - Check DISCORD_ATTACHMENT_CONFIG for size and type limits
+ * - Verify file type detection against supported formats
+ * - Use validateConsistency() to ensure metadata accuracy
+ * - Monitor Discord API responses for attachment upload failures
+ * - Review processing decision logic for edge cases
+ * 
+ * @performance
+ * - Metadata-first processing eliminates file iteration overhead
+ * - Pre-calculated totals enable instant size validation
+ * - Type detection uses normalized content-type mapping
+ * - Processing decisions cached per webhook event
+ * 
+ * @dependencies Discord.js, DISCORD_ATTACHMENT_CONFIG, LogEngine
+ * 
+ * @example Basic Usage
+ * ```typescript
+ * const decision = AttachmentDetectionService.getProcessingDecision(webhookEvent);
+ * if (decision.shouldProcess && decision.hasSupportedImages) {
+ *   // Process supported image attachments
+ * }
+ * ```
+ * 
+ * @example Advanced Usage
+ * ```typescript
+ * // Full attachment processing pipeline
+ * if (AttachmentDetectionService.shouldProcessEvent(event)) {
+ *   const decision = AttachmentDetectionService.getProcessingDecision(event);
+ *   const summary = AttachmentDetectionService.getAttachmentSummary(event);
+ *   LogEngine.info(`Processing decision: ${decision.reason} - ${summary}`);
+ * }
+ * ```
  */
 
 import { Collection, Attachment } from 'discord.js';
@@ -44,8 +88,18 @@ export interface AttachmentProcessingDecision {
 
 export class AttachmentDetectionService {
 	/**
-	 * Primary event validation - process dashboard → discord events
-	 * Based on Telegram bot's shouldProcessEvent pattern
+	 * Validates if webhook event requires attachment processing
+	 * 
+	 * @function shouldProcessEvent
+	 * @param {EnhancedWebhookEvent} event - Webhook event with metadata
+	 * @returns {boolean} True if event is dashboard→discord and needs processing
+	 * 
+	 * @example
+	 * ```typescript
+	 * if (AttachmentDetectionService.shouldProcessEvent(event)) {
+	 *   // Process attachments for this event
+	 * }
+	 * ```
 	 */
 	static shouldProcessEvent(event: EnhancedWebhookEvent): boolean {
 		return event.sourcePlatform === 'dashboard' &&
@@ -53,8 +107,16 @@ export class AttachmentDetectionService {
 	}
 
 	/**
-	 * Primary attachment detection using webhook metadata
-	 * Replaces complex array checking and location detection
+	 * Detects presence of attachments using webhook metadata
+	 * 
+	 * @function hasAttachments
+	 * @param {EnhancedWebhookEvent} event - Webhook event with attachment metadata
+	 * @returns {boolean} True if event has files and should be processed
+	 * 
+	 * @example
+	 * ```typescript
+	 * const hasFiles = AttachmentDetectionService.hasAttachments(event);
+	 * ```
 	 */
 	static hasAttachments(event: EnhancedWebhookEvent): boolean {
 		return this.shouldProcessEvent(event) &&
