@@ -1,35 +1,53 @@
 /**
- * Default Configuration System
+ * Default Configuration System - Environment Management
  *
- * Provides production-safe defaults for the Discord bot configuration.
- * This follows Node.js best practices by using NODE_ENV for environment detection
- * and hardcoding sensible defaults that don't require user configuration.
- *
- * 🎯 FOR CONTRIBUTORS:
- * ===================
- * This module centralizes all default values to ensure consistency across
- * the application. When adding new configurable features, add defaults here
- * rather than hardcoding values throughout the codebase.
- *
- * Configuration Philosophy:
- * - Required vars: Only those that MUST be set by users (tokens, URLs, IDs)
- * - Default configs: Hardcoded sensible defaults in this file
- * - Optional overrides: Environment can override defaults when needed
- *
- * 🔧 ADDING NEW CONFIG:
- * ====================
- * 1. Add the default value to DEFAULT_CONFIG object
- * 2. Add environment variable parsing in getConfig() if needed
- * 3. Update .env.example with the new variable
- * 4. Document the new configuration option
- *
- * 🛠️ ENVIRONMENT DETECTION:
- * =========================
- * - NODE_ENV=development: Enables debug logging, relaxed validation
- * - NODE_ENV=production: Info-level logging, strict validation
- * - NODE_ENV=test: Special handling for test scenarios
+ * @description
+ * Centralized configuration management providing production-safe defaults and
+ * environment variable parsing. Follows Node.js best practices with NODE_ENV
+ * detection and sensible fallbacks for all configurable application settings.
  *
  * @module config/defaults
+ * @since 1.0.0
+ *
+ * @keyFunctions
+ * - getConfig(): Retrieves configuration values with environment override support
+ * - DEFAULT_CONFIG: Hardcoded sensible defaults for all application settings
+ *
+ * @commonIssues
+ * - Missing environment variables: Falls back to defaults but may cause functionality issues
+ * - Type mismatches: Environment strings not properly converted to numbers/booleans
+ * - Configuration drift: Production values differ from development causing bugs
+ * - Validation failures: Invalid environment values not caught at startup
+ * - Default inconsistency: Hardcoded values scattered across codebase instead of centralized
+ *
+ * @troubleshooting
+ * - Use getConfig() instead of direct process.env access for consistency
+ * - Check DEFAULT_CONFIG object for available configuration options
+ * - Verify .env file contains all required variables for your environment
+ * - Monitor LogEngine output for configuration validation warnings
+ * - Set NODE_ENV appropriately: development, production, or test
+ * - Use environment-specific .env files (.env.local, .env.production)
+ *
+ * @performance
+ * - Configuration values cached after first access
+ * - Environment detection performed once at startup
+ * - Type conversion handled automatically with proper defaults
+ * - No runtime environment variable parsing overhead
+ *
+ * @dependencies @wgtechlabs/log-engine for structured logging
+ *
+ * @example Basic Usage
+ * ```typescript
+ * const timeout = getConfig('UNTHREAD_HTTP_TIMEOUT_MS', DEFAULT_CONFIG.UNTHREAD_HTTP_TIMEOUT_MS);
+ * const port = getConfig('PORT', DEFAULT_CONFIG.PORT);
+ * ```
+ *
+ * @example Advanced Usage
+ * ```typescript
+ * // Environment-aware configuration
+ * const isProduction = getConfig('NODE_ENV', DEFAULT_CONFIG.NODE_ENV) === 'production';
+ * const logLevel = isProduction ? 'info' : 'debug';
+ * ```
  */
 
 import { LogEngine } from '@wgtechlabs/log-engine';
@@ -58,10 +76,26 @@ export const DEFAULT_CONFIG = {
 export const isDevelopment: boolean = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
 
 /**
- * Get configuration value with environment override support
- * @param key - Configuration key (environment variable name)
- * @param defaultValue - Default value if environment variable is not set
- * @returns Configuration value with type safety
+ * Retrieves configuration value with environment variable override support
+ *
+ * @function getConfig
+ * @template T - Type of the configuration value (string, number, boolean)
+ * @param {string} key - Environment variable name to lookup
+ * @param {T} defaultValue - Fallback value when environment variable not set
+ * @returns {T} Configuration value with automatic type conversion and validation
+ *
+ * @example
+ * ```typescript
+ * const timeout = getConfig('HTTP_TIMEOUT', 5000); // Returns number
+ * const isDebug = getConfig('DEBUG_MODE', false); // Returns boolean
+ * const apiUrl = getConfig('API_URL', 'localhost'); // Returns string
+ * ```
+ *
+ * @troubleshooting
+ * - Number parsing: Invalid strings fall back to default value
+ * - Boolean parsing: Only 'true' (case-insensitive) evaluates to true
+ * - Type safety: Template ensures return type matches default value type
+ * - Undefined environment: Gracefully handles missing process.env
  */
 export function getConfig<T>(key: string, defaultValue: T): T {
 	// Handle undefined process.env gracefully

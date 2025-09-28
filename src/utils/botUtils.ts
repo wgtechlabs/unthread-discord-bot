@@ -1,29 +1,71 @@
 /**
- * Bot Utility Functions
+ * Bot Utility Functions - Core Bot Information Management
  *
- * Provides utility functions for bot-related operations and information retrieval.
- * These functions help maintain consistency across the application when referencing
- * bot details and improve maintainability by centralizing bot-related logic.
+ * @description
+ * Centralized utility functions providing consistent bot information access
+ * across the application. Handles bot name resolution, footer generation,
+ * and versioning for embeds and user-facing content.
  *
  * @module utils/botUtils
+ * @since 1.0.0
+ *
+ * @keyFunctions
+ * - getBotName(): Retrieves bot display name with fallback hierarchy
+ * - getBotFooter(): Generates standardized footer text with name and version
+ *
+ * @commonIssues
+ * - Client not available: Bot name fallback to package name when client unavailable
+ * - Display name empty: Falls back to username when display name is whitespace
+ * - Version mismatch: Footer shows outdated version if package.json not updated
+ * - Global client undefined: Client not properly initialized in global scope
+ *
+ * @troubleshooting
+ * - Check global.discordClient is properly set during bot initialization
+ * - Verify bot has proper display name and username set in Discord
+ * - Ensure package.json version is updated during releases
+ * - Monitor fallback usage to detect client availability issues
+ *
+ * @performance
+ * - Lightweight functions with minimal processing overhead
+ * - Direct property access without complex operations
+ * - Fallback hierarchy prevents errors from missing properties
+ * - Version loaded once from package.json import
+ *
+ * @dependencies package.json version, global Discord client
+ *
+ * @example Basic Usage
+ * ```typescript
+ * const botName = getBotName(); // "My Discord Bot"
+ * const footer = getBotFooter(); // "My Discord Bot v1.2.3"
+ * ```
+ *
+ * @example Advanced Usage
+ * ```typescript
+ * // Use in embed creation
+ * const embed = new EmbedBuilder()
+ *   .setTitle('Support Ticket')
+ *   .setFooter({ text: getBotFooter() });
+ * ```
  */
 
 import { version } from '../../package.json';
 
 /**
- * Gets the actual bot display name from the Discord client
+ * Retrieves bot display name with intelligent fallback hierarchy
  *
- * Attempts to retrieve the bot's display name from the global Discord client.
- * Falls back to username if display name is not available, and finally to
- * a default name if the client is not available or not ready.
- *
- * @returns The bot's display name, username, or default fallback
+ * @function getBotName
+ * @returns {string} Bot's display name, username, or default fallback name
  *
  * @example
  * ```typescript
  * const botName = getBotName();
- * console.log(`Bot name: ${botName}`); // "My Cool Bot" or "unthread-discord-bot"
+ * console.log(`Current bot: ${botName}`);
  * ```
+ *
+ * @troubleshooting
+ * - Returns "Unthread Discord Bot" if global client not available
+ * - Falls back to username if display name is empty or whitespace
+ * - Check global.discordClient initialization if getting fallback name
  */
 export function getBotName(): string {
 	const client = global.discordClient;

@@ -12,6 +12,7 @@ import {
 	getAllConfig,
 	isRailwayEnvironment,
 	getSSLConfig,
+	processConnectionString,
 	isDevelopment,
 } from '@config/defaults';
 
@@ -539,6 +540,129 @@ describe('defaults configuration', () => {
 
 			// Should complete quickly (generous threshold for CI environments)
 			expect(elapsed).toBeLessThan(100);
+		});
+	});
+
+	describe('getSSLConfig - Advanced Coverage', () => {
+		it('should include CA certificate when DATABASE_SSL_CA is set', () => {
+			process.env.DATABASE_SSL_CA = 'test-ca-certificate-content';
+			process.env.DATABASE_SSL_VALIDATE = 'false'; // Enable SSL with validation
+
+			const config = getSSLConfig(true);
+
+			expect(config).toEqual({
+				rejectUnauthorized: true,
+				ca: 'test-ca-certificate-content',
+			});
+
+			delete process.env.DATABASE_SSL_CA;
+			delete process.env.DATABASE_SSL_VALIDATE;
+		});
+
+		it('should handle Railway environment detection with SSL', () => {
+			// Set up Railway environment
+			process.env.PLATFORM_REDIS_URL = 'redis://redis.railway.internal:6379';
+			delete process.env.DATABASE_SSL_VALIDATE;
+
+			const config = getSSLConfig(true);
+
+			// Railway should use SSL without validation
+			expect(config).toEqual({ rejectUnauthorized: false });
+
+			delete process.env.PLATFORM_REDIS_URL;
+		});
+
+		it('should handle Railway environment with CA certificate', () => {
+			// Set up Railway environment with CA cert
+			process.env.WEBHOOK_REDIS_URL = 'redis://cache.railway.internal:6379';
+			process.env.DATABASE_SSL_CA = 'railway-ca-cert';
+			delete process.env.DATABASE_SSL_VALIDATE;
+
+			const config = getSSLConfig(false);
+
+			// Railway should use SSL without validation but include CA
+			expect(config).toEqual({
+				rejectUnauthorized: false,
+				ca: 'railway-ca-cert',
+			});
+
+			delete process.env.WEBHOOK_REDIS_URL;
+			delete process.env.DATABASE_SSL_CA;
+		});
+	});
+
+	describe('processConnectionString', () => {
+		it('should return unchanged string when sslmode is already present', () => {
+			const connectionString = 'postgresql://user:pass@host:5432/db?sslmode=require';
+			const sslConfig = { rejectUnauthorized: true };
+
+			const result = processConnectionString(connectionString, sslConfig);
+
+			expect(result).toBe(connectionString);
+		});
+
+		it('should add sslmode=disable when SSL is disabled', () => {
+			const connectionString = 'postgresql://user:pass@host:5432/db';
+			const sslConfig = false;
+
+			const result = processConnectionString(connectionString, sslConfig);
+
+			expect(result).toBe('postgresql://user:pass@host:5432/db?sslmode=disable');
+		});
+
+		it('should add sslmode=require when SSL is enabled', () => {
+			const connectionString = 'postgresql://user:pass@host:5432/db';
+			const sslConfig = { rejectUnauthorized: true };
+
+			const result = processConnectionString(connectionString, sslConfig);
+
+			expect(result).toBe('postgresql://user:pass@host:5432/db?sslmode=require');
+		});
+
+		it('should use & separator when query parameters already exist', () => {
+			const connectionString = 'postgresql://user:pass@host:5432/db?charset=utf8';
+			const sslConfig = { rejectUnauthorized: false };
+
+			const result = processConnectionString(connectionString, sslConfig);
+
+			expect(result).toBe('postgresql://user:pass@host:5432/db?charset=utf8&sslmode=require');
+		});
+
+		it('should handle connection string without credentials', () => {
+			const connectionString = 'postgresql://host:5432/db';
+			const sslConfig = false;
+
+			const result = processConnectionString(connectionString, sslConfig);
+
+			expect(result).toBe('postgresql://host:5432/db?sslmode=disable');
+		});
+
+		it('should handle connection string with complex credentials and mask them in logs', () => {
+			const connectionString = 'postgresql://user:complex@#$pass@host:5432/db';
+			const sslConfig = { rejectUnauthorized: true };
+
+			const result = processConnectionString(connectionString, sslConfig);
+
+			expect(result).toBe('postgresql://user:complex@#$pass@host:5432/db?sslmode=require');
+		});
+
+		it('should not add sslmode when SSL config is null or undefined', () => {
+			const connectionString = 'postgresql://user:pass@host:5432/db';
+			
+			// Test with null-ish SSL config that doesn't match our conditions
+			const result1 = processConnectionString(connectionString, undefined);
+			expect(result1).toBe(connectionString);
+		});
+
+		it('should handle edge case with connection string containing sslmode substring', () => {
+			// This should add sslmode because 'myssl_mode=' is different from 'sslmode='
+			const connectionString = 'postgresql://user:pass@host:5432/db?myssl_mode=test';
+			const sslConfig = { rejectUnauthorized: true };
+
+			const result = processConnectionString(connectionString, sslConfig);
+
+			// Should add sslmode because 'myssl_mode=' does not contain 'sslmode='
+			expect(result).toBe('postgresql://user:pass@host:5432/db?myssl_mode=test&sslmode=require');
 		});
 	});
 });

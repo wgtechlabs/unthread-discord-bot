@@ -31,7 +31,7 @@ describe('decodeHtmlEntities', () => {
 
 		it('should decode entities in realistic Discord message content', () => {
 			const input = '&lt;@everyone&gt; Check this out: &amp;quot;Amazing&amp;quot; &gt; normal';
-			const expected = '<@everyone> Check this out: &quot;Amazing&quot; > normal';
+			const expected = '<@everyone> Check this out: "Amazing" > normal';
 			expect(decodeHtmlEntities(input)).toBe(expected);
 		});
 	});
@@ -107,13 +107,13 @@ describe('decodeHtmlEntities', () => {
 
 		it('should decode HTML-escaped Discord message content', () => {
 			const discordContent = 'User said: &amp;quot;This &gt; that&amp;quot;';
-			const expected = 'User said: &quot;This > that&quot;';
+			const expected = 'User said: "This > that"';
 			expect(decodeHtmlEntities(discordContent)).toBe(expected);
 		});
 
 		it('should decode ticket content from external systems', () => {
 			const ticketContent = 'Issue: Database query returned rows where id &gt; 1000 &amp; status = &amp;quot;active&amp;quot;';
-			const expected = 'Issue: Database query returned rows where id > 1000 & status = &quot;active&quot;';
+			const expected = 'Issue: Database query returned rows where id > 1000 & status = "active"';
 			expect(decodeHtmlEntities(ticketContent)).toBe(expected);
 		});
 

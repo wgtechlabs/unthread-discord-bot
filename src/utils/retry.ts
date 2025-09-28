@@ -1,31 +1,60 @@
 /**
- * Retry Utility Module
+ * Retry Utility - Resilient Operation Execution
  *
- * This module provides a simple retry mechanism for operations that may fail temporarily.
- * It uses a linear backoff strategy with configurable attempts and delay.
- *
- * 🎯 FOR CONTRIBUTORS:
- * ===================
- * This utility is used throughout the codebase for API calls, database operations,
- * and other potentially flaky operations. Understanding retry patterns helps
- * with debugging intermittent failures.
- *
- * 💡 BEST PRACTICES:
- * =================
- * - Use for network operations (API calls, database queries)
- * - Avoid for user-facing operations that need immediate response
- * - Set reasonable maxAttempts (3-5 for most cases)
- * - Use descriptive operationName for better logging
- * - Consider exponential backoff for high-load scenarios
- *
- * 🔧 DEBUGGING TIPS:
- * =================
- * - Check logs for retry attempt patterns
- * - Monitor failure rates to identify systemic issues
- * - Adjust retry parameters based on operation type
- * - Use operation names to track specific failure points
+ * @description
+ * Provides configurable retry mechanisms for operations that may fail temporarily.
+ * Supports both linear and exponential backoff strategies for various failure scenarios.
+ * Essential for handling network operations, API calls, and database connections.
  *
  * @module utils/retry
+ * @since 1.0.0
+ *
+ * @keyFunctions
+ * - withRetry(): Executes operations with automatic retry logic and backoff
+ *
+ * @commonIssues
+ * - Infinite retry loops: Not setting reasonable maxAttempts limits
+ * - Insufficient delay: Network operations need adequate retry intervals
+ * - Missing operation names: Difficult to track specific failure points in logs
+ * - Wrong backoff strategy: Linear vs exponential for different failure types
+ * - Resource exhaustion: Too many concurrent retries overwhelming services
+ *
+ * @troubleshooting
+ * - Set maxAttempts to 3-5 for most network operations
+ * - Use exponentialBackoff for high-load or rate-limited APIs
+ * - Monitor LogEngine output for retry patterns and failure rates
+ * - Adjust baseDelayMs based on operation type (API: 1000ms, DB: 500ms)
+ * - Use descriptive operationName for better debugging
+ * - Consider circuit breaker pattern for persistent failures
+ *
+ * @performance
+ * - Linear backoff: predictable timing, good for simple failures
+ * - Exponential backoff: reduces load on struggling services
+ * - Operation names enable targeted monitoring and optimization
+ * - No memory leaks: proper cleanup on success or final failure
+ *
+ * @dependencies LogEngine for structured logging
+ *
+ * @example Basic Usage
+ * ```typescript
+ * const result = await withRetry(
+ *   async () => fetch('https://api.example.com/data'),
+ *   { operationName: 'API data fetch' }
+ * );
+ * ```
+ *
+ * @example Advanced Usage
+ * ```typescript
+ * // Database operation with exponential backoff
+ * const dbResult = await withRetry(
+ *   async () => database.query('SELECT * FROM users'),
+ *   {
+ *     maxAttempts: 5,
+ *     exponentialBackoff: true,
+ *     operationName: 'User query'
+ *   }
+ * );
+ * ```
  */
 
 import { LogEngine } from '../config/logger';
@@ -41,33 +70,34 @@ interface RetryOptions {
 }
 
 /**
- * Executes an operation with retry logic
+ * Executes an operation with configurable retry logic and backoff strategies
  *
- * @param operation - Async function to execute with retry logic
- * @param options - Configuration options for retry behavior
- * @returns Result of the operation if successful
- * @throws Error if all retry attempts fail
+ * @async
+ * @function withRetry
+ * @template T - Return type of the operation being retried
+ * @param {() => Promise<T>} operation - Async function to execute with retry logic
+ * @param {RetryOptions} [options={}] - Configuration for retry behavior and timing
+ * @returns {Promise<T>} Result of the operation if successful within retry limits
+ * @throws {Error} Aggregated error with all retry attempts if operation fails completely
  *
  * @example
- * // Fetch data with retry using linear backoff
- * const result = await withRetry(
+ * ```typescript
+ * // API call with retry
+ * const data = await withRetry(
  *   async () => {
  *     const response = await fetch('https://api.example.com/data');
- *     if (!response.ok) throw new Error('API request failed');
- *     return await response.json();
+ *     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+ *     return response.json();
  *   },
- *   { operationName: 'API data fetch' }
+ *   { operationName: 'API data fetch', maxAttempts: 3 }
  * );
+ * ```
  *
- * // Critical operation with exponential backoff
- * await withRetry(
- *   async () => await deployCommands(),
- *   {
- *     operationName: 'Discord command deployment',
- *     exponentialBackoff: true,
- *     maxAttempts: 3
- *   }
- * );
+ * @troubleshooting
+ * - Use exponentialBackoff for rate-limited APIs or high-load services
+ * - Set appropriate maxAttempts: 3-5 for network, 2-3 for user operations
+ * - Monitor logs for retry patterns indicating systemic issues
+ * - Consider operation timeout alongside retry logic
  */
 async function withRetry<T>(
 	operation: () => Promise<T>,
