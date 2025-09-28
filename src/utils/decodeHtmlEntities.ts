@@ -13,7 +13,7 @@
  * - decodeHtmlEntities(): Converts HTML entities to readable text characters
  *
  * @commonIssues
- * - Incomplete decoding: Only handles basic entities (&amp;, &gt;, &lt;)
+ * - Incomplete decoding: Only handles basic entities (&amp;, &gt;, &lt;, &quot;)
  * - Double encoding: Text encoded multiple times requires multiple passes
  * - Unicode entities: Named entities beyond basic set not supported
  * - Performance: Regex-based approach may be slow for very large texts
