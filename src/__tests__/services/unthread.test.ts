@@ -959,18 +959,20 @@ describe('Unthread Service', () => {
 			const mockCustomer = { unthreadCustomerId: 'customer-123', email: 'test@example.com', name: 'Test User' };
 			mockGetOrCreateCustomer.mockResolvedValue(mockCustomer);
 
-			// Reset fetch mock and set up ticket creation response
-			mockFetch.mockClear();
+			// Set up ticket creation response
 			const mockTicketResponse = {
 				id: '3a1c7f44-edef-4edb-bfaf-71885969bfb0',
 				friendlyId: 525,
 				title: 'Integration Test Ticket',
 				status: 'open',
 			};
+			
+			// Clear and reset fetch mock completely, then set up for this specific test
+			mockFetch.mockReset();
 			mockFetch.mockResolvedValue({
 				ok: true,
 				status: 201,
-				json: vi.fn().mockResolvedValue(mockTicketResponse),
+				json: () => Promise.resolve(mockTicketResponse),
 			});
 
 			// Mock thread binding
