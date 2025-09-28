@@ -356,22 +356,23 @@ describe('Thread Create Event Handler', () => {
 			});
 		});
 
-	it('should not send error embed when bot lacks permissions', async () => {
-		const error = new Error('Ticket creation failed');
-		(createTicket as any).mockRejectedValue(error);
+		it('should not send error embed when bot lacks permissions', async () => {
+			const error = new Error('Ticket creation failed');
+			(createTicket as any).mockRejectedValue(error);
 
-		// Simulate missing thread permissions
-		mockBotMember.permissionsIn.mockReturnValue({ has: vi.fn().mockReturnValue(false) });
+			// Simulate missing thread permissions
+			mockBotMember.permissionsIn.mockReturnValue({ has: vi.fn().mockReturnValue(false) });
 
-		await execute(mockThread as ThreadChannel);
+			await execute(mockThread as ThreadChannel);
 
-		// Assert no attempt to send an embed due to missing perms
-		expect(mockThread.send).not.toHaveBeenCalled();
-		expect(LogEngine.error).toHaveBeenCalledWith(
-			'An error occurred while creating the ticket:',
-			'Ticket creation failed'
-		);
-	});
+			// Assert no attempt to send an embed due to missing perms
+			expect(mockThread.send).not.toHaveBeenCalled();
+			// Expect the new detailed permission error messages
+			expect(LogEngine.error).toHaveBeenCalledWith('Cannot create support tickets in forum channel "support-forum" (forum_channel_123)');
+			expect(LogEngine.error).toHaveBeenCalledWith('Missing permissions: Send Messages in Threads, View Channel, Read Message History, Send Messages');
+			expect(LogEngine.error).toHaveBeenCalledWith('Action required: Ask a server administrator to grant the bot these permissions in the forum channel.');
+			expect(LogEngine.error).toHaveBeenCalledWith('Guild: Test Guild (guild_123)');
+		});
 
 		it('should handle errors in error message sending', async () => {
 			const ticketError = new Error('Ticket creation failed');

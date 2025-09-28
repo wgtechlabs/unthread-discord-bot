@@ -101,6 +101,7 @@ describe('attachmentConfig', () => {
 				Object.values(errorMessages).forEach(message => {
 					expect(message).toMatch(emojiPattern);
 				});
+			});
 
 			it('should have template placeholders where needed', () => {
 				const errorMessages = DISCORD_ATTACHMENT_CONFIG.errorMessages;
