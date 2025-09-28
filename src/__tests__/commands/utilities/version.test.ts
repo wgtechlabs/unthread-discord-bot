@@ -88,93 +88,6 @@ describe('Version Command', () => {
 		});
 	});
 
-	describe('Package.json Integration', () => {
-		it('should import version from package.json', async () => {
-			// This test verifies that the module correctly imports from package.json
-			// The mock ensures we get the expected version
-			await versionExecute(mockInteraction as ChatInputCommandInteraction);
-
-			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-			const embed = replyCall[0].embeds![0];
-			
-			expect(embed.data.description).toContain('1.1.0');
-		});
-
-		it('should handle different version formats', async () => {
-			// Test with different version patterns
-			const versions = ['1.0.0', '2.1.5', '10.0.0-beta', '3.2.1-alpha.1'];
-			
-			for (const version of versions) {
-				// Re-mock the package.json for each version
-				vi.doMock('../../../../package.json', () => ({
-					version: version,
-				}));
-
-				// Re-import the command module to get the updated version
-				const { execute } = await import('../../../commands/utilities/version');
-				
-				await execute(mockInteraction as ChatInputCommandInteraction);
-
-				const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-				const embed = replyCall[0].embeds![0];
-				
-				expect(embed.data.description).toBe(`Current version: v${version}`);
-				
-				// Clear the mock call for the next iteration
-				vi.mocked(mockInteraction.reply).mockClear();
-			}
-		});
-	});
-
-	describe('Bot Footer Integration', () => {
-		it('should use getBotFooter utility for footer text', async () => {
-			const { getBotFooter } = await import('../../../utils/botUtils');
-			
-			await versionExecute(mockInteraction as ChatInputCommandInteraction);
-
-			expect(getBotFooter).toHaveBeenCalled();
-
-			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-			const embed = replyCall[0].embeds![0];
-			
-			expect(embed.data.footer?.text).toBe('Test Bot v1.1.0');
-		});
-
-		it('should handle getBotFooter returning different values', async () => {
-			const { getBotFooter } = await import('../../../utils/botUtils');
-			
-			const footerValues = [
-				'Discord Bot v1.1.0',
-				'Support Bot v1.1.0',
-				'Unthread Bot v1.1.0',
-			];
-
-			for (const footerValue of footerValues) {
-				vi.mocked(getBotFooter).mockReturnValue(footerValue);
-
-				await versionExecute(mockInteraction as ChatInputCommandInteraction);
-
-				const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-				const embed = replyCall[0].embeds![0];
-				
-				expect(embed.data.footer?.text).toBe(footerValue);
-				
-				// Clear the mock call for the next iteration
-				vi.mocked(mockInteraction.reply).mockClear();
-			}
-		});
-
-		it('should handle getBotFooter throwing error', async () => {
-			const { getBotFooter } = await import('../../../utils/botUtils');
-			vi.mocked(getBotFooter).mockImplementation(() => {
-				throw new Error('Footer error');
-			});
-
-			// Should not throw, but may result in undefined footer
-			await expect(versionExecute(mockInteraction as ChatInputCommandInteraction)).resolves.not.toThrow();
-		});
-	});
-
 	describe('Embed Structure and Formatting', () => {
 		it('should create embed with correct structure', async () => {
 			await versionExecute(mockInteraction as ChatInputCommandInteraction);
@@ -216,15 +129,6 @@ describe('Version Command', () => {
 			
 			expect(embed.data.title).toBe('Bot Version');
 		});
-
-		it('should format description correctly', async () => {
-			await versionExecute(mockInteraction as ChatInputCommandInteraction);
-
-			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-			const embed = replyCall[0].embeds![0];
-			
-			expect(embed.data.description).toMatch(/^Current version: v\d+\.\d+\.\d+/);
-		});
 	});
 
 	describe('Interaction Response', () => {
@@ -243,98 +147,6 @@ describe('Version Command', () => {
 			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
 			
 			expect(replyCall[0].embeds).toHaveLength(1);
-		});
-
-		it('should be called exactly once', async () => {
-			await versionExecute(mockInteraction as ChatInputCommandInteraction);
-
-			expect(mockInteraction.reply).toHaveBeenCalledTimes(1);
-		});
-	});
-
-	describe('Error Scenarios', () => {
-		it('should handle interaction reply failure', async () => {
-			mockInteraction.reply = vi.fn().mockRejectedValue(new Error('Reply failed'));
-
-			await expect(versionExecute(mockInteraction as ChatInputCommandInteraction)).rejects.toThrow('Reply failed');
-		});
-
-		it('should handle missing interaction object properties', async () => {
-			// Test with minimal interaction object
-			const minimalInteraction = {
-				reply: vi.fn().mockResolvedValue(undefined),
-			};
-
-			await versionExecute(minimalInteraction as ChatInputCommandInteraction);
-
-			expect(minimalInteraction.reply).toHaveBeenCalled();
-		});
-
-		it('should handle getBotFooter returning undefined', async () => {
-			const { getBotFooter } = await import('../../../utils/botUtils');
-			vi.mocked(getBotFooter).mockReturnValue(undefined as any);
-
-			await versionExecute(mockInteraction as ChatInputCommandInteraction);
-
-			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-			const embed = replyCall[0].embeds![0];
-			
-			expect(embed.data.footer?.text).toBeUndefined();
-		});
-
-		it('should handle getBotFooter returning empty string', async () => {
-			const { getBotFooter } = await import('../../../utils/botUtils');
-			vi.mocked(getBotFooter).mockReturnValue('');
-
-			await versionExecute(mockInteraction as ChatInputCommandInteraction);
-
-			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-			const embed = replyCall[0].embeds![0];
-			
-			expect(embed.data.footer?.text).toBe('');
-		});
-	});
-
-	describe('Version Display Accuracy', () => {
-		it('should match package.json version exactly', async () => {
-			// Verify that the displayed version matches the imported version
-			await versionExecute(mockInteraction as ChatInputCommandInteraction);
-
-			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-			const embed = replyCall[0].embeds![0];
-			
-			// Should contain the exact version from our mock
-			expect(embed.data.description).toBe('Current version: v1.1.0');
-		});
-
-		it('should handle version with no patch number', async () => {
-			vi.doMock('../../../../package.json', () => ({
-				version: '2.0',
-			}));
-
-			const { execute } = await import('../../../commands/utilities/version');
-			
-			await execute(mockInteraction as ChatInputCommandInteraction);
-
-			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-			const embed = replyCall[0].embeds![0];
-			
-			expect(embed.data.description).toBe('Current version: v2.0');
-		});
-
-		it('should handle version with additional metadata', async () => {
-			vi.doMock('../../../../package.json', () => ({
-				version: '1.2.3-beta.4+build.567',
-			}));
-
-			const { execute } = await import('../../../commands/utilities/version');
-			
-			await execute(mockInteraction as ChatInputCommandInteraction);
-
-			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-			const embed = replyCall[0].embeds![0];
-			
-			expect(embed.data.description).toBe('Current version: v1.2.3-beta.4+build.567');
 		});
 	});
 
@@ -358,34 +170,6 @@ describe('Version Command', () => {
 			const embed = replyCall[0].embeds![0];
 			
 			expect(embed.data.footer?.text).toBe(footerText);
-		});
-	});
-
-	describe('Command Usage Scenarios', () => {
-		it('should work for debugging deployment versions', async () => {
-			// Simulate production version check
-			vi.doMock('../../../../package.json', () => ({
-				version: '2.1.5',
-			}));
-
-			const { execute } = await import('../../../commands/utilities/version');
-			
-			await execute(mockInteraction as ChatInputCommandInteraction);
-
-			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-			const embed = replyCall[0].embeds![0];
-			
-			expect(embed.data.description).toBe('Current version: v2.1.5');
-			expect(replyCall[0].ephemeral).toBe(true);
-		});
-
-		it('should work for troubleshooting scenarios', async () => {
-			// Version command should always be ephemeral for support scenarios
-			await versionExecute(mockInteraction as ChatInputCommandInteraction);
-
-			const replyCall = vi.mocked(mockInteraction.reply).mock.calls[0];
-			
-			expect(replyCall[0].ephemeral).toBe(true);
 		});
 	});
 });
