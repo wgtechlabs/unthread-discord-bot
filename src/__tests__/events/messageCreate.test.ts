@@ -392,7 +392,7 @@ describe('Message Create Event Handler', () => {
 		});
 
 		it('should not respond to partial command matches', async () => {
-			mockMessage.content = '!!pin'; // Missing 'g'
+			mockMessage.content = '!!pin'; // Missing g
 
 			await execute(mockMessage as Message);
 
