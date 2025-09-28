@@ -140,6 +140,14 @@ vi.mock('discord.js', () => {
 			ThreadCreate: 'threadCreate',
 			Error: 'error',
 		},
+		ActivityType: {
+			Playing: 0,
+			Streaming: 1,
+			Listening: 2,
+			Watching: 3,
+			Custom: 4,
+			Competing: 5,
+		},
 		EmbedBuilder: vi.fn(() => mockEmbedBuilder),
 		Collection: mockCollection,
 		ChannelType: {
