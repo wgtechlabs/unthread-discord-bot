@@ -165,8 +165,13 @@ describe('User Command', () => {
 		});
 
 		it('should show "Unavailable" when member has no joinedTimestamp', async () => {
-			// Remove joinedTimestamp property to simulate APIInteractionGuildMember
-			delete (mockMember as any).joinedTimestamp;
+			// Use a new mock member object without joinedTimestamp property
+			const memberWithoutJoinTimestamp = {
+				id: mockMember.id,
+				user: mockUser,
+				// No joinedTimestamp property
+			};
+			mockInteraction.member = memberWithoutJoinTimestamp as any;
 
 			await userExecute(mockInteraction as ChatInputCommandInteraction);
 
