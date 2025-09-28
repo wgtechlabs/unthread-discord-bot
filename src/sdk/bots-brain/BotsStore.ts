@@ -890,7 +890,8 @@ export class BotsStore {
 			});
 			try {
 				await Promise.race([this.performSchemaCheck(), timeoutPromise]);
-			} finally {
+			}
+			finally {
 				if (timeoutId) clearTimeout(timeoutId);
 			}
 		}
