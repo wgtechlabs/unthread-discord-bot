@@ -428,24 +428,7 @@ describe('threadUtils', () => {
 			expect(mockBotsStore.getMappingByTicketId).toHaveBeenCalledWith('ticket_123');
 		});
 
-		it('should handle edge case where retry loop completes without error', async () => {
-			// This is a very unlikely edge case, but we should handle it
-			const originalMethod = mockBotsStore.getMappingByTicketId;
-			mockBotsStore.getMappingByTicketId = vi.fn().mockImplementation(() => {
-				// Return undefined instead of throwing or resolving
-				return new Promise(() => {}); // Never resolves
-			});
-
-			const resultPromise = findDiscordThreadByTicketIdWithRetry('ticket_123', {
-				maxAttempts: 1,
-				maxRetryWindow: 10,
-			});
-
-			await vi.advanceTimersByTimeAsync(50);
-
-			// Should eventually timeout with a general error
-			// Note: This test verifies the safety net at the end of the function
-		});
+        // Removed pending edge-case test; underlying code path is currently unobservable in production
 	});
 
 	describe('fetchStarterMessage', () => {
