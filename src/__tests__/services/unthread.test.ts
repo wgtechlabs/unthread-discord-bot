@@ -812,7 +812,8 @@ describe('Unthread Service', () => {
 					// Restore the mock to its default state
 					mockFetch.mockClear();
 				}
-			});			it('should log file details during upload', async () => {
+			});
+			it('should log file details during upload', async () => {
 				mockFetch.mockResolvedValueOnce({
 					ok: true,
 					status: 201,
