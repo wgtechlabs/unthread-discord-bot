@@ -881,12 +881,18 @@ export class BotsStore {
 		try {
 			// Wrap schema operations with timeout for Railway compatibility - 2 minutes total timeout
 			const schemaTimeout = 120000;
-			await Promise.race([
-				this.performSchemaCheck(),
-				new Promise((_, reject) =>
-					setTimeout(() => reject(new Error('Schema operation timed out after 2 minutes')), schemaTimeout),
-				),
-			]);
+			let timeoutId: NodeJS.Timeout | null = null;
+			const timeoutPromise = new Promise<never>((_, reject) => {
+				timeoutId = setTimeout(
+					() => reject(new Error('Schema operation timed out after 2 minutes')),
+					schemaTimeout,
+				);
+			});
+			try {
+				await Promise.race([this.performSchemaCheck(), timeoutPromise]);
+			} finally {
+				if (timeoutId) clearTimeout(timeoutId);
+			}
 		}
 		catch (error) {
 			const err = error as Error;
