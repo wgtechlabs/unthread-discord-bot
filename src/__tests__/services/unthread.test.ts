@@ -17,9 +17,16 @@ import { LogEngine } from '../../config/logger';
 // (removed unused imports)
 
 // Mock all dependencies
-vi.mock('../../config/logger');
+vi.mock('../../config/logger', () => ({
+  LogEngine: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 vi.mock('../../utils/decodeHtmlEntities', () => ({
-	decodeHtmlEntities: vi.fn((text: string) => text),
+  decodeHtmlEntities: vi.fn((text: string) => text),
 }));
 // Create persistent mock instance
 const mockBotsStoreInstance = {
