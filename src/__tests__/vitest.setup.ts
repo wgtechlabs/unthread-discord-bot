@@ -33,7 +33,7 @@ beforeAll(() => {
 	process.removeAllListeners('unhandledRejection');
 	
 	// Add custom handler that doesn't throw but logs for debugging
-	process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+	process.on('unhandledRejection', (reason: any, _promise: Promise<any>) => {
 		// Only log in debug mode to avoid test noise
 		if (process.env.DEBUG_UNHANDLED_REJECTIONS === 'true') {
 			console.warn('Unhandled promise rejection in tests (expected for error testing):', reason);
