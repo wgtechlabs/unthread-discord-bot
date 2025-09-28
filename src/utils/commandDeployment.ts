@@ -45,14 +45,10 @@ function normalizeCommand(command: Record<string, unknown>): string {
 	// - dm_permission: Controls whether command works in direct messages
 	// These fields should trigger deployments when changed
 
-	// Sort options array if present to ensure consistent comparison
-	// Create a shallow copy to avoid mutating the original array
+	// Create a shallow copy of options array to avoid mutating the original array
+	// Preserve original order as it represents developer intent for parameter sequence
 	if (Array.isArray(normalized.options)) {
-		normalized.options = [...normalized.options].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-			const aName = typeof a.name === 'string' ? a.name : '';
-			const bName = typeof b.name === 'string' ? b.name : '';
-			return aName.localeCompare(bName);
-		});
+		normalized.options = [...normalized.options];
 	}
 
 	return JSON.stringify(normalized);
