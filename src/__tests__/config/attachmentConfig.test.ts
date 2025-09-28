@@ -134,9 +134,10 @@ describe('attachmentConfig', () => {
 			it('should include emojis for positive user feedback', () => {
 				const successMessages = DISCORD_ATTACHMENT_CONFIG.successMessages;
 				
-				// Check that all success messages contain emojis
+				// Check that all success messages contain at least one expected emoji
+				const emojiPattern = /(?:📎|📤)/u;
 				Object.values(successMessages).forEach(message => {
-					expect(message).toMatch(/[📎📤]/);
+					expect(message).toMatch(emojiPattern);
 				});
 			});
 		});
