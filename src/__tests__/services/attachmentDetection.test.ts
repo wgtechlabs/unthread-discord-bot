@@ -30,29 +30,12 @@ vi.mock('../../config/attachmentConfig', async () => {
 	return {
 		...actual,
 		isSupportedImageType: vi.fn((type: string) => {
-			const supportedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+			const supportedTypes = actual.DISCORD_ATTACHMENT_CONFIG.supportedImageTypes;
 			return supportedTypes.includes(type.toLowerCase());
 		}),
 		normalizeContentType: vi.fn((type: string) => type.toLowerCase()),
 		DISCORD_ATTACHMENT_CONFIG: {
-			maxFileSize: 8 * 1024 * 1024, // 8MB
-			maxFilesPerMessage: 10,
-			supportedImageTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'],
-			uploadTimeout: 30000,
-			retry: {
-				maxAttempts: 3,
-				baseDelay: 1000,
-				maxDelay: 5000,
-			},
-			errorMessages: {
-				unsupportedFileType: '⚠️ Only images (PNG, JPEG, GIF, WebP) are supported.',
-				fileTooLarge: '📏 File too large. Maximum size is 8MB per image.',
-				tooManyFiles: '📎 Too many files. Maximum is 10 images per message.',
-				uploadFailed: '🔄 Upload failed, retrying... (attempt {attempt}/3)',
-				uploadError: '❌ Failed to upload attachments. Please try again.',
-				downloadFailed: '⬇️ Failed to download attachment from Discord.',
-				timeout: '⏱️ Upload timed out. Please try again with smaller files.',
-			},
+			...actual.DISCORD_ATTACHMENT_CONFIG,
 		},
 	};
 });
