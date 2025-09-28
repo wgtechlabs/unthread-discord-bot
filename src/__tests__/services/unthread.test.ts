@@ -9,9 +9,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { User, EmbedBuilder } from 'discord.js';
+import { User } from 'discord.js';
 import * as unthreadService from '../../services/unthread';
-import { WebhookPayload, UnthreadApiResponse, UnthreadTicket } from '../../types/unthread';
+import { WebhookPayload } from '../../types/unthread';
 import { FileBuffer } from '../../types/attachments';
 import { LogEngine } from '../../config/logger';
 

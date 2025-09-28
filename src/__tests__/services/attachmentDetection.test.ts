@@ -8,11 +8,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Collection, Attachment } from 'discord.js';
-import { AttachmentDetectionService, AttachmentProcessingDecision } from '../../services/attachmentDetection';
+import { Attachment } from 'discord.js';
+import { AttachmentDetectionService } from '../../services/attachmentDetection';
 import { EnhancedWebhookEvent } from '../../types/unthread';
-import { DISCORD_ATTACHMENT_CONFIG } from '../../config/attachmentConfig';
 import { LogEngine } from '../../config/logger';
+import { MockCollection, createMockAttachment } from '../test-utils';
 
 // Mock the logger
 vi.mock('../../config/logger', () => ({
@@ -703,59 +703,6 @@ describe('AttachmentDetectionService', () => {
 	});
 
 	describe('Legacy Discord.js Collection Methods', () => {
-		// Create a proper Collection mock that has all necessary methods
-		class MockCollection<K, V> extends Map<K, V> {
-			some(fn: (value: V, key: K, collection: this) => boolean): boolean {
-				for (const [key, value] of this) {
-					if (fn(value, key, this)) {
-						return true;
-					}
-				}
-				return false;
-			}
-
-			filter(fn: (value: V, key: K, collection: this) => boolean): MockCollection<K, V> {
-				const filtered = new MockCollection<K, V>();
-				for (const [key, value] of this) {
-					if (fn(value, key, this)) {
-						filtered.set(key, value);
-					}
-				}
-				return filtered;
-			}
-
-			reduce<T>(fn: (accumulator: T, value: V, key: K, collection: this) => T, initialValue: T): T {
-				let accumulator = initialValue;
-				for (const [key, value] of this) {
-					accumulator = fn(accumulator, value, key, this);
-				}
-				return accumulator;
-			}
-
-			forEach(fn: (value: V, key: K, collection: this) => void): void {
-				for (const [key, value] of this) {
-					fn(value, key, this);
-				}
-			}
-		}
-
-		// Helper to create mock Discord Attachment
-		const createMockAttachment = (overrides: Partial<Attachment> = {}): Attachment => ({
-			id: 'test-attachment-id',
-			name: 'test.png',
-			contentType: 'image/png',
-			size: 1024,
-			url: 'https://example.com/test.png',
-			proxyURL: 'https://example.com/proxy/test.png',
-			width: 100,
-			height: 100,
-			ephemeral: false,
-			description: null,
-			duration: null,
-			waveform: null,
-			flags: null,
-			...overrides,
-		} as Attachment);
 
 		describe('hasDiscordImageAttachments', () => {
 			it('should return true when collection has supported image attachments', () => {
@@ -1004,24 +951,6 @@ describe('AttachmentDetectionService', () => {
 	});
 
 	describe('Edge Cases and Error Scenarios', () => {
-		// Helper to create mock Discord Attachment (moved here for scope)
-		const createMockAttachment = (overrides: Partial<Attachment> = {}): Attachment => ({
-			id: 'test-attachment-id',
-			name: 'test.png',
-			contentType: 'image/png',
-			size: 1024,
-			url: 'https://example.com/test.png',
-			proxyURL: 'https://example.com/proxy/test.png',
-			width: 100,
-			height: 100,
-			ephemeral: false,
-			description: null,
-			duration: null,
-			waveform: null,
-			flags: null,
-			...overrides,
-		} as Attachment);
-
 		it('should handle malformed webhook events gracefully', () => {
 			const malformedEvent = {
 				platform: 'unthread',
@@ -1045,19 +974,6 @@ describe('AttachmentDetectionService', () => {
 		});
 
 		it('should handle invalid content types gracefully', () => {
-			// Create a proper Collection mock that has all necessary methods
-			class MockCollection<K, V> extends Map<K, V> {
-				filter(fn: (value: V, key: K, collection: this) => boolean): MockCollection<K, V> {
-					const filtered = new MockCollection<K, V>();
-					for (const [key, value] of this) {
-						if (fn(value, key, this)) {
-							filtered.set(key, value);
-						}
-					}
-					return filtered;
-				}
-			}
-
 			const attachments = new MockCollection<string, Attachment>();
 			attachments.set('1', createMockAttachment({
 				contentType: '' as any,
@@ -1067,7 +983,7 @@ describe('AttachmentDetectionService', () => {
 			// Should not throw but will call filter which might throw
 			try {
 				AttachmentDetectionService.filterSupportedImages(attachments as any);
-			} catch (e) {
+			} catch {
 				// This is expected to potentially throw due to mock limitations
 			}
 			
