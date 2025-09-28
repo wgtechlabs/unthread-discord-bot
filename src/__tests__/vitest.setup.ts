@@ -100,26 +100,15 @@ vi.mock('discord.js', () => {
 			cache: new Map([['test_channel_id', mockChannel]]),
 			fetch: vi.fn().mockResolvedValue(mockChannel),
 		},
+		ws: {
+			ping: 45, // Mock WebSocket ping
+		},
 		login: vi.fn().mockResolvedValue('test_token'),
 		on: vi.fn(),
 		once: vi.fn(),
 		emit: vi.fn(),
 		destroy: vi.fn().mockResolvedValue({}),
 		commands: new Map(),
-	};
-
-	const mockEmbedBuilder = {
-		setTitle: vi.fn().mockReturnThis(),
-		setDescription: vi.fn().mockReturnThis(),
-		setColor: vi.fn().mockReturnThis(),
-		setFooter: vi.fn().mockReturnThis(),
-		setTimestamp: vi.fn().mockReturnThis(),
-		addFields: vi.fn().mockReturnThis(),
-		setAuthor: vi.fn().mockReturnThis(),
-		setImage: vi.fn().mockReturnThis(),
-		setThumbnail: vi.fn().mockReturnThis(),
-		setURL: vi.fn().mockReturnThis(),
-		toJSON: vi.fn().mockReturnValue({}),
 	};
 
 	const mockCollection = Map;
@@ -140,7 +129,149 @@ vi.mock('discord.js', () => {
 			ThreadCreate: 'threadCreate',
 			Error: 'error',
 		},
-		EmbedBuilder: vi.fn(() => mockEmbedBuilder),
+		EmbedBuilder: vi.fn(() => ({
+			data: {},
+			setTitle: vi.fn(function(this: any, title: string) {
+				this.data.title = title;
+				return this;
+			}),
+			setDescription: vi.fn(function(this: any, description: string) {
+				this.data.description = description;
+				return this;
+			}),
+			setColor: vi.fn(function(this: any, color: number) {
+				this.data.color = color;
+				return this;
+			}),
+			setFooter: vi.fn(function(this: any, footer: { text: string }) {
+				this.data.footer = footer;
+				return this;
+			}),
+			setTimestamp: vi.fn(function(this: any, timestamp?: string | Date) {
+				this.data.timestamp = timestamp || new Date().toISOString();
+				return this;
+			}),
+			addFields: vi.fn(function(this: any, ...fields: any[]) {
+				if (!this.data.fields) this.data.fields = [];
+				this.data.fields.push(...fields);
+				return this;
+			}),
+			setAuthor: vi.fn(function(this: any, author: any) {
+				this.data.author = author;
+				return this;
+			}),
+			setImage: vi.fn(function(this: any, image: string) {
+				this.data.image = { url: image };
+				return this;
+			}),
+			setThumbnail: vi.fn(function(this: any, thumbnail: string) {
+				this.data.thumbnail = { url: thumbnail };
+				return this;
+			}),
+			setURL: vi.fn(function(this: any, url: string) {
+				this.data.url = url;
+				return this;
+			}),
+			toJSON: vi.fn(function(this: any) {
+				return this.data;
+			}),
+		})),
+		SlashCommandBuilder: vi.fn(() => ({
+			name: undefined,
+			description: undefined,
+			setName: vi.fn(function(this: any, name: string) {
+				this.name = name;
+				return this;
+			}),
+			setDescription: vi.fn(function(this: any, description: string) {
+				this.description = description;
+				return this;
+			}),
+			addStringOption: vi.fn().mockReturnThis(),
+			addIntegerOption: vi.fn().mockReturnThis(),
+			addBooleanOption: vi.fn().mockReturnThis(),
+			addUserOption: vi.fn().mockReturnThis(),
+			addChannelOption: vi.fn().mockReturnThis(),
+			addRoleOption: vi.fn().mockReturnThis(),
+			toJSON: vi.fn().mockReturnValue({}),
+		})),
+		ModalBuilder: vi.fn(() => ({
+			data: {
+				components: [],
+			},
+			setCustomId: vi.fn(function(this: any, customId: string) {
+				this.data.custom_id = customId;
+				return this;
+			}),
+			setTitle: vi.fn(function(this: any, title: string) {
+				this.data.title = title;
+				return this;
+			}),
+			addComponents: vi.fn(function(this: any, ...components: any[]) {
+				this.data.components.push(...components);
+				return this;
+			}),
+			toJSON: vi.fn(function(this: any) {
+				return this.data;
+			}),
+		})),
+		ActionRowBuilder: vi.fn(() => ({
+			components: [],
+			addComponents: vi.fn(function(this: any, ...components: any[]) {
+				this.components.push(...components.map(c => ({
+					custom_id: c.data?.custom_id || c.custom_id || 'test',
+					label: c.data?.label || c.label || 'Test',
+					style: c.data?.style || c.style || 1,
+					required: c.data?.required || c.required || false,
+					min_length: c.data?.min_length || c.min_length,
+					max_length: c.data?.max_length || c.max_length,
+				})));
+				return this;
+			}),
+			toJSON: vi.fn(function(this: any) {
+				return { components: this.components };
+			}),
+		})),
+		TextInputBuilder: vi.fn(() => ({
+			data: {},
+			setCustomId: vi.fn(function(this: any, customId: string) {
+				this.data.custom_id = customId;
+				this.custom_id = customId;
+				return this;
+			}),
+			setLabel: vi.fn(function(this: any, label: string) {
+				this.data.label = label;
+				this.label = label;
+				return this;
+			}),
+			setPlaceholder: vi.fn(function(this: any, placeholder: string) {
+				this.data.placeholder = placeholder;
+				return this;
+			}),
+			setStyle: vi.fn(function(this: any, style: number) {
+				this.data.style = style;
+				this.style = style;
+				return this;
+			}),
+			setRequired: vi.fn(function(this: any, required: boolean) {
+				this.data.required = required;
+				this.required = required;
+				return this;
+			}),
+			setMinLength: vi.fn(function(this: any, minLength: number) {
+				this.data.min_length = minLength;
+				this.min_length = minLength;
+				return this;
+			}),
+			setMaxLength: vi.fn(function(this: any, maxLength: number) {
+				this.data.max_length = maxLength;
+				this.max_length = maxLength;
+				return this;
+			}),
+			toJSON: vi.fn(function(this: any) {
+				return this.data;
+			}),
+		})),
 		Collection: mockCollection,
 		ChannelType: {
 			GuildText: 0,
@@ -155,6 +286,10 @@ vi.mock('discord.js', () => {
 			GuildStageVoice: 13,
 			GuildDirectory: 14,
 			GuildForum: 15,
+		},
+		TextInputStyle: {
+			Short: 1,
+			Paragraph: 2,
 		},
 		AttachmentBuilder: vi.fn().mockImplementation((buffer, name) => ({
 			attachment: buffer,
@@ -173,6 +308,10 @@ vi.mock('discord.js', () => {
 			ManageMessages: BigInt(8192),
 			ReadMessageHistory: BigInt(65536),
 			UseExternalEmojis: BigInt(262144),
+			ManageThreads: BigInt(268435456),
+			CreatePrivateThreads: BigInt(17179869184),
+			SendMessagesInThreads: BigInt(274877906944),
+			ViewChannel: BigInt(1024),
 		},
 	};
 });
