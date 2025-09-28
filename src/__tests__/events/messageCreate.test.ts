@@ -12,7 +12,7 @@ import { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } fr
 import { isValidatedForumChannel } from '@utils/channelUtils';
 import { AttachmentHandler } from '@utils/attachmentHandler';
 import { AttachmentDetectionService } from '@services/attachmentDetection';
-import { getConfig, DEFAULT_CONFIG } from '@config/defaults';
+import { getConfig } from '@config/defaults';
 import { name, execute, once } from '@events/messageCreate';
 
 // Mock all external dependencies
