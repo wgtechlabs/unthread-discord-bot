@@ -15,7 +15,7 @@ import {
 } from '@utils/threadUtils';
 import { LogEngine } from '@wgtechlabs/log-engine';
 import { BotsStore, ExtendedThreadTicketMapping } from '@sdk/bots-brain/BotsStore';
-import { ThreadChannel, Message } from 'discord.js';
+import { ThreadChannel } from 'discord.js';
 
 // Mock the BotsStore
 vi.mock('@sdk/bots-brain/BotsStore', () => ({
