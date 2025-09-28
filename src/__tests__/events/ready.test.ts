@@ -232,13 +232,11 @@ describe('Ready Event Handler', () => {
 
 	describe('Error Handling', () => {
 		it('should continue execution even if presence setting fails', async () => {
-			// The ready event doesn't have try-catch around setPresence, so it will throw
-			// This test should verify that the error is NOT caught (current behavior)
+			// Tests that setPresence errors are not caught and propagate up
 			(mockClient.user!.setPresence as any).mockImplementation(() => {
 				throw new Error('Presence failed');
 			});
 
-			// The ready event will actually throw since there's no error handling
 			await expect(readyEvent.execute(mockClient)).rejects.toThrow('Presence failed');
 		});
 

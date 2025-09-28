@@ -33,18 +33,11 @@ describe('Thread Create Event Handler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		
-		// Mock permissions object with more specific behavior
+		// Mock permissions object with specific behavior for testing
 		mockPermissions = {
 			has: vi.fn().mockImplementation((perms: any) => {
-				// Return false for specific permissions to test specific scenarios
-				// Example: Deny SendMessages permission for testing
-				if (
-					perms === PermissionFlagsBits.SendMessages ||
-					(Array.isArray(perms) && perms.includes(PermissionFlagsBits.SendMessages))
-				) {
-					return false;
-				}
-				return true; // Default to true unless overridden
+				// Default to true unless overridden in specific tests
+				return true;
 			}),
 		};
 
