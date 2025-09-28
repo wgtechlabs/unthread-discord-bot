@@ -360,11 +360,6 @@ describe('Thread Create Event Handler', () => {
 			const error = new Error('Ticket creation failed');
 			(createTicket as any).mockRejectedValue(error);
 			
-			// The code goes through a different path when ticket creation fails vs
-			// when ticket creation succeeds but message sending fails. Since we're 
-			// testing the case where ticket creation fails, the warn message won't be called.
-			// Instead, the error will be logged and then permissions are checked for sending error message
-			// Let's just verify the error is caught and handled
 			await execute(mockThread as ThreadChannel);
 
 			expect(LogEngine.error).toHaveBeenCalledWith(
