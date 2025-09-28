@@ -14,7 +14,7 @@ import * as unthreadService from '../../services/unthread';
 import { WebhookPayload } from '../../types/unthread';
 import { FileBuffer } from '../../types/attachments';
 import { LogEngine } from '../../config/logger';
-import { advanceTimersAndWait, runAllTimersAndWait } from '../async-test-utils';
+// (removed unused imports)
 
 // Mock all dependencies
 vi.mock('../../config/logger');
