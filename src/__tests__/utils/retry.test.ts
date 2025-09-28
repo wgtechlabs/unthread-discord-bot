@@ -145,7 +145,7 @@ describe('withRetry', () => {
 					baseDelayMs: 0,
 				});
 			}
-			catch (error) {
+			catch {
 				expect(operation).toHaveBeenCalledTimes(2);
 			}
 		});
@@ -158,7 +158,7 @@ describe('withRetry', () => {
 			try {
 				await withRetry(operation, { baseDelayMs: 0 });
 			}
-			catch (error) {
+			catch {
 				// Expected to fail
 			}
 
@@ -230,15 +230,13 @@ describe('withRetry', () => {
 					baseDelayMs: 0,
 				});
 			}
-			catch (e) {
+			catch {
 				// Expected to fail
 			}
 
 			expect(LogEngine.debug).toHaveBeenCalledWith('Attempt 1 failed: Test failure');
 			expect(LogEngine.debug).toHaveBeenCalledWith('Attempt 2 failed: Test failure');
-		});
-
-		it('should log final error after all attempts', async () => {
+		});		it('should log final error after all attempts', async () => {
 			const operation = vi.fn().mockRejectedValue(new Error('Final error'));
 
 			try {
@@ -248,16 +246,14 @@ describe('withRetry', () => {
 					baseDelayMs: 0,
 				});
 			}
-			catch (e) {
+			catch {
 				// Expected to fail
 			}
 
 			expect(LogEngine.error).toHaveBeenCalledWith(
 				'final-test failed after 2 attempts. Last error: Final error',
 			);
-		});
-
-		it('should handle errors without message property', async () => {
+		});		it('should handle errors without message property', async () => {
 			const operation = vi.fn().mockRejectedValue({ code: 'ERROR_CODE' });
 
 			await expect(withRetry(operation, { 

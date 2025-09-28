@@ -7,11 +7,11 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
- import { ChatInputCommandInteraction } from 'discord.js';
+import { ChatInputCommandInteraction } from 'discord.js';
 import { data as versionData, execute as versionExecute } from '../../../commands/utilities/version';
 
 // Mock package.json version
-vi.mock('../../../../package.json', () => ({
+vi.mock('../../../package.json', () => ({
 	version: '1.1.0',
 }));
 

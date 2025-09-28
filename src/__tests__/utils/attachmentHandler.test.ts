@@ -203,9 +203,10 @@ describe('AttachmentHandler', () => {
 			const unthreadAttachments: MessageAttachment[] = [
 				{
 					id: 'ut_file_123',
-					name: 'test-file.txt',
+					filename: 'test-file.txt',
 					size: 1024,
-					url_private_download: 'https://files.unthread.io/download/123',
+					url: 'https://files.unthread.io/download/123',
+					content_type: 'text/plain',
 				},
 			];
 
@@ -246,10 +247,11 @@ describe('AttachmentHandler', () => {
 			const invalidAttachments: MessageAttachment[] = [
 				{
 					id: 'ut_file_123',
-					name: 'test-file.txt',
+					filename: 'test-file.txt',
 					size: 1024,
-					// Missing url_private_download
-				},
+					content_type: 'text/plain',
+					// Missing url
+				} as MessageAttachment,
 			];
 
 			const result = await attachmentHandler.downloadUnthreadAttachmentsToDiscord(
@@ -266,9 +268,10 @@ describe('AttachmentHandler', () => {
 			const unthreadAttachments: MessageAttachment[] = [
 				{
 					id: 'ut_file_123',
-					name: 'test-file.txt',
+					filename: 'test-file.txt',
 					size: 1024,
-					url_private_download: 'https://files.unthread.io/download/123',
+					url: 'https://files.unthread.io/download/123',
+					content_type: 'text/plain',
 				},
 			];
 
@@ -292,9 +295,10 @@ describe('AttachmentHandler', () => {
 			const unthreadAttachments: MessageAttachment[] = [
 				{
 					id: 'ut_file_123',
-					name: 'test-file.txt',
+					filename: 'test-file.txt',
 					size: 1024,
-					url_private_download: 'https://files.unthread.io/download/123',
+					url: 'https://files.unthread.io/download/123',
+					content_type: 'text/plain',
 				},
 			];
 
@@ -321,15 +325,17 @@ describe('AttachmentHandler', () => {
 			const validAttachments: MessageAttachment[] = [
 				{
 					id: 'ut_file_123',
-					name: 'test-file.txt',
+					filename: 'test-file.txt',
 					size: 1024,
-					url_private_download: 'https://files.unthread.io/download/123',
+					url: 'https://files.unthread.io/download/123',
+					content_type: 'text/plain',
 				},
 				{
 					id: 'ut_file_456',
-					name: 'image.jpg',
+					filename: 'image.jpg',
 					size: 2048,
-					url_private_download: 'https://files.unthread.io/download/456',
+					url: 'https://files.unthread.io/download/456',
+					content_type: 'image/jpeg',
 				},
 			];
 
@@ -345,15 +351,17 @@ describe('AttachmentHandler', () => {
 			const invalidAttachments: MessageAttachment[] = [
 				{
 					id: 'ut_file_123',
-					name: 'test-file.txt',
+					filename: 'test-file.txt',
 					size: 1024,
-					// Missing download URL
-				},
+					content_type: 'text/plain',
+					// Missing url
+				} as MessageAttachment,
 				{
 					// Missing id
-					name: 'image.jpg',
+					filename: 'image.jpg',
 					size: 2048,
-					url_private_download: 'https://files.unthread.io/download/456',
+					url: 'https://files.unthread.io/download/456',
+					content_type: 'image/jpeg',
 				} as MessageAttachment,
 			];
 
