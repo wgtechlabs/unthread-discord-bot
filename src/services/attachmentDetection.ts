@@ -1,28 +1,28 @@
 /**
  * Attachment Detection Service - Metadata-Driven Processing
- * 
- * @description 
+ *
+ * @description
  * Enhanced attachment detection system using metadata-first approach for improved
  * reliability and performance. Processes webhook events to determine attachment
  * handling strategy without iterating through file collections.
- * 
+ *
  * @module services/attachmentDetection
  * @since 1.0.0
- * 
+ *
  * @keyFunctions
  * - shouldProcessEvent(): Validates if event requires attachment processing
  * - getProcessingDecision(): Central attachment handling decision pipeline
  * - hasAttachments(): Quick metadata-based attachment detection
  * - isOversized(): File size validation using pre-calculated metadata
  * - hasSupportedImages(): Identifies processable image attachments
- * 
+ *
  * @commonIssues
  * - Metadata inconsistency: Webhook metadata doesn't match actual files
  * - Size calculation errors: Incorrect total size or file count
  * - Type detection failures: Unsupported or misidentified file types
  * - Processing decision conflicts: Multiple conditions trigger simultaneously
  * - Discord limits: Files exceed Discord's attachment size restrictions
- * 
+ *
  * @troubleshooting
  * - Validate webhook event structure and metadata presence
  * - Check DISCORD_ATTACHMENT_CONFIG for size and type limits
@@ -30,15 +30,15 @@
  * - Use validateConsistency() to ensure metadata accuracy
  * - Monitor Discord API responses for attachment upload failures
  * - Review processing decision logic for edge cases
- * 
+ *
  * @performance
  * - Metadata-first processing eliminates file iteration overhead
  * - Pre-calculated totals enable instant size validation
  * - Type detection uses normalized content-type mapping
  * - Processing decisions cached per webhook event
- * 
+ *
  * @dependencies Discord.js, DISCORD_ATTACHMENT_CONFIG, LogEngine
- * 
+ *
  * @example Basic Usage
  * ```typescript
  * const decision = AttachmentDetectionService.getProcessingDecision(webhookEvent);
@@ -46,7 +46,7 @@
  *   // Process supported image attachments
  * }
  * ```
- * 
+ *
  * @example Advanced Usage
  * ```typescript
  * // Full attachment processing pipeline
@@ -89,11 +89,11 @@ export interface AttachmentProcessingDecision {
 export class AttachmentDetectionService {
 	/**
 	 * Validates if webhook event requires attachment processing
-	 * 
+	 *
 	 * @function shouldProcessEvent
 	 * @param {EnhancedWebhookEvent} event - Webhook event with metadata
 	 * @returns {boolean} True if event is dashboard→discord and needs processing
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * if (AttachmentDetectionService.shouldProcessEvent(event)) {
@@ -108,11 +108,11 @@ export class AttachmentDetectionService {
 
 	/**
 	 * Detects presence of attachments using webhook metadata
-	 * 
+	 *
 	 * @function hasAttachments
 	 * @param {EnhancedWebhookEvent} event - Webhook event with attachment metadata
 	 * @returns {boolean} True if event has files and should be processed
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * const hasFiles = AttachmentDetectionService.hasAttachments(event);

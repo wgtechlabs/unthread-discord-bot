@@ -1,23 +1,58 @@
 /**
- * Client Ready Event Handler
+ * Client Ready Event Handler - Bot Initialization
  *
- * This module executes once when the Discord client successfully connects and is ready.
- * It handles:
- * 1. Setting the bot's online presence and activity status
- * 2. Logging successful initialization with version information
- * 3. Validating forum channel configuration
- *
- * This event is crucial as it confirms the bot has:
- * - Successfully authenticated with Discord's Gateway
- * - Received the READY payload from Discord
- * - Cached guilds, channels, and other Discord entities
- *
- * For debugging:
- * - If this event doesn't fire, check bot token validity
- * - Verify network connectivity and Discord API status
- * - Check for excessive rate limiting that might prevent connection
+ * @description
+ * Handles bot initialization when Discord client successfully connects and receives
+ * READY payload. Manages presence setting, command deployment, forum channel validation,
+ * and startup logging for monitoring and debugging purposes.
  *
  * @module events/ready
+ * @since 1.0.0
+ *
+ * @keyFunctions
+ * - execute(): Main initialization handler setting presence, deploying commands, validating channels
+ *
+ * @commonIssues
+ * - Ready event not firing: Invalid bot token or network connectivity problems
+ * - Command deployment failures: Insufficient bot permissions or Discord API issues
+ * - Forum channel validation errors: Invalid channel IDs or wrong channel types
+ * - Presence not updating: Discord caching or rate limiting status updates
+ * - Process exit on critical failures: Command deployment retry exhaustion
+ *
+ * @troubleshooting
+ * - Verify bot token validity and permissions in Discord Developer Portal
+ * - Check network connectivity and Discord API status at https://discordstatus.com/
+ * - Ensure bot has "Use Slash Commands" permission where commands are deployed
+ * - Validate FORUM_CHANNEL_IDS contains actual forum channel IDs
+ * - Monitor LogEngine output for specific error messages and retry attempts
+ * - Check bot permissions in target guilds for presence and activity updates
+ *
+ * @performance
+ * - Executes only once per bot session using 'once: true' configuration
+ * - Command deployment uses exponential backoff retry (2s, 4s, 8s intervals)
+ * - Forum channel validation batched to minimize API calls
+ * - Presence setting optimized to avoid unnecessary Discord API requests
+ *
+ * @dependencies Discord.js Events, channelUtils, commandDeployment, retry utility
+ *
+ * @example Basic Usage
+ * ```typescript
+ * // Event automatically registered by Discord.js event system
+ * client.once(Events.ClientReady, readyEvent.execute);
+ * ```
+ *
+ * @example Advanced Usage
+ * ```typescript
+ * // Custom ready handler with additional initialization
+ * const customReady = {
+ *   name: Events.ClientReady,
+ *   once: true,
+ *   async execute(client: Client) {
+ *     await readyEvent.execute(client);
+ *     // Additional custom initialization
+ *   }
+ * };
+ * ```
  */
 
 import { Events, ActivityType, Client } from 'discord.js';
@@ -38,9 +73,24 @@ const readyEvent = {
 	once: true,
 
 	/**
-	 * Executes when the Discord client is ready
+	 * Initializes bot when Discord client is ready and connected
 	 *
-	 * @param bot - The Discord client instance
+	 * @async
+	 * @function execute
+	 * @param {Client} bot - Discord client instance with established connection
+	 * @returns {Promise<void>} Resolves after successful initialization or exits on critical failure
+	 *
+	 * @example
+	 * ```typescript
+	 * // Automatically called by Discord.js when bot connects
+	 * // Sets presence, deploys commands, validates forum channels
+	 * ```
+	 *
+	 * @troubleshooting
+	 * - Process exits on command deployment failure after retries
+	 * - Forum channel warnings logged for invalid configurations
+	 * - Presence updates may be rate-limited by Discord
+	 * - Command deployment requires proper bot permissions
 	 */
 	async execute(bot: Client): Promise<void> {
 		// Explicitly set the bot's status to 'online' to ensure it appears online to users

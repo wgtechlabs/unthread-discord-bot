@@ -1,24 +1,24 @@
 /**
  * Retry Utility - Resilient Operation Execution
- * 
- * @description 
+ *
+ * @description
  * Provides configurable retry mechanisms for operations that may fail temporarily.
  * Supports both linear and exponential backoff strategies for various failure scenarios.
  * Essential for handling network operations, API calls, and database connections.
- * 
+ *
  * @module utils/retry
  * @since 1.0.0
- * 
+ *
  * @keyFunctions
  * - withRetry(): Executes operations with automatic retry logic and backoff
- * 
+ *
  * @commonIssues
  * - Infinite retry loops: Not setting reasonable maxAttempts limits
  * - Insufficient delay: Network operations need adequate retry intervals
  * - Missing operation names: Difficult to track specific failure points in logs
  * - Wrong backoff strategy: Linear vs exponential for different failure types
  * - Resource exhaustion: Too many concurrent retries overwhelming services
- * 
+ *
  * @troubleshooting
  * - Set maxAttempts to 3-5 for most network operations
  * - Use exponentialBackoff for high-load or rate-limited APIs
@@ -26,15 +26,15 @@
  * - Adjust baseDelayMs based on operation type (API: 1000ms, DB: 500ms)
  * - Use descriptive operationName for better debugging
  * - Consider circuit breaker pattern for persistent failures
- * 
+ *
  * @performance
  * - Linear backoff: predictable timing, good for simple failures
  * - Exponential backoff: reduces load on struggling services
  * - Operation names enable targeted monitoring and optimization
  * - No memory leaks: proper cleanup on success or final failure
- * 
+ *
  * @dependencies LogEngine for structured logging
- * 
+ *
  * @example Basic Usage
  * ```typescript
  * const result = await withRetry(
@@ -42,13 +42,13 @@
  *   { operationName: 'API data fetch' }
  * );
  * ```
- * 
+ *
  * @example Advanced Usage
  * ```typescript
  * // Database operation with exponential backoff
  * const dbResult = await withRetry(
  *   async () => database.query('SELECT * FROM users'),
- *   { 
+ *   {
  *     maxAttempts: 5,
  *     exponentialBackoff: true,
  *     operationName: 'User query'
@@ -71,7 +71,7 @@ interface RetryOptions {
 
 /**
  * Executes an operation with configurable retry logic and backoff strategies
- * 
+ *
  * @async
  * @function withRetry
  * @template T - Return type of the operation being retried
@@ -79,7 +79,7 @@ interface RetryOptions {
  * @param {RetryOptions} [options={}] - Configuration for retry behavior and timing
  * @returns {Promise<T>} Result of the operation if successful within retry limits
  * @throws {Error} Aggregated error with all retry attempts if operation fails completely
- * 
+ *
  * @example
  * ```typescript
  * // API call with retry
@@ -92,7 +92,7 @@ interface RetryOptions {
  *   { operationName: 'API data fetch', maxAttempts: 3 }
  * );
  * ```
- * 
+ *
  * @troubleshooting
  * - Use exponentialBackoff for rate-limited APIs or high-load services
  * - Set appropriate maxAttempts: 3-5 for network, 2-3 for user operations

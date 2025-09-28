@@ -1,45 +1,68 @@
 /**
- * BotsStore - Discord-Specific Storage Operations
+ * BotsStore - Discord-Specific 3-Layer Storage System
  *
- * This module provides high-level storage operations specifically designed for
- * Discord bot functionality, built on top of the UnifiedStorage engine.
- *
- * 🎯 FOR CONTRIBUTORS:
- * ===================
- * This is the primary data access layer for the Discord bot. All customer data,
- * thread mappings, and bot configuration should go through this module to ensure
- * consistency and proper caching across the 3-layer storage system.
- *
- * Features:
- * - Customer management with Discord integration
- * - Thread-ticket mapping persistence
- * - High-performance caching for frequently accessed data
- * - Type-safe operations with full TypeScript support
- * - Automatic cache warming and invalidation
- *
- * 🗝️ STORAGE KEYS PATTERN:
- * =======================
- * - customer:discord:{discordId} - Customer data by Discord ID
- * - customer:unthread:{unthreadId} - Customer data by Unthread ID
- * - mapping:thread:{threadId} - Thread-ticket mapping by Discord thread ID
- * - mapping:ticket:{ticketId} - Thread-ticket mapping by Unthread ticket ID
- * - bot:config:{key} - Bot configuration data
- *
- * 🔧 USAGE PATTERNS:
- * =================
- * - Always use this layer instead of direct UnifiedStorage calls
- * - Customer operations handle Discord ↔ Unthread user mapping
- * - Thread mappings maintain bidirectional ticket relationships
- * - Configuration data is cached across application restarts
- *
- * 🐛 DEBUGGING DATA ISSUES:
- * ========================
- * - Check all 3 storage layers (memory, Redis, PostgreSQL)
- * - Verify key patterns match expected format
- * - Monitor cache hit rates for performance optimization
- * - Review TTL settings for data freshness requirements
+ * @description
+ * High-performance data access layer providing Discord bot operations with
+ * 3-layer caching architecture (Memory → Redis → PostgreSQL). Handles customer
+ * management, thread-ticket mappings, and configuration persistence with
+ * type safety and automatic cache invalidation.
  *
  * @module sdk/bots-brain/BotsStore
+ * @since 1.0.0
+ *
+ * @keyFunctions
+ * - getInstance(): Singleton pattern for unified storage access
+ * - storeCustomer(): Creates customer records with Discord-Unthread mapping
+ * - getCustomerByDiscordId(): Fast customer lookup using Discord ID
+ * - storeThreadTicketMapping(): Bidirectional thread-ticket relationship storage
+ * - getThreadTicketMapping(): Retrieves mappings for Discord threads or Unthread tickets
+ *
+ * @commonIssues
+ * - Cache inconsistency: Different values across memory/Redis/PostgreSQL layers
+ * - Connection failures: Redis or PostgreSQL unavailable causing fallback behavior
+ * - Key collision: Multiple processes writing same keys simultaneously
+ * - TTL expiration: Cached data expires while still needed causing extra queries
+ * - Memory leaks: Cache growing unbounded without proper eviction policies
+ *
+ * @troubleshooting
+ * - Monitor all 3 storage layers for consistency using validateConsistency()
+ * - Check connection health for Redis and PostgreSQL layers
+ * - Verify key naming patterns match expected format (customer:discord:{id})
+ * - Review cache hit rates and TTL settings for performance optimization
+ * - Use LogEngine debug output to trace storage layer access patterns
+ * - Monitor memory usage in Node.js process for cache size management
+ *
+ * @performance
+ * - L1 cache (Memory): <1ms access time for frequently used data
+ * - L2 cache (Redis): ~5ms access time with network overhead
+ * - L3 storage (PostgreSQL): ~50ms access time with full ACID compliance
+ * - Automatic cache warming on application startup
+ * - Intelligent TTL management based on data access patterns
+ *
+ * @dependencies UnifiedStorage, Discord.js User, PostgreSQL Pool, LogEngine
+ *
+ * @example Basic Usage
+ * ```typescript
+ * const store = BotsStore.getInstance();
+ * const customer = await store.storeCustomer(discordUser, email, unthreadId);
+ * const mapping = await store.getThreadTicketMapping(threadId);
+ * ```
+ *
+ * @example Advanced Usage
+ * ```typescript
+ * // Production setup with error handling
+ * try {
+ *   const store = BotsStore.getInstance();
+ *   await store.initialize(redisConfig, pgConfig);
+ *
+ *   const customer = await store.getCustomerByDiscordId(userId);
+ *   if (!customer) {
+ *     const newCustomer = await store.storeCustomer(user, email, unthreadCustomerId);
+ *   }
+ * } catch (error) {
+ *   LogEngine.error('BotsStore operation failed', error);
+ * }
+ * ```
  */
 
 import { User } from 'discord.js';

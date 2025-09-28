@@ -1,28 +1,28 @@
 /**
  * Unthread Service - Core API Integration
- * 
- * @description 
+ *
+ * @description
  * Primary integration layer handling all communication with the Unthread API.
  * Manages customer records, ticket lifecycle, webhook processing, and real-time
  * synchronization between Discord and Unthread ticketing system.
- * 
+ *
  * @module services/unthread
  * @since 1.0.0
- * 
+ *
  * @keyFunctions
  * - validateEnvironment(): Validates required environment variables at startup
  * - getOrCreateTicket(): Creates tickets from Discord interactions with customer mapping
  * - processWebhookEvent(): Handles real-time webhook events from Unthread
  * - forwardMessageToUnthread(): Syncs Discord messages to Unthread tickets
  * - updateTicketStatus(): Updates ticket status based on Discord thread state
- * 
+ *
  * @commonIssues
  * - Authentication failures: Invalid or expired UNTHREAD_API_KEY
  * - Rate limiting: HTTP 429 responses from excessive API calls
  * - Data consistency: Thread-ticket mappings become out of sync
  * - Webhook validation: Invalid signatures or malformed payloads
  * - Customer duplication: Multiple records for same Discord user
- * 
+ *
  * @troubleshooting
  * - Verify UNTHREAD_API_KEY in environment variables and check permissions
  * - Monitor API response codes: 401 (auth), 429 (rate limit), 500 (server error)
@@ -30,21 +30,21 @@
  * - Validate webhook signatures and payload structure
  * - Review BotsStore for thread-ticket mapping consistency
  * - Check Discord permissions for bot in target channels
- * 
+ *
  * @performance
  * - API calls use automatic retry logic with exponential backoff
  * - Webhook events processed asynchronously to prevent blocking
  * - Customer lookups cached in BotsStore for performance
  * - Rate limiting respected with intelligent request spacing
- * 
+ *
  * @dependencies Express.js, Discord.js, BotsStore, LogEngine, node-fetch
- * 
+ *
  * @example Basic Usage
  * ```typescript
  * // Create ticket from Discord interaction
  * const ticket = await getOrCreateTicket(interaction.user, 'Support needed');
  * ```
- * 
+ *
  * @example Advanced Usage
  * ```typescript
  * // Process webhook event with error handling
@@ -75,18 +75,18 @@ import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
 
 /**
  * Validates critical environment variables required for Unthread service operations
- * 
+ *
  * @function validateEnvironment
  * @throws {Error} When UNTHREAD_API_KEY, UNTHREAD_SLACK_CHANNEL_ID, or UNTHREAD_WEBHOOK_SECRET are missing
- * 
+ *
  * @example
  * ```typescript
  * import { validateEnvironment } from './services/unthread';
- * 
+ *
  * // Call during application initialization
  * validateEnvironment();
  * ```
- * 
+ *
  * @troubleshooting
  * - Check .env file exists and contains required variables
  * - Verify environment variables are properly loaded with dotenv
@@ -127,7 +127,7 @@ export function validateEnvironment(): void {
 
 /**
  * Legacy wrapper for customer creation - use customerUtils directly instead
- * 
+ *
  * @deprecated Use getOrCreateCustomer from customerUtils directly
  * @function saveCustomer
  * @param {User} user - Discord user object containing user details
@@ -140,7 +140,7 @@ export async function saveCustomer(user: User, email: string): Promise<Customer>
 
 /**
  * Legacy wrapper for customer retrieval - use customerUtils directly instead
- * 
+ *
  * @deprecated Use getCustomerByDiscordId from customerUtils directly
  * @function getCustomerById
  * @param {string} discordId - Discord user ID to lookup
@@ -157,10 +157,10 @@ export async function getCustomerById(discordId: string): Promise<Customer | nul
 
 /**
  * Creates a new support ticket in Unthread ticketing system
- * 
+ *
  * @async
  * @function createTicket
- * @param {User} user - Discord user object containing user details and ID  
+ * @param {User} user - Discord user object containing user details and ID
  * @param {string} title - Ticket title for support issue
  * @param {string} issue - Detailed ticket description/content in markdown format
  * @param {string} email - User's email address for ticket correspondence
@@ -169,17 +169,17 @@ export async function getCustomerById(discordId: string): Promise<Customer | nul
  * @throws {Error} When customer creation fails in Unthread system
  * @throws {Error} When API request fails (4xx/5xx responses)
  * @throws {Error} When ticket response is missing required fields (id, friendlyId)
- * 
+ *
  * @example
  * ```typescript
  * const ticket = await createTicket(
- *   discordUser, 
- *   'Login Issue', 
+ *   discordUser,
+ *   'Login Issue',
  *   'Unable to access dashboard',
  *   'user@example.com'
  * );
  * ```
- * 
+ *
  * @troubleshooting
  * - Verify UNTHREAD_API_KEY has ticket creation permissions
  * - Check UNTHREAD_SLACK_CHANNEL_ID exists and bot has access
