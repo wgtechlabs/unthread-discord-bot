@@ -14,6 +14,7 @@ import * as unthreadService from '../../services/unthread';
 import { WebhookPayload } from '../../types/unthread';
 import { FileBuffer } from '../../types/attachments';
 import { LogEngine } from '../../config/logger';
+import { advanceTimersAndWait, runAllTimersAndWait } from '../async-test-utils';
 
 // Mock all dependencies
 vi.mock('../../config/logger');
@@ -279,13 +280,15 @@ describe('Unthread Service', () => {
 			it('should handle timeout errors', async () => {
 				mockGetOrCreateCustomer.mockResolvedValue({ unthreadCustomerId: 'customer-123' });
 
-				// Mock fetch to reject with timeout error
-				mockFetch.mockRejectedValue(new Error('Request to create ticket timed out'));
+				// Mock fetch to reject with timeout error (AbortError)
+				const abortError = new Error('Request to create ticket timed out');
+				abortError.name = 'AbortError';
+				mockFetch.mockRejectedValue(abortError);
 
 				await expect(unthreadService.createTicket(mockUser, 'Test Ticket', 'Test issue', 'test@example.com'))
 					.rejects.toThrow('Request to create ticket timed out');
 
-				expect(LogEngine.error).toHaveBeenCalledWith('Failed to create ticket:', expect.any(Error));
+				expect(LogEngine.error).toHaveBeenCalledWith('Request to create ticket timed out after 8000ms');
 			});
 
 			it('should validate ticket response has required id field', async () => {
@@ -647,8 +650,20 @@ describe('Unthread Service', () => {
 				vi.useFakeTimers();
 				
 				try {
-					// Mock fetch to hang indefinitely
-					mockFetch.mockImplementation(() => new Promise(() => {}));
+					// Mock fetch to properly handle abort signal
+					mockFetch.mockImplementation((url, options) => {
+						return new Promise((resolve, reject) => {
+							const signal = options?.signal;
+							if (signal) {
+								signal.addEventListener('abort', () => {
+									const abortError = new Error('The operation was aborted');
+									abortError.name = 'AbortError';
+									reject(abortError);
+								});
+							}
+							// Never resolve - let the timeout trigger
+						});
+					});
 
 					const sendMessagePromise = unthreadService.sendMessageToUnthread(
 						'conversation-123',
@@ -657,13 +672,16 @@ describe('Unthread Service', () => {
 						'test@example.com'
 					);
 
-					// Fast-forward time to trigger timeout
-					vi.advanceTimersByTime(8001);
+					// Advance to exactly 8000ms to trigger the timeout
+					vi.advanceTimersByTime(8000);
+					await vi.runAllTimersAsync();
 
 					await expect(sendMessagePromise).rejects.toThrow('Request to Unthread timed out');
 					expect(LogEngine.error).toHaveBeenCalledWith('Request to Unthread conversation conversation-123 timed out after 8 seconds');
 				} finally {
 					vi.useRealTimers();
+					// Restore the mock to its default state
+					mockFetch.mockClear();
 				}
 			});
 
@@ -761,8 +779,20 @@ describe('Unthread Service', () => {
 				vi.useFakeTimers();
 				
 				try {
-					// Mock fetch to hang indefinitely
-					mockFetch.mockImplementation(() => new Promise(() => {}));
+					// Mock fetch to properly handle abort signal
+					mockFetch.mockImplementation((url, options) => {
+						return new Promise((resolve, reject) => {
+							const signal = options?.signal;
+							if (signal) {
+								signal.addEventListener('abort', () => {
+									const abortError = new Error('The operation was aborted');
+									abortError.name = 'AbortError';
+									reject(abortError);
+								});
+							}
+							// Never resolve - let the timeout trigger
+						});
+					});
 
 					const uploadPromise = unthreadService.sendMessageWithAttachmentsToUnthread(
 						'conversation-123',
@@ -771,15 +801,19 @@ describe('Unthread Service', () => {
 						mockFileBuffers
 					);
 
-					// Fast-forward time to trigger timeout (30 seconds)
-					vi.advanceTimersByTime(30001);
+					// Advance to exactly 30000ms to trigger the timeout
+					vi.advanceTimersByTime(30000);
+					await vi.runAllTimersAsync();
 
 					await expect(uploadPromise).rejects.toThrow('File upload to Unthread timed out');
 					expect(LogEngine.error).toHaveBeenCalledWith('File upload to Unthread conversation conversation-123 timed out after 30 seconds');
 				} finally {
 					vi.useRealTimers();
+					// Restore the mock to its default state
+					mockFetch.mockClear();
 				}
-			});			it('should log file details during upload', async () => {
+			});
+			it('should log file details during upload', async () => {
 				mockFetch.mockResolvedValueOnce({
 					ok: true,
 					status: 201,
@@ -840,7 +874,7 @@ describe('Unthread Service', () => {
 
 			// This should throw because the API key is required
 			await expect(unthreadService.createTicket(mockUser, 'Test', 'Test', 'test@example.com'))
-				.rejects.toThrow();
+				.rejects.toThrow('UNTHREAD_API_KEY environment variable is required');
 		});
 
 		it('should handle customer creation failure in createTicket', async () => {
@@ -921,18 +955,19 @@ describe('Unthread Service', () => {
 
 	describe('Integration Scenarios', () => {
 		it('should handle complete ticket creation workflow', async () => {
-			// Mock customer creation
+			// Reset and mock customer creation
 			const mockCustomer = { unthreadCustomerId: 'customer-123', email: 'test@example.com', name: 'Test User' };
 			mockGetOrCreateCustomer.mockResolvedValue(mockCustomer);
 
-			// Mock ticket creation
+			// Reset fetch mock and set up ticket creation response
+			mockFetch.mockClear();
 			const mockTicketResponse = {
 				id: '3a1c7f44-edef-4edb-bfaf-71885969bfb0',
 				friendlyId: 525,
 				title: 'Integration Test Ticket',
 				status: 'open',
 			};
-			mockFetch.mockResolvedValueOnce({
+			mockFetch.mockResolvedValue({
 				ok: true,
 				status: 201,
 				json: vi.fn().mockResolvedValue(mockTicketResponse),
