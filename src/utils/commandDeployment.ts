@@ -34,12 +34,16 @@ unchanged: string[];
 function normalizeCommand(command: Record<string, unknown>): string {
 	const normalized = { ...command };
 
-	// Remove Discord metadata that changes on every deployment
+	// Remove only Discord-generated metadata that changes on every deployment
+	// These fields are managed by Discord and should not affect deployment decisions
 	delete normalized.id;
 	delete normalized.application_id;
 	delete normalized.version;
-	delete normalized.default_member_permissions;
-	delete normalized.dm_permission;
+
+	// Preserve functional configuration fields that represent developer intent:
+	// - default_member_permissions: Controls who can see/use the command
+	// - dm_permission: Controls whether command works in direct messages
+	// These fields should trigger deployments when changed
 
 	// Sort options array if present to ensure consistent comparison
 	// Create a shallow copy to avoid mutating the original array
