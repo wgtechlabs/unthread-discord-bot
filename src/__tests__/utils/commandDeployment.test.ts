@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { deployCommandsIfNeeded } from '@utils/commandDeployment';
-import { LogEngine } from '@wgtechlabs/log-engine';
+import { LogEngine } from '../../config/logger';
 import { REST, Routes, Client } from 'discord.js';
 
 // Mock Discord.js modules

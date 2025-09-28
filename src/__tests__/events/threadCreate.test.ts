@@ -356,17 +356,22 @@ describe('Thread Create Event Handler', () => {
 			});
 		});
 
-		it('should not send error embed when bot lacks permissions', async () => {
-			const error = new Error('Ticket creation failed');
-			(createTicket as any).mockRejectedValue(error);
-			
-			await execute(mockThread as ThreadChannel);
+	it('should not send error embed when bot lacks permissions', async () => {
+		const error = new Error('Ticket creation failed');
+		(createTicket as any).mockRejectedValue(error);
 
-			expect(LogEngine.error).toHaveBeenCalledWith(
-				'An error occurred while creating the ticket:',
-				'Ticket creation failed'
-			);
-		});
+		// Simulate missing thread permissions
+		mockBotMember.permissionsIn.mockReturnValue({ has: vi.fn().mockReturnValue(false) });
+
+		await execute(mockThread as ThreadChannel);
+
+		// Assert no attempt to send an embed due to missing perms
+		expect(mockThread.send).not.toHaveBeenCalled();
+		expect(LogEngine.error).toHaveBeenCalledWith(
+			'An error occurred while creating the ticket:',
+			'Ticket creation failed'
+		);
+	});
 
 		it('should handle errors in error message sending', async () => {
 			const ticketError = new Error('Ticket creation failed');
