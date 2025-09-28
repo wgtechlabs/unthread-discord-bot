@@ -1,17 +1,56 @@
 /**
- * Support Command Module
+ * Support Command - Interactive Ticket Creation
  *
- * Provides the /support slash command for creating support tickets.
- * This command opens a modal interface for users to submit ticket details,
- * then creates a private thread for ticket management.
- *
- * Features:
- * - Modal-based ticket creation interface
- * - Permission validation for thread creation
- * - Forum channel conflict detection
- * - Thread-based ticket management
+ * @description
+ * Slash command providing modal-based interface for creating support tickets.
+ * Validates permissions, handles forum channel conflicts, creates private threads,
+ * and integrates with Unthread ticketing system for seamless support workflow.
  *
  * @module commands/support/support
+ * @since 1.0.0
+ *
+ * @keyFunctions
+ * - execute(): Main command handler with permission validation and modal presentation
+ * - Modal submission handler: Processes ticket details and creates thread-ticket mapping
+ *
+ * @commonIssues
+ * - Permission denied: Bot lacks "Create Private Threads" or "Send Messages" permissions
+ * - Forum channel conflicts: Command used in forum channels causing interaction failures
+ * - Modal timeout: Users don't submit modal within Discord's 15-minute timeout
+ * - Thread creation failures: Channel limits reached or bot permissions insufficient
+ * - Unthread integration errors: Ticket creation API calls failing during processing
+ *
+ * @troubleshooting
+ * - Verify bot has required permissions in target channels and guild
+ * - Check isValidatedForumChannel() to ensure proper channel type detection
+ * - Monitor modal interaction timeouts and provide user guidance
+ * - Review thread creation limits and channel configuration
+ * - Check UNTHREAD_API_KEY validity and permissions for ticket creation
+ * - Use LogEngine to trace interaction flow and error points
+ *
+ * @performance
+ * - Modal interactions processed within Discord's timeout limits
+ * - Permission checks performed early to prevent unnecessary processing
+ * - Thread creation optimized to minimize API calls
+ * - Error handling prevents hanging interactions
+ *
+ * @dependencies Discord.js interactions, channelUtils, Unthread ticket creation
+ *
+ * @example Basic Usage
+ * ```typescript
+ * // Slash command: /support
+ * // Opens modal for ticket title and description input
+ * // Creates private thread upon submission
+ * ```
+ *
+ * @example Advanced Usage
+ * ```typescript
+ * // Command with permission validation
+ * if (!interaction.memberPermissions?.has(PermissionFlagsBits.CreatePrivateThreads)) {
+ *   await interaction.reply({ content: 'Insufficient permissions', ephemeral: true });
+ *   return;
+ * }
+ * ```
  */
 
 import {
@@ -42,32 +81,24 @@ const supportCommand = {
 		.setDescription('Open a support ticket'),
 
 	/**
-	 * Executes the support command to create a support ticket
+	 * Executes support command with validation and modal presentation
 	 *
-	 * Validates the execution context and presents a ticket creation modal.
-	 * This function performs comprehensive validation to ensure tickets can
-	 * be created successfully in the current context.
-	 *
-	 * Validation checks performed:
-	 * 1. Ensures command is used in a guild with a valid channel
-	 * 2. Prevents usage in threads (forum posts, private threads, etc.)
-	 * 3. Verifies channel is not configured for forum-based tickets
-	 * 4. Checks bot permissions for thread creation and management
-	 * 5. Presents modal interface for ticket submission if all checks pass
-	 *
-	 * @param interaction - The Discord slash command interaction object
-	 * @returns Promise that resolves when command execution is complete
+	 * @async
+	 * @function execute
+	 * @param {ChatInputCommandInteraction} interaction - Discord slash command interaction
+	 * @returns {Promise<void>} Resolves after modal presentation or error response
 	 *
 	 * @example
 	 * ```typescript
-	 * // User types: /support
-	 * // Bot validates context and shows modal for ticket details
-	 * // Modal includes: ticket title, description, and email fields
+	 * // Called automatically when user types: /support
+	 * // Performs validation and shows ticket creation modal
 	 * ```
 	 *
-	 * @throws Will reply with error message if validation fails
-	 * @see {@link isValidatedForumChannel} for forum channel validation
-	 * @see {@link PermissionFlagsBits} for required Discord permissions
+	 * @troubleshooting
+	 * - Validates guild context, channel type, and bot permissions
+	 * - Prevents usage in forum channels and existing threads
+	 * - Shows appropriate error messages for each validation failure
+	 * - Creates modal with title, description, and email input fields
 	 */
 	async execute(interaction: ChatInputCommandInteraction): Promise<void> {
 		// Add guild and channel validation before proceeding
