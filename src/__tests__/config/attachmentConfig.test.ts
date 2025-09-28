@@ -96,11 +96,11 @@ describe('attachmentConfig', () => {
 			it('should include emojis for user-friendly experience', () => {
 				const errorMessages = DISCORD_ATTACHMENT_CONFIG.errorMessages;
 				
-				// Check that all error messages contain emojis
+				// Check that all error messages contain at least one expected emoji
+				const emojiPattern = /(?:⚠️|📏|📎|🔄|❌|⬇️|⏱️|🔑|📤)/u;
 				Object.values(errorMessages).forEach(message => {
-					expect(message).toMatch(/[⚠️📏📎🔄❌⬇️⏱️🔑📤]/);
+					expect(message).toMatch(emojiPattern);
 				});
-			});
 
 			it('should have template placeholders where needed', () => {
 				const errorMessages = DISCORD_ATTACHMENT_CONFIG.errorMessages;
