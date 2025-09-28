@@ -149,6 +149,200 @@ vi.mock('discord.js', () => {
 
 	const mockCollection = Map;
 
+	// Mock EmbedBuilder with chainable methods and data structure
+	const createMockEmbedBuilder = () => {
+		const mockData = {
+			title: undefined as string | undefined,
+			description: undefined as string | undefined,
+			color: undefined as number | undefined,
+			footer: undefined as { text?: string; iconURL?: string } | undefined,
+			timestamp: undefined as string | undefined,
+			fields: [] as any[],
+			thumbnail: undefined as { url?: string } | undefined,
+			image: undefined as { url?: string } | undefined,
+			author: undefined as { name?: string; iconURL?: string } | undefined,
+		};
+
+		const builder = {
+			data: mockData,
+			setTitle: vi.fn().mockImplementation((title: string) => {
+				mockData.title = title;
+				return builder;
+			}),
+			setDescription: vi.fn().mockImplementation((description: string) => {
+				mockData.description = description;
+				return builder;
+			}),
+			setColor: vi.fn().mockImplementation((color: number) => {
+				mockData.color = color;
+				return builder;
+			}),
+			setFooter: vi.fn().mockImplementation((footer: { text?: string; iconURL?: string }) => {
+				mockData.footer = footer;
+				return builder;
+			}),
+			setTimestamp: vi.fn().mockImplementation((timestamp?: Date | string | number) => {
+				mockData.timestamp = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
+				return builder;
+			}),
+			addFields: vi.fn().mockImplementation((...fields: any[]) => {
+				mockData.fields.push(...fields);
+				return builder;
+			}),
+			setThumbnail: vi.fn().mockImplementation((url: string) => {
+				mockData.thumbnail = { url };
+				return builder;
+			}),
+			setImage: vi.fn().mockImplementation((url: string) => {
+				mockData.image = { url };
+				return builder;
+			}),
+			setAuthor: vi.fn().mockImplementation((author: { name?: string; iconURL?: string }) => {
+				mockData.author = author;
+				return builder;
+			}),
+		};
+
+		return builder;
+	};
+
+	// Mock SlashCommandBuilder with chainable methods and data structure
+	const createMockSlashCommandBuilder = () => {
+		const mockData = {
+			name: undefined as string | undefined,
+			description: undefined as string | undefined,
+		};
+
+		const builder = {
+			...mockData,
+			setName: vi.fn().mockImplementation((name: string) => {
+				mockData.name = name;
+				(builder as any).name = name;
+				return builder;
+			}),
+			setDescription: vi.fn().mockImplementation((description: string) => {
+				mockData.description = description;
+				(builder as any).description = description;
+				return builder;
+			}),
+			addStringOption: vi.fn().mockReturnThis(),
+			addIntegerOption: vi.fn().mockReturnThis(),
+			addBooleanOption: vi.fn().mockReturnThis(),
+			addUserOption: vi.fn().mockReturnThis(),
+			addChannelOption: vi.fn().mockReturnThis(),
+			addRoleOption: vi.fn().mockReturnThis(),
+			addAttachmentOption: vi.fn().mockReturnThis(),
+			addSubcommand: vi.fn().mockReturnThis(),
+			addSubcommandGroup: vi.fn().mockReturnThis(),
+			setDefaultMemberPermissions: vi.fn().mockReturnThis(),
+			setDMPermission: vi.fn().mockReturnThis(),
+			toJSON: vi.fn().mockReturnValue({}),
+		};
+
+		return builder;
+	};
+
+	// Mock ModalBuilder with chainable methods and data structure
+	const createMockModalBuilder = () => {
+		const mockData = {
+			custom_id: undefined as string | undefined,
+			title: undefined as string | undefined,
+			components: [] as any[],
+		};
+
+		const builder = {
+			data: mockData,
+			setCustomId: vi.fn().mockImplementation((customId: string) => {
+				mockData.custom_id = customId;
+				return builder;
+			}),
+			setTitle: vi.fn().mockImplementation((title: string) => {
+				mockData.title = title;
+				return builder;
+			}),
+			addComponents: vi.fn().mockImplementation((...components: any[]) => {
+				mockData.components.push(...components);
+				return builder;
+			}),
+			setComponents: vi.fn().mockImplementation((components: any[]) => {
+				mockData.components = components;
+				return builder;
+			}),
+		};
+
+		return builder;
+	};
+
+	// Mock ActionRowBuilder with chainable methods
+	const createMockActionRowBuilder = () => {
+		const mockData = {
+			type: 1, // ACTION_ROW type
+			components: [] as any[],
+		};
+
+		const builder = {
+			data: mockData,
+			addComponents: vi.fn().mockImplementation((...components: any[]) => {
+				mockData.components.push(...components);
+				return builder;
+			}),
+			setComponents: vi.fn().mockImplementation((components: any[]) => {
+				mockData.components = components;
+				return builder;
+			}),
+		};
+
+		return builder;
+	};
+
+	// Mock TextInputBuilder with chainable methods
+	const createMockTextInputBuilder = () => {
+		const mockData = {
+			type: 4, // TEXT_INPUT type
+			customId: undefined as string | undefined,
+			label: undefined as string | undefined,
+			style: undefined as number | undefined,
+			placeholder: undefined as string | undefined,
+			required: undefined as boolean | undefined,
+			maxLength: undefined as number | undefined,
+			minLength: undefined as number | undefined,
+		};
+
+		const builder = {
+			data: mockData,
+			setCustomId: vi.fn().mockImplementation((customId: string) => {
+				mockData.customId = customId;
+				return builder;
+			}),
+			setLabel: vi.fn().mockImplementation((label: string) => {
+				mockData.label = label;
+				return builder;
+			}),
+			setStyle: vi.fn().mockImplementation((style: number) => {
+				mockData.style = style;
+				return builder;
+			}),
+			setPlaceholder: vi.fn().mockImplementation((placeholder: string) => {
+				mockData.placeholder = placeholder;
+				return builder;
+			}),
+			setRequired: vi.fn().mockImplementation((required: boolean) => {
+				mockData.required = required;
+				return builder;
+			}),
+			setMaxLength: vi.fn().mockImplementation((maxLength: number) => {
+				mockData.maxLength = maxLength;
+				return builder;
+			}),
+			setMinLength: vi.fn().mockImplementation((minLength: number) => {
+				mockData.minLength = minLength;
+				return builder;
+			}),
+		};
+
+		return builder;
+	};
+
 	return {
 		Client: vi.fn(() => mockClient),
 		GatewayIntentBits: {
@@ -173,7 +367,11 @@ vi.mock('discord.js', () => {
 			Custom: 4,
 			Competing: 5,
 		},
-		EmbedBuilder: vi.fn(() => mockEmbedBuilder),
+		EmbedBuilder: vi.fn(() => createMockEmbedBuilder()),
+		SlashCommandBuilder: vi.fn(() => createMockSlashCommandBuilder()),
+		ModalBuilder: vi.fn(() => createMockModalBuilder()),
+		ActionRowBuilder: vi.fn(() => createMockActionRowBuilder()),
+		TextInputBuilder: vi.fn(() => createMockTextInputBuilder()),
 		Collection: mockCollection,
 		ChannelType: {
 			GuildText: 0,
@@ -235,7 +433,8 @@ const mockFetchImplementation = vi.fn((url: string | Request, options?: any) => 
 			ok: true,
 			status: 201,
 			json: () => Promise.resolve({
-				customerId: 'test_customer_id_12345',
+				id: '4e1cc76a-395e-4f0e-8b37-32ef6484b9ff', // UUID like real Unthread
+				customerId: '4e1cc76a-395e-4f0e-8b37-32ef6484b9ff', // backward compatibility
 				email: 'test@example.com',
 				name: 'Test User',
 			}),
@@ -248,13 +447,15 @@ const mockFetchImplementation = vi.fn((url: string | Request, options?: any) => 
 			ok: true,
 			status: 201,
 			json: () => Promise.resolve({
-				conversationId: 'test_ticket_id_12345',
+				id: 'a38963aa-e2ef-4592-b992-98369131523e',
+				friendlyId: 527,
 				title: 'Test Ticket',
 				status: 'open',
-				customer: {
-					customerId: 'test_customer_id_12345',
-					email: 'test@example.com',
-				},
+				customerId: '3ee3717c-918d-4f8b-a7ee-7c925d69748d',
+				createdAt: '2025-09-20T17:10:45.114Z',
+				updatedAt: '2025-09-20T17:10:45.114Z',
+				priority: 3,
+				sourceType: 'slack'
 			}),
 		});
 	}

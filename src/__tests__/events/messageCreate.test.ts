@@ -8,9 +8,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Events, Message, ThreadChannel, Collection } from 'discord.js';
 import { LogEngine } from '@config/logger';
-import { sendMessageToUnthread, getTicketByDiscordThreadId } from '@services/unthread';
+import { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } from '@services/unthread';
 import { isValidatedForumChannel } from '@utils/channelUtils';
-import { getCustomerByDiscordId } from '@utils/customerUtils';
 import { AttachmentHandler } from '@utils/attachmentHandler';
 import { AttachmentDetectionService } from '@services/attachmentDetection';
 import { getConfig, DEFAULT_CONFIG } from '@config/defaults';
@@ -19,7 +18,6 @@ import { name, execute, once } from '@events/messageCreate';
 // Mock all external dependencies
 vi.mock('@services/unthread');
 vi.mock('@utils/channelUtils');
-vi.mock('@utils/customerUtils');
 vi.mock('@utils/attachmentHandler');
 vi.mock('@services/attachmentDetection');
 vi.mock('@config/defaults');
@@ -78,7 +76,7 @@ describe('Message Create Event Handler', () => {
 			unthreadTicketId: 'ticket_123',
 			discordThreadId: 'thread_123',
 		});
-		(getCustomerByDiscordId as any).mockResolvedValue({
+		(getCustomerById as any).mockResolvedValue({
 			email: 'test@example.com',
 		});
 		(sendMessageToUnthread as any).mockResolvedValue({ success: true });
@@ -169,7 +167,7 @@ describe('Message Create Event Handler', () => {
 				'ticket_123',
 				mockMessage.author,
 				'Hello, I need help with my account',
-				'testuser@example.com'
+				'test@example.com'
 			);
 		});
 
@@ -182,7 +180,7 @@ describe('Message Create Event Handler', () => {
 		});
 
 		it('should use fallback email when customer has no email', async () => {
-			(getCustomerByDiscordId as any).mockResolvedValue(null);
+			(getCustomerById as any).mockResolvedValue(null);
 
 			await execute(mockMessage as Message);
 
@@ -195,7 +193,7 @@ describe('Message Create Event Handler', () => {
 		});
 
 		it('should use customer email when available', async () => {
-			(getCustomerByDiscordId as any).mockResolvedValue({
+			(getCustomerById as any).mockResolvedValue({
 				email: 'customer@example.com',
 			});
 
@@ -223,7 +221,7 @@ describe('Message Create Event Handler', () => {
 				'ticket_123',
 				mockMessage.author,
 				'> Original quoted message\n\nHello, I need help with my account',
-				'testuser@example.com'
+				'test@example.com'
 			);
 		});
 
@@ -244,7 +242,7 @@ describe('Message Create Event Handler', () => {
 				'ticket_123',
 				mockMessage.author,
 				'Hello, I need help with my account',
-				'testuser@example.com'
+				'test@example.com'
 			);
 		});
 
@@ -277,7 +275,7 @@ describe('Message Create Event Handler', () => {
 				'Hello, I need help with my account',
 				{
 					name: 'Test User',
-					email: 'testuser@example.com',
+					email: 'test@example.com',
 				}
 			);
 		});
@@ -303,14 +301,15 @@ describe('Message Create Event Handler', () => {
 			(AttachmentDetectionService.filterSupportedImages as any).mockReturnValue(mockAttachments);
 			mockAttachmentHandler.uploadDiscordAttachmentsToUnthread.mockResolvedValue({
 				success: false,
-				error: 'Upload failed',
+				processedCount: 0,
+				errors: ['Upload failed'],
+				processingTime: 100,
 			});
 
 			await execute(mockMessage as Message);
 
-			expect(LogEngine.error).toHaveBeenCalledWith(
-				'Failed to upload attachments:',
-				'Upload failed'
+			expect(LogEngine.warn).toHaveBeenCalledWith(
+				'Attachment upload failed: Upload failed. Falling back to text message.'
 			);
 		});
 
@@ -435,7 +434,7 @@ describe('Message Create Event Handler', () => {
 
 		it('should handle customer lookup errors', async () => {
 			const customerError = new Error('Customer service failed');
-			(getCustomerByDiscordId as any).mockRejectedValue(customerError);
+			(getCustomerById as any).mockRejectedValue(customerError);
 
 			await execute(mockMessage as Message);
 
@@ -483,7 +482,7 @@ describe('Message Create Event Handler', () => {
 			// Verify the complete workflow
 			expect(isValidatedForumChannel).toHaveBeenCalled();
 			expect(getTicketByDiscordThreadId).toHaveBeenCalled();
-			expect(getCustomerByDiscordId).toHaveBeenCalled();
+			expect(getCustomerById).toHaveBeenCalled();
 			expect(AttachmentDetectionService.filterSupportedImages).toHaveBeenCalled();
 			expect(mockAttachmentHandler.uploadDiscordAttachmentsToUnthread).toHaveBeenCalled();
 			expect(mockMessage.react).toHaveBeenCalledWith('📎');
