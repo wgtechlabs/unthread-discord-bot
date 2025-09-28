@@ -7,8 +7,21 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { LogEngine } from '@wgtechlabs/log-engine';
 
+// Mock log-engine before it is imported anywhere
+vi.mock('@wgtechlabs/log-engine', () => {
+  const LogMode = { DEBUG: 'debug', INFO: 'info', WARN: 'warn', ERROR: 'error' } as const;
+  const LogEngine = {
+    configure: vi.fn(),
+    debug:     vi.fn(),
+    info:      vi.fn(),
+    warn:      vi.fn(),
+    error:     vi.fn(),
+  };
+  return { LogEngine, LogMode };
+});
+
+import { LogEngine } from '@wgtechlabs/log-engine';
 describe('logger configuration', () => {
 	// Store original environment variables
 	let originalEnv: NodeJS.ProcessEnv;
