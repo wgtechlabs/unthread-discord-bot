@@ -8,10 +8,6 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-	SlashCommandBuilder,
-	ModalBuilder,
-	ActionRowBuilder,
-	TextInputBuilder,
 	TextInputStyle,
 	PermissionFlagsBits,
 	ChatInputCommandInteraction,
