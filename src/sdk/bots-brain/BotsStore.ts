@@ -188,15 +188,6 @@ export interface ExtendedThreadTicketMapping extends ThreadTicketMapping {
 }
 
 /**
- * Bot configuration storage interface
- */
-export interface BotConfig {
-    key: string;
-    value: unknown;
-    expiresAt?: Date;
-}
-
-/**
  * BotsStore configuration
  */
 interface BotsStoreConfig {
