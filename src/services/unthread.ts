@@ -192,7 +192,10 @@ export async function createTicket(user: User, title: string, issue: string, ema
 	LogEngine.debug(`Env: API_KEY=${process.env.UNTHREAD_API_KEY ? 'SET' : 'NOT_SET'}, SLACK_CHANNEL_ID=${process.env.UNTHREAD_SLACK_CHANNEL_ID ? 'SET' : 'NOT_SET'}`);
 
 	// Get API key (guaranteed to exist due to startup validation)
-	const apiKey = process.env.UNTHREAD_API_KEY!;
+	const apiKey = process.env.UNTHREAD_API_KEY;
+	if (!apiKey) {
+		throw new Error('UNTHREAD_API_KEY environment variable is required');
+	}
 
 	const customer = await getOrCreateCustomer(user, email);
 	LogEngine.debug(`Customer: ${customer?.unthreadCustomerId || 'unknown'} (${customer?.email || email})`);

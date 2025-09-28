@@ -289,12 +289,13 @@ Ask an admin to grant these permissions or use \`/support\` in an authorized cha
 			const secondRow = modal.data.components![1];
 			const thirdRow = modal.data.components![2];
 
-			expect(firstRow.components).toHaveLength(1);
-			expect(secondRow.components).toHaveLength(1);
-			expect(thirdRow.components).toHaveLength(1);
+			// Access the data structure properly
+			expect(firstRow.data.components).toHaveLength(1);
+			expect(secondRow.data.components).toHaveLength(1);
+			expect(thirdRow.data.components).toHaveLength(1);
 
 			// Check title input
-			const titleInput = firstRow.components[0];
+			const titleInput = firstRow.data.components[0].data;
 			expect(titleInput.custom_id).toBe('titleInput');
 			expect(titleInput.label).toBe('Ticket Title');
 			expect(titleInput.style).toBe(TextInputStyle.Short);
@@ -303,7 +304,7 @@ Ask an admin to grant these permissions or use \`/support\` in an authorized cha
 			expect(titleInput.max_length).toBe(100);
 
 			// Check issue input
-			const issueInput = secondRow.components[0];
+			const issueInput = secondRow.data.components[0].data;
 			expect(issueInput.custom_id).toBe('issueInput');
 			expect(issueInput.label).toBe('Summary');
 			expect(issueInput.style).toBe(TextInputStyle.Paragraph);
@@ -311,7 +312,7 @@ Ask an admin to grant these permissions or use \`/support\` in an authorized cha
 			expect(issueInput.max_length).toBe(2000);
 
 			// Check email input
-			const emailInput = thirdRow.components[0];
+			const emailInput = thirdRow.data.components[0].data;
 			expect(emailInput.custom_id).toBe('emailInput');
 			expect(emailInput.label).toBe('Contact Email (Optional)');
 			expect(emailInput.style).toBe(TextInputStyle.Short);

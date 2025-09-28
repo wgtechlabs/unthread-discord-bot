@@ -299,19 +299,19 @@ vi.mock('discord.js', () => {
 	const createMockTextInputBuilder = () => {
 		const mockData = {
 			type: 4, // TEXT_INPUT type
-			customId: undefined as string | undefined,
+			custom_id: undefined as string | undefined,
 			label: undefined as string | undefined,
 			style: undefined as number | undefined,
 			placeholder: undefined as string | undefined,
 			required: undefined as boolean | undefined,
-			maxLength: undefined as number | undefined,
-			minLength: undefined as number | undefined,
+			max_length: undefined as number | undefined,
+			min_length: undefined as number | undefined,
 		};
 
 		const builder = {
 			data: mockData,
 			setCustomId: vi.fn().mockImplementation((customId: string) => {
-				mockData.customId = customId;
+				mockData.custom_id = customId;
 				return builder;
 			}),
 			setLabel: vi.fn().mockImplementation((label: string) => {
@@ -331,11 +331,11 @@ vi.mock('discord.js', () => {
 				return builder;
 			}),
 			setMaxLength: vi.fn().mockImplementation((maxLength: number) => {
-				mockData.maxLength = maxLength;
+				mockData.max_length = maxLength;
 				return builder;
 			}),
 			setMinLength: vi.fn().mockImplementation((minLength: number) => {
-				mockData.minLength = minLength;
+				mockData.min_length = minLength;
 				return builder;
 			}),
 		};
