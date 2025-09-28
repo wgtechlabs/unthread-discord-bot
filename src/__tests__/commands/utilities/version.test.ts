@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
+ import { ChatInputCommandInteraction } from 'discord.js';
 import { data as versionData, execute as versionExecute } from '../../../commands/utilities/version';
 
 // Mock package.json version
