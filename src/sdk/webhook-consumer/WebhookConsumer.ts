@@ -339,6 +339,18 @@ export class WebhookConsumer {
 					const lastItem = await this.redisClient.lIndex(this.queueName, -1);
 					LogEngine.debug(`Queue debug - first item: ${firstItem?.substring(0, 100)}...`);
 					LogEngine.debug(`Queue debug - last item: ${lastItem?.substring(0, 100)}...`);
+					
+					// URGENT: Try direct lPop since blPop is failing
+					LogEngine.warn('Attempting direct lPop due to blPop issues...');
+					const directResult = await this.redisClient.lPop(this.queueName);
+					if (directResult) {
+						LogEngine.info('✅ Direct lPop successful - bypassing blPop entirely');
+						await this.processEvent(directResult);
+						return;
+					}
+					else {
+						LogEngine.error(`❌ Direct lPop also failed despite ${queueLength} events in queue`);
+					}
 				}
 				else if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
 					LogEngine.debug(`Queue ${this.queueName} is empty - polling actively`);
@@ -348,9 +360,9 @@ export class WebhookConsumer {
 				LogEngine.error(`Redis client not available for queue length check on ${this.queueName}`);
 			}
 
-			// Get the next event from the queue using dedicated blocking client (1 second timeout)
+			// Get the next event from the queue using dedicated blocking client (shorter timeout)
 			LogEngine.debug(`Attempting blPop on queue: ${this.queueName} with blocking client connected: ${this.blockingRedisClient.isOpen}`);
-			const result = await this.blockingRedisClient.blPop(this.queueName, 1);
+			const result = await this.blockingRedisClient.blPop(this.queueName, 0.1); // Reduce to 100ms timeout
 			LogEngine.debug(`blPop result: ${result ? 'received event' : 'no event (timeout)'}`);
 
 			if (result) {
