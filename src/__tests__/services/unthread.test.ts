@@ -489,7 +489,7 @@ describe('Unthread Service', () => {
 				// Mock the private handleMessageCreated function by ensuring it doesn't throw
 				await expect(unthreadService.handleWebhookEvent(payload)).resolves.not.toThrow();
 
-				expect(LogEngine.info).toHaveBeenCalledWith('Processing webhook event: message_created');
+				expect(LogEngine.info).toHaveBeenCalledWith('🎯 Processing webhook event: message_created from dashboard');
 			});
 
 			it('should process conversation_updated events', async () => {
@@ -510,7 +510,7 @@ describe('Unthread Service', () => {
 
 				await expect(unthreadService.handleWebhookEvent(payload)).resolves.not.toThrow();
 
-				expect(LogEngine.info).toHaveBeenCalledWith('Processing webhook event: conversation_updated');
+				expect(LogEngine.info).toHaveBeenCalledWith('🎯 Processing webhook event: conversation_updated from dashboard');
 			});
 
 			it('should log debug for conversation_created events', async () => {
