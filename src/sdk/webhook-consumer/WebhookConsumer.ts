@@ -308,7 +308,14 @@ export class WebhookConsumer {
 				const queueLength = await this.redisClient.lLen(this.queueName);
 				if (queueLength > 0) {
 					LogEngine.info(`Found ${queueLength} events in queue ${this.queueName}`);
+				} else {
+					// Log occasionally when no events are found to verify polling is working
+					if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
+						LogEngine.debug(`Queue ${this.queueName} is empty - polling actively`);
+					}
 				}
+			} else {
+				LogEngine.error(`Redis client not available for queue length check on ${this.queueName}`);
 			}
 
 			// Get the next event from the queue using dedicated blocking client (1 second timeout)

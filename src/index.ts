@@ -210,6 +210,34 @@ async function main(): Promise<void> {
 		await initializeWebhookConsumer();
 
 		LogEngine.info('🚀 Unthread Discord Bot started successfully as Redis consumer');
+		
+		// Add diagnostic logging for webhook consumer status
+		if (webhookConsumer) {
+			const status = webhookConsumer.getStatus();
+			LogEngine.info('Webhook consumer status:', status);
+			
+			// Perform health check
+			const health = await webhookConsumer.healthCheck();
+			LogEngine.info('Webhook consumer health:', health);
+			
+			// Log Redis connection details (redacted for security)
+			LogEngine.info('Redis configuration:', {
+				queueName: status.queueName,
+				hasRedisUrl: !!process.env.WEBHOOK_REDIS_URL,
+				redisUrlPreview: process.env.WEBHOOK_REDIS_URL ? 
+					process.env.WEBHOOK_REDIS_URL.replace(/\/\/.*@/, '//***@') : 'not configured'
+			});
+		}
+		
+		// Set up periodic diagnostics every 5 minutes
+		setInterval(async () => {
+			if (webhookConsumer) {
+				const health = await webhookConsumer.healthCheck();
+				if (health.status !== 'healthy') {
+					LogEngine.warn('Webhook consumer health degraded:', health);
+				}
+			}
+		}, 5 * 60 * 1000);
 	}
 	catch (error) {
 		LogEngine.error('Failed to start bot:', error);
