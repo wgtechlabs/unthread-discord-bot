@@ -324,7 +324,13 @@ export class WebhookConsumer {
 			if (result) {
 				LogEngine.info(`Received event from queue: ${this.queueName}`);
 				const eventData = result.element;
-				await this.processEvent(eventData);
+				
+				// Process in background - don't await (mirrors Telegram bot pattern)
+				this.processEvent(eventData).catch(error => {
+					LogEngine.error('Background event processing failed:', error);
+				});
+				
+				// Continue immediately to next poll
 				return;
 			}
 
