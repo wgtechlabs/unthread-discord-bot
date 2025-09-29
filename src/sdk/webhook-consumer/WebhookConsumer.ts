@@ -357,16 +357,8 @@ export class WebhookConsumer {
 				LogEngine.info(`Received event from queue: ${this.queueName}`);
 				const eventData = result.element;
 				
-				// Process in background - track promise for graceful shutdown
-				const eventPromise = this.processEvent(eventData)
-					.catch(error => {
-						LogEngine.error('Background event processing failed:', error);
-					})
-					.finally(() => {
-						this.inFlight.delete(eventPromise);
-					});
-				
-				this.inFlight.add(eventPromise);
+				// Process event synchronously like Telegram bot (await completion)
+				await this.processEvent(eventData);
 				
 				// Continue immediately to next poll
 				return;
@@ -381,16 +373,8 @@ export class WebhookConsumer {
 					if (fallbackResult) {
 						LogEngine.info(`Received event via lPop fallback from queue: ${this.queueName}`);
 						
-						// Process in background - track promise for graceful shutdown
-						const eventPromise = this.processEvent(fallbackResult)
-							.catch(error => {
-								LogEngine.error('Background event processing failed:', error);
-							})
-							.finally(() => {
-								this.inFlight.delete(eventPromise);
-							});
-						
-						this.inFlight.add(eventPromise);
+						// Process event synchronously
+						await this.processEvent(fallbackResult);
 						return;
 					}
 				}
