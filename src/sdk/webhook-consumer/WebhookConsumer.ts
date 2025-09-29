@@ -106,6 +106,8 @@ export class WebhookConsumer {
 	private blockingRedisClient: RedisClientType | null = null;
 	private isRunning: boolean = false;
 	private pollTimer: NodeJS.Timeout | null = null;
+	// Track in-flight background promises for graceful shutdown
+	private inFlight = new Set<Promise<unknown>>();
 
 	// Throttling for debug logs to reduce noise
 	private lastNoEventsLog: number = 0;
@@ -261,8 +263,32 @@ export class WebhookConsumer {
 	 */
 	async stop(): Promise<void> {
 		this.isRunning = false;
+		await this.drainInFlight();
 		await this.disconnect();
 		LogEngine.info('Webhook consumer stopped');
+	}
+
+	/**
+	 * Wait for in-flight promises to complete with timeout
+	 */
+	private async drainInFlight(timeoutMs = 30_000): Promise<void> {
+		if (this.inFlight.size === 0) {
+			return;
+		}
+
+		LogEngine.info(`Waiting for ${this.inFlight.size} in-flight operations to complete...`);
+		
+		const allSettled = Promise.allSettled(Array.from(this.inFlight));
+		const timeout = new Promise<void>(resolve => setTimeout(resolve, timeoutMs));
+
+		await Promise.race([allSettled, timeout]);
+
+		if (this.inFlight.size > 0) {
+			LogEngine.warn(`${this.inFlight.size} operations still in-flight after ${timeoutMs}ms timeout`);
+		}
+		else {
+			LogEngine.info('All in-flight operations completed successfully');
+		}
 	}
 
 	/**
@@ -308,13 +334,12 @@ export class WebhookConsumer {
 				const queueLength = await this.redisClient.lLen(this.queueName);
 				if (queueLength > 0) {
 					LogEngine.info(`Found ${queueLength} events in queue ${this.queueName}`);
-				} else {
-					// Log occasionally when no events are found to verify polling is working
-					if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
-						LogEngine.debug(`Queue ${this.queueName} is empty - polling actively`);
-					}
 				}
-			} else {
+				else if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
+					LogEngine.debug(`Queue ${this.queueName} is empty - polling actively`);
+				}
+			}
+			else {
 				LogEngine.error(`Redis client not available for queue length check on ${this.queueName}`);
 			}
 
@@ -325,10 +350,16 @@ export class WebhookConsumer {
 				LogEngine.info(`Received event from queue: ${this.queueName}`);
 				const eventData = result.element;
 				
-				// Process in background - don't await (mirrors Telegram bot pattern)
-				this.processEvent(eventData).catch(error => {
-					LogEngine.error('Background event processing failed:', error);
-				});
+				// Process in background - track promise for graceful shutdown
+				const eventPromise = this.processEvent(eventData)
+					.catch(error => {
+						LogEngine.error('Background event processing failed:', error);
+					})
+					.finally(() => {
+						this.inFlight.delete(eventPromise);
+					});
+				
+				this.inFlight.add(eventPromise);
 				
 				// Continue immediately to next poll
 				return;
