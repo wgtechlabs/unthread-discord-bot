@@ -334,6 +334,11 @@ export class WebhookConsumer {
 				const queueLength = await this.redisClient.lLen(this.queueName);
 				if (queueLength > 0) {
 					LogEngine.info(`Found ${queueLength} events in queue ${this.queueName}`);
+					// Debug: peek at the queue structure
+					const firstItem = await this.redisClient.lIndex(this.queueName, 0);
+					const lastItem = await this.redisClient.lIndex(this.queueName, -1);
+					LogEngine.debug(`Queue debug - first item: ${firstItem?.substring(0, 100)}...`);
+					LogEngine.debug(`Queue debug - last item: ${lastItem?.substring(0, 100)}...`);
 				}
 				else if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
 					LogEngine.debug(`Queue ${this.queueName} is empty - polling actively`);
@@ -344,7 +349,9 @@ export class WebhookConsumer {
 			}
 
 			// Get the next event from the queue using dedicated blocking client (1 second timeout)
+			LogEngine.debug(`Attempting blPop on queue: ${this.queueName} with blocking client connected: ${this.blockingRedisClient.isOpen}`);
 			const result = await this.blockingRedisClient.blPop(this.queueName, 1);
+			LogEngine.debug(`blPop result: ${result ? 'received event' : 'no event (timeout)'}`);
 
 			if (result) {
 				LogEngine.info(`Received event from queue: ${this.queueName}`);
@@ -363,6 +370,30 @@ export class WebhookConsumer {
 				
 				// Continue immediately to next poll
 				return;
+			}
+
+			// If blPop timed out but we know there are events, try non-blocking lPop as fallback
+			if (this.redisClient?.isOpen) {
+				const queueLength = await this.redisClient.lLen(this.queueName);
+				if (queueLength > 0) {
+					LogEngine.warn(`blPop timeout but ${queueLength} events exist - trying lPop fallback`);
+					const fallbackResult = await this.redisClient.lPop(this.queueName);
+					if (fallbackResult) {
+						LogEngine.info(`Received event via lPop fallback from queue: ${this.queueName}`);
+						
+						// Process in background - track promise for graceful shutdown
+						const eventPromise = this.processEvent(fallbackResult)
+							.catch(error => {
+								LogEngine.error('Background event processing failed:', error);
+							})
+							.finally(() => {
+								this.inFlight.delete(eventPromise);
+							});
+						
+						this.inFlight.add(eventPromise);
+						return;
+					}
+				}
 			}
 
 			// Only log "no events" message every 5 minutes to reduce noise
