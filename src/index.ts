@@ -198,16 +198,84 @@ async function main(): Promise<void> {
 		// Step 3: Initialize and validate the new 3-layer storage architecture
 		await validateStartupRequirements();
 
+		// Step 3.5: Railway environment diagnostics
+		LogEngine.info('Environment diagnostics:', {
+			nodeEnv: process.env.NODE_ENV,
+			platform: process.platform,
+			nodeVersion: process.version,
+			hasDiscordToken: !!DISCORD_BOT_TOKEN,
+			postgresUrlSet: !!POSTGRES_URL,
+			redisUrlSet: !!PLATFORM_REDIS_URL,
+			webhookRedisSet: !!process.env.WEBHOOK_REDIS_URL,
+			isRailway: process.env.RAILWAY_ENVIRONMENT_NAME ? true : false,
+		});
+
 		// Step 4: Start Discord login after validation succeeds
 		LogEngine.info('Logging in to Discord...');
-		await client.login(DISCORD_BOT_TOKEN);
-		global.discordClient = client;
-		LogEngine.info('Discord client is ready and set globally.');
+		LogEngine.debug('Using Discord bot token:', DISCORD_BOT_TOKEN ? `${DISCORD_BOT_TOKEN.substring(0, 10)}...` : 'MISSING');
+		
+		// Add timeout protection for Discord login
+		const loginTimeout = new Promise((_, reject) => {
+			setTimeout(() => reject(new Error('Discord login timed out after 30 seconds')), 30000);
+		});
+		
+		try {
+			const loginPromise = client.login(DISCORD_BOT_TOKEN);
+			await Promise.race([
+				loginPromise,
+				loginTimeout,
+			]);
+			global.discordClient = client;
+			LogEngine.info('Discord client logged in successfully');
+			
+			// Wait for Discord client to be fully ready
+			if (!client.isReady()) {
+				LogEngine.info('Waiting for Discord client ready state...');
+				await new Promise<void>((resolve, reject) => {
+					const readyTimeout = setTimeout(() => {
+						reject(new Error('Discord client ready timeout after 15 seconds'));
+					}, 15000);
+					
+					client.once('ready', () => {
+						clearTimeout(readyTimeout);
+						LogEngine.info(`Discord client is fully ready. Logged in as ${client.user?.tag}`);
+						resolve();
+					});
+				});
+			}
+			else {
+				LogEngine.info(`Discord client is already ready. Logged in as ${client.user?.tag}`);
+			}
+		}
+		catch (error) {
+			LogEngine.error('Discord login failed:', {
+				error: error instanceof Error ? error.message : String(error),
+				tokenLength: DISCORD_BOT_TOKEN ? DISCORD_BOT_TOKEN.length : 0,
+				tokenPrefix: DISCORD_BOT_TOKEN ? DISCORD_BOT_TOKEN.substring(0, 10) : 'MISSING',
+			});
+			throw error;
+		}
 
 		// Step 5: Initialize webhook consumer after Discord client is ready
 		// This ensures deterministic startup order without race conditions
 		LogEngine.info('Initializing webhook consumer...');
-		await initializeWebhookConsumer();
+		
+		// Add timeout protection for webhook consumer initialization
+		const consumerTimeout = new Promise((_, reject) => {
+			setTimeout(() => reject(new Error('Webhook consumer initialization timed out after 20 seconds')), 20000);
+		});
+		
+		try {
+			await Promise.race([
+				initializeWebhookConsumer(),
+				consumerTimeout,
+			]);
+			LogEngine.info('Webhook consumer initialization completed');
+		}
+		catch (error) {
+			LogEngine.error('Webhook consumer initialization failed:', error);
+			LogEngine.warn('Bot will continue without webhook processing capabilities');
+		}
 
 		LogEngine.info('🚀 Unthread Discord Bot started successfully as Redis consumer');
 
@@ -277,6 +345,38 @@ const client = new Client({
 		Partials.ThreadMember,
 	],
 }) as ExtendedClient;
+
+// Add Discord client error handlers for debugging Railway deployment issues
+client.on('error', (error) => {
+	LogEngine.error('Discord client error:', {
+		name: error.name,
+		message: error.message,
+		stack: error.stack,
+	});
+});
+
+client.on('warn', (warning) => {
+	LogEngine.warn('Discord client warning:', warning);
+});
+
+client.on('debug', (debug) => {
+	// Only log debug in development to avoid log spam in production
+	if (process.env.NODE_ENV === 'development') {
+		LogEngine.debug('Discord client debug:', debug);
+	}
+});
+
+client.on('disconnect', () => {
+	LogEngine.warn('Discord client disconnected');
+});
+
+client.on('reconnecting', () => {
+	LogEngine.info('Discord client reconnecting...');
+});
+
+client.on('resume', () => {
+	LogEngine.info('Discord client resumed');
+});
 
 /**
  * Command Loading System
