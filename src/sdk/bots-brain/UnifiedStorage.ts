@@ -177,6 +177,18 @@ class RedisStorage implements StorageLayer {
 
 	constructor(redisUrl: string) {
 		this.client = createClient({ url: redisUrl });
+
+		// Add error event handler to prevent crashes (Railway optimization)
+		this.client.on('error', (error: Error) => {
+			this.connected = false;
+			LogEngine.error('Redis L2 cache connection error (non-fatal):', {
+				error: error.message,
+				code: (error as NodeJS.ErrnoException).code,
+				errorType: 'L2_cache_error',
+			});
+			// Don't throw - graceful degradation to L1 + L3 only
+		});
+
 		this.initializeConnection();
 	}
 

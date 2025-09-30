@@ -862,40 +862,62 @@ export class BotsStore {
 	 */
 	private async ensureSchema(): Promise<void> {
 		try {
-			// Check if required tables exist
-			const tableCheck = await withDbClient(this.pool, async (client) => {
-				return await client.query(`
-					SELECT table_name 
-					FROM information_schema.tables 
-					WHERE table_schema = 'public' 
-					AND table_name IN ('customers', 'thread_ticket_mappings', 'storage_cache')
-				`);
+			// Wrap schema operations with timeout for Railway compatibility - 2 minutes total timeout
+			const schemaTimeout = 120000;
+			let timeoutId: NodeJS.Timeout | null = null;
+			const timeoutPromise = new Promise<never>((_, reject) => {
+				timeoutId = setTimeout(
+					() => reject(new Error('Schema operation timed out after 2 minutes')),
+					schemaTimeout,
+				);
 			});
-
-			const requiredTables = ['customers', 'thread_ticket_mappings', 'storage_cache'];
-			const foundTables = tableCheck.rows.map((row: { table_name: string }) => row.table_name);
-			const missingTables = requiredTables.filter(table => !foundTables.includes(table));
-
-			if (missingTables.length > 0) {
-				LogEngine.info('Database tables missing - setting up automatically...', {
-					missing: missingTables,
-				});
-				await this.initializeSchema();
+			try {
+				await Promise.race([this.performSchemaCheck(), timeoutPromise]);
 			}
-			else {
-				LogEngine.info('Database schema verified', {
-					tablesFound: foundTables,
-					botsBrainReady: foundTables.includes('storage_cache'),
-				});
+			finally {
+				if (timeoutId) clearTimeout(timeoutId);
 			}
 		}
 		catch (error) {
 			const err = error as Error;
-			LogEngine.error('Error checking database schema', {
+			LogEngine.error('Error during schema operations', {
 				error: err.message,
 				stack: err.stack,
 			});
 			throw error;
+		}
+	}
+
+	/**
+	 * Perform the actual schema check and initialization
+	 * Separated for timeout handling
+	 */
+	private async performSchemaCheck(): Promise<void> {
+		// Check if required tables exist
+		const tableCheck = await withDbClient(this.pool, async (client) => {
+			return await client.query(`
+				SELECT table_name 
+				FROM information_schema.tables 
+				WHERE table_schema = 'public' 
+				AND table_name IN ('customers', 'thread_ticket_mappings', 'storage_cache')
+			`);
+		});
+
+		const requiredTables = ['customers', 'thread_ticket_mappings', 'storage_cache'];
+		const foundTables = tableCheck.rows.map((row: { table_name: string }) => row.table_name);
+		const missingTables = requiredTables.filter(table => !foundTables.includes(table));
+
+		if (missingTables.length > 0) {
+			LogEngine.info('Database tables missing - setting up automatically...', {
+				missing: missingTables,
+			});
+			await this.initializeSchema();
+		}
+		else {
+			LogEngine.info('Database schema verified', {
+				tablesFound: foundTables,
+				botsBrainReady: foundTables.includes('storage_cache'),
+			});
 		}
 	}
 
@@ -907,6 +929,16 @@ export class BotsStore {
 	 * - Schema file copied during Docker build: dist/database/schema.sql
 	 * - Path resolution from dist/sdk/bots-brain/ to dist/database/
 	 * - Works with Railway's container file system restrictions
+	 */
+	/**
+	 * Initialize database schema from schema.sql file
+	 * Following the proven pattern from Telegram bot implementation
+	 *
+	 * 🚀 Railway Deployment Compatible:
+	 * - Schema file copied during Docker build: dist/database/schema.sql
+	 * - Path resolution from dist/sdk/bots-brain/ to dist/database/
+	 * - Works with Railway's container file system restrictions
+	 * - Individual statement execution for better Railway timeout handling
 	 */
 	private async initializeSchema(): Promise<void> {
 		try {
@@ -932,10 +964,8 @@ export class BotsStore {
 				size: schema.length,
 			});
 
-			// Execute schema
-			await withDbClient(this.pool, async (client) => {
-				await client.query(schema);
-			});
+			// Execute schema with individual statements for Railway compatibility
+			await this.executeSchemaStatements(schema);
 			
 			LogEngine.info('Database schema created successfully');
 
@@ -948,6 +978,189 @@ export class BotsStore {
 			});
 			throw error;
 		}
+	}
+
+	/**
+	 * Execute schema statements individually with timeout handling
+	 * Optimized for Railway managed PostgreSQL deployment
+	 */
+	private async executeSchemaStatements(schema: string): Promise<void> {
+		// Split schema into individual statements, handling complex cases
+		const statements = this.parseSchemaStatements(schema);
+		
+		LogEngine.info(`Executing ${statements.length} schema statements individually for Railway compatibility`);
+
+		await withDbClient(this.pool, async (client) => {
+			await client.query('BEGIN');
+			try {
+				// Limit this transaction only
+				await client.query('SET LOCAL statement_timeout = \'60s\'');
+
+				let executedCount = 0;
+
+				for (const statement of statements) {
+					if (statement.trim().length === 0) continue;
+
+					LogEngine.debug(`Executing statement ${executedCount + 1}/${statements.length}`);
+					await client.query(statement);
+					executedCount++;
+				}
+
+				await client.query('COMMIT');
+				LogEngine.info(`Successfully executed ${executedCount} schema statements`);
+			}
+			catch (error) {
+				await client.query('ROLLBACK');
+				throw error;
+			}
+		});
+	}
+
+	/**
+	 * Parse schema SQL into individual executable statements
+	 * Secure state-machine implementation that properly handles quotes, dollar tags, and comments
+	 */
+	private parseSchemaStatements(schema: string): string[] {
+		const statements: string[] = [];
+		let buffer = '';
+		let i = 0;
+		let inSingleQuote = false;
+		let inDoubleQuote = false;
+		let inLineComment = false;
+		let inBlockComment = false;
+		let dollarTag: string | null = null;
+
+		const flush = () => {
+			const trimmed = buffer.trim();
+			if (trimmed.length > 0) {
+				statements.push(trimmed);
+			}
+			buffer = '';
+		};
+
+		while (i < schema.length) {
+			// Safe array access with bounds checking
+			const ch = i < schema.length ? schema.charAt(i) : '';
+			const next = i + 1 < schema.length ? schema.charAt(i + 1) : '';
+
+			if (inLineComment) {
+				buffer += ch;
+				if (ch === '\n') inLineComment = false;
+				i++;
+				continue;
+			}
+
+			if (inBlockComment) {
+				buffer += ch;
+				if (ch === '*' && next === '/') {
+					buffer += next;
+					i += 2;
+					inBlockComment = false;
+				}
+				else {
+					i++;
+				}
+				continue;
+			}
+
+			if (dollarTag !== null) {
+				buffer += ch;
+				if (ch === '$') {
+					const tail = schema.slice(i, i + dollarTag.length + 2);
+					if (tail === `$${dollarTag}$`) {
+						buffer += schema.slice(i + 1, i + dollarTag.length + 2);
+						i += dollarTag.length + 2;
+						dollarTag = null;
+						continue;
+					}
+				}
+				i++;
+				continue;
+			}
+
+			if (inSingleQuote) {
+				buffer += ch;
+				if (ch === '\'' && next !== '\'') {
+					inSingleQuote = false;
+				}
+				else if (ch === '\'' && next === '\'') {
+					buffer += next;
+					i += 2;
+					continue;
+				}
+				i++;
+				continue;
+			}
+
+			if (inDoubleQuote) {
+				buffer += ch;
+				if (ch === '"' && next !== '"') {
+					inDoubleQuote = false;
+				}
+				else if (ch === '"' && next === '"') {
+					buffer += next;
+					i += 2;
+					continue;
+				}
+				i++;
+				continue;
+			}
+
+			// Handle special tokens when not in quotes or comments
+			if (ch === '\'' && !inDoubleQuote) {
+				inSingleQuote = true;
+				buffer += ch;
+				i++;
+				continue;
+			}
+
+			if (ch === '"' && !inSingleQuote) {
+				inDoubleQuote = true;
+				buffer += ch;
+				i++;
+				continue;
+			}
+
+			if (ch === '-' && next === '-') {
+				inLineComment = true;
+				buffer += ch + next;
+				i += 2;
+				continue;
+			}
+
+			if (ch === '/' && next === '*') {
+				inBlockComment = true;
+				buffer += ch + next;
+				i += 2;
+				continue;
+			}
+
+			if (ch === '$') {
+				// Look for dollar-quoted string
+				const match = schema.slice(i).match(/^\$([^$]*)\$/);
+				if (match) {
+					dollarTag = match[1];
+					buffer += match[0];
+					i += match[0].length;
+					continue;
+				}
+			}
+
+			if (ch === ';') {
+				buffer += ch;
+				flush();
+				i++;
+				continue;
+			}
+
+			buffer += ch;
+			i++;
+		}
+
+		// Flush any remaining content
+		flush();
+
+		return statements.filter(stmt => stmt.trim().length > 0);
 	}
 
 	/**
