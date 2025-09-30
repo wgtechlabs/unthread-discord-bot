@@ -438,23 +438,48 @@ async function initializeWebhookConsumer(): Promise<void> {
 	try {
 		// Check if webhook Redis URL is configured
 		if (process.env.WEBHOOK_REDIS_URL) {
-			LogEngine.info('🔄 Initializing Railway-optimized Redis webhook consumer...');
+			LogEngine.info('🔄 Initializing Redis v8 compatible webhook consumer...');
 
 			// Detect Railway environment for optimized configuration
 			const isRailway = isRailwayEnvironment();
-			LogEngine.info(`Environment detected: ${isRailway ? 'Railway' : 'Local/Other'}`);
+			LogEngine.info(`Environment detected: ${isRailway ? 'Railway (Redis v8)' : 'Local/Other'}`);
 
 			webhookConsumer = new WebhookConsumer({
 				redisUrl: process.env.WEBHOOK_REDIS_URL,
 				queueName: 'unthread-events',
-				// Railway-optimized polling interval
-				pollInterval: isRailway ? 2000 : 1000,
+				// Increased polling interval for Redis v8 stability
+				pollInterval: isRailway ? 3000 : 1000,
 			});
 
 			await webhookConsumer.start();
-			LogEngine.info('✅ Webhook consumer started successfully - polling Redis queue for events');
+			LogEngine.info('✅ Redis v8 compatible webhook consumer started successfully');
 			
-			// Additional Railway-specific logging
+			// Perform health check to verify Redis v8 compatibility
+			try {
+				const health = await webhookConsumer.healthCheck();
+				LogEngine.info('🔍 Redis health check results:', {
+					status: health.status,
+					redisVersion: health.redisVersion || 'version detection failed',
+					connections: {
+						main: health.redis,
+						blocking: health.blockingRedis,
+					},
+					polling: health.polling,
+				});
+				
+				if (health.redisVersion?.startsWith('8.')) {
+					LogEngine.info('✅ Redis v8 detected and compatible');
+				}
+				else if (health.redisVersion?.startsWith('7.')) {
+					LogEngine.warn('⚠️  Redis v7 detected - may have compatibility issues on Railway');
+				}
+				else {
+					LogEngine.warn('⚠️  Could not detect Redis version');
+				}
+			}
+			catch (healthError) {
+				LogEngine.error('Health check failed:', healthError);
+			}
 			if (isRailway) {
 				LogEngine.info('🚄 Railway-specific optimizations applied for Redis stability');
 			}

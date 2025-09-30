@@ -109,11 +109,6 @@ export class WebhookConsumer {
 	// Track in-flight background promises for graceful shutdown
 	private inFlight = new Set<Promise<unknown>>();
 
-	// Throttling for debug logs to reduce noise
-	private lastNoEventsLog: number = 0;
-	// 5 minutes in milliseconds
-	private readonly NO_EVENTS_LOG_INTERVAL = 5 * 60 * 1000;
-
 	constructor(config: WebhookConsumerConfig) {
 		this.redisUrl = config.redisUrl;
 		this.queueName = config.queueName || 'unthread-events';
@@ -154,8 +149,26 @@ export class WebhookConsumer {
 				throw new Error('Redis URL is required for webhook consumer');
 			}
 
+			// Redis v8 compatible configuration
+			const redisConfig = { 
+				url: this.redisUrl,
+				// Redis v8 optimization for Railway environment
+				socket: {
+					keepAlive: true,
+					reconnectStrategy: (retries: number) => {
+						// Exponential backoff with max delay for Railway stability
+						const delay = Math.min(retries * 100, 3000);
+						LogEngine.info(`Redis reconnection attempt ${retries}, waiting ${delay}ms`);
+						return delay;
+					},
+					connectTimeout: 10000, // 10 second connection timeout for Railway
+				},
+				// Redis v8 compatibility settings
+				pingInterval: 30000, // Keep connection alive
+			};
+
 			// Create main Redis client for general operations
-			this.redisClient = createClient({ url: this.redisUrl });
+			this.redisClient = createClient(redisConfig);
 			
 			// Add error event handler to prevent crashes
 			this.redisClient.on('error', (error: Error) => {
@@ -168,7 +181,7 @@ export class WebhookConsumer {
 			});
 			
 			this.redisClient.on('connect', () => {
-				LogEngine.info('Redis main client connected successfully');
+				LogEngine.info('Redis main client connected successfully (Redis v8 compatible)');
 			});
 			
 			this.redisClient.on('reconnecting', () => {
@@ -178,7 +191,8 @@ export class WebhookConsumer {
 			await this.redisClient.connect();
 
 			// Create dedicated Redis client for blocking operations (blPop)
-			this.blockingRedisClient = createClient({ url: this.redisUrl });
+			// Redis v8 requires separate client for blocking operations
+			this.blockingRedisClient = createClient(redisConfig);
 			
 			// Add error event handler to prevent crashes
 			this.blockingRedisClient.on('error', (error: Error) => {
@@ -191,7 +205,7 @@ export class WebhookConsumer {
 			});
 			
 			this.blockingRedisClient.on('connect', () => {
-				LogEngine.info('Redis blocking client connected successfully');
+				LogEngine.info('Redis blocking client connected successfully (Redis v8 compatible)');
 			});
 			
 			this.blockingRedisClient.on('reconnecting', () => {
@@ -200,7 +214,7 @@ export class WebhookConsumer {
 			
 			await this.blockingRedisClient.connect();
 
-			LogEngine.info('✅ Webhook consumer connected to Redis with isolated blocking client and error handling');
+			LogEngine.info('✅ Webhook consumer connected to Redis v8 with Railway-optimized configuration');
 			return true;
 		}
 		catch (error) {
@@ -360,6 +374,11 @@ export class WebhookConsumer {
 
 	/**
 	 * Poll Redis queue for new events
+	 * 
+	 * Redis v8 compatible implementation:
+	 * - Enhanced timeout handling for Railway stability
+	 * - Improved error recovery for Redis v8 behavior changes
+	 * - Connection state verification before operations
 	 */
 	private async pollForEvents(): Promise<void> {
 		if (!this.blockingRedisClient || !this.blockingRedisClient.isOpen) {
@@ -368,83 +387,39 @@ export class WebhookConsumer {
 		}
 
 		try {
-			// Only log polling activity every 5 minutes to reduce noise
-			const now = Date.now();
-			if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
-				LogEngine.debug(`Polling Redis queue: ${this.queueName}`);
-			}
-
-			// Check queue length first for debugging
+			// Simple queue length check for debugging
 			if (this.redisClient?.isOpen) {
 				const queueLength = await this.redisClient.lLen(this.queueName);
 				if (queueLength > 0) {
 					LogEngine.info(`Found ${queueLength} events in queue ${this.queueName}`);
-					// Debug: peek at the queue structure
-					const firstItem = await this.redisClient.lIndex(this.queueName, 0);
-					const lastItem = await this.redisClient.lIndex(this.queueName, -1);
-					LogEngine.debug(`Queue debug - first item: ${firstItem?.substring(0, 100)}...`);
-					LogEngine.debug(`Queue debug - last item: ${lastItem?.substring(0, 100)}...`);
-					
-					// URGENT: Try direct lPop since blPop is failing
-					LogEngine.warn('Attempting direct lPop due to blPop issues...');
-					const directResult = await this.redisClient.lPop(this.queueName);
-					if (directResult) {
-						LogEngine.info('✅ Direct lPop successful - bypassing blPop entirely');
-						await this.processEvent(directResult);
-						return;
-					}
-					else {
-						LogEngine.error(`❌ Direct lPop also failed despite ${queueLength} events in queue`);
-					}
 				}
-				else if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
-					LogEngine.debug(`Queue ${this.queueName} is empty - polling actively`);
-				}
+			}
+
+			// Redis v8 compatible blPop with enhanced error handling
+			// Use 2 second timeout for Railway stability (vs 1 second in v7)
+			const result = await this.blockingRedisClient.blPop(this.queueName, 2);
+			
+			if (result) {
+				LogEngine.info(`✅ Received event from queue: ${this.queueName}`);
+				const eventData = result.element;
+				await this.processEvent(eventData);
 			}
 			else {
-				LogEngine.error(`Redis client not available for queue length check on ${this.queueName}`);
-			}
-
-			// Get the next event from the queue using dedicated blocking client (shorter timeout)
-			LogEngine.debug(`Attempting blPop on queue: ${this.queueName} with blocking client connected: ${this.blockingRedisClient.isOpen}`);
-			const result = await this.blockingRedisClient.blPop(this.queueName, 0.1); // Reduce to 100ms timeout
-			LogEngine.debug(`blPop result: ${result ? 'received event' : 'no event (timeout)'}`);
-
-			if (result) {
-				LogEngine.info(`Received event from queue: ${this.queueName}`);
-				const eventData = result.element;
-				
-				// Process event synchronously like Telegram bot (await completion)
-				await this.processEvent(eventData);
-				
-				// Continue immediately to next poll
-				return;
-			}
-
-			// If blPop timed out but we know there are events, try non-blocking lPop as fallback
-			if (this.redisClient?.isOpen) {
-				const queueLength = await this.redisClient.lLen(this.queueName);
-				if (queueLength > 0) {
-					LogEngine.warn(`blPop timeout but ${queueLength} events exist - trying lPop fallback`);
-					const fallbackResult = await this.redisClient.lPop(this.queueName);
-					if (fallbackResult) {
-						LogEngine.info(`Received event via lPop fallback from queue: ${this.queueName}`);
-						
-						// Process event synchronously
-						await this.processEvent(fallbackResult);
-						return;
-					}
-				}
-			}
-
-			// Only log "no events" message every 5 minutes to reduce noise
-			if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
-				LogEngine.debug(`No events in queue: ${this.queueName} (next log in 5 minutes)`);
-				this.lastNoEventsLog = now;
+				LogEngine.debug(`No events in queue: ${this.queueName} (Redis v8 timeout)`);
 			}
 		}
 		catch (error) {
-			LogEngine.error('Error polling for events:', error);
+			// Redis v8 specific error handling
+			const redisError = error as Error;
+			if (redisError.message.includes('connection') || redisError.message.includes('timeout')) {
+				LogEngine.warn('Redis v8 connection issue during polling, will retry:', {
+					error: redisError.message,
+					clientOpen: this.blockingRedisClient?.isOpen ?? false,
+				});
+			}
+			else {
+				LogEngine.error('Error polling for events:', error);
+			}
 		}
 	}
 
@@ -606,15 +581,26 @@ export class WebhookConsumer {
 		redis: boolean;
 		blockingRedis: boolean;
 		polling: boolean;
+		redisVersion?: string;
 	}> {
 		try {
 			// Test Redis connections
 			const redisHealthy = this.redisClient?.isOpen ?? false;
 			const blockingRedisHealthy = this.blockingRedisClient?.isOpen ?? false;
 
-			// Test Redis ping if connected
+			// Test Redis ping if connected - enhanced for Redis v8
+			let redisVersion: string | undefined;
 			if (redisHealthy) {
 				await this.redisClient!.ping();
+				try {
+					// Get Redis version for debugging Railway vs local differences
+					const info = await this.redisClient!.info('server');
+					const versionMatch = info.match(/redis_version:(\S+)/);
+					redisVersion = versionMatch ? versionMatch[1] : 'unknown';
+				}
+				catch (versionError) {
+					LogEngine.warn('Could not get Redis version info:', versionError);
+				}
 			}
 
 			if (blockingRedisHealthy) {
@@ -629,6 +615,7 @@ export class WebhookConsumer {
 				redis: redisHealthy,
 				blockingRedis: blockingRedisHealthy,
 				polling: this.isRunning,
+				...(redisVersion && { redisVersion }),
 			};
 
 		}

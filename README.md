@@ -178,7 +178,7 @@ This bot is built with **TypeScript** for enhanced maintainability, type safety,
 
 **Storage & Performance:**
 - **PostgreSQL**: Primary database with full ACID compliance
-- **Redis**: High-performance L2 cache and queue management
+- **Redis v8**: High-performance L2 cache and queue management (Railway-optimized)
 - **BullMQ**: Robust job queue system for webhook processing
 - **IORedis**: High-performance Redis client with cluster support
 
@@ -186,6 +186,30 @@ This bot is built with **TypeScript** for enhanced maintainability, type safety,
 - **Docker Compose**: Complete local development environment
 - **Health Monitoring**: Comprehensive health checks and metrics
 - **Queue Processing**: Async webhook handling with retry logic
+
+### Redis Version Compatibility
+
+This bot is optimized for **Redis v8** to match Railway's deployment environment:
+
+**Redis v8 Enhancements:**
+- Enhanced connection management with optimized reconnection strategies
+- Improved `blPop` timeout handling (2s vs 1s) for Railway stability
+- Automatic Redis version detection in health checks
+- Railway-specific socket configuration for better performance
+
+**Local Development:**
+- Docker Compose updated to use `redis:8-alpine` for consistency
+- Both platform and webhook Redis services use v8
+- Maintains backward compatibility with Redis v7
+
+**Troubleshooting:**
+```bash
+# Verify Redis version in logs
+docker-compose logs redis-webhook | grep "version"
+
+# Check webhook consumer health (includes Redis version)
+# Health checks will log Redis version for debugging
+```
 
 ### Build System
 
