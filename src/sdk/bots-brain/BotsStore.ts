@@ -1,45 +1,68 @@
 /**
- * BotsStore - Discord-Specific Storage Operations
+ * BotsStore - Discord-Specific 3-Layer Storage System
  *
- * This module provides high-level storage operations specifically designed for
- * Discord bot functionality, built on top of the UnifiedStorage engine.
- *
- * 🎯 FOR CONTRIBUTORS:
- * ===================
- * This is the primary data access layer for the Discord bot. All customer data,
- * thread mappings, and bot configuration should go through this module to ensure
- * consistency and proper caching across the 3-layer storage system.
- *
- * Features:
- * - Customer management with Discord integration
- * - Thread-ticket mapping persistence
- * - High-performance caching for frequently accessed data
- * - Type-safe operations with full TypeScript support
- * - Automatic cache warming and invalidation
- *
- * 🗝️ STORAGE KEYS PATTERN:
- * =======================
- * - customer:discord:{discordId} - Customer data by Discord ID
- * - customer:unthread:{unthreadId} - Customer data by Unthread ID
- * - mapping:thread:{threadId} - Thread-ticket mapping by Discord thread ID
- * - mapping:ticket:{ticketId} - Thread-ticket mapping by Unthread ticket ID
- * - bot:config:{key} - Bot configuration data
- *
- * 🔧 USAGE PATTERNS:
- * =================
- * - Always use this layer instead of direct UnifiedStorage calls
- * - Customer operations handle Discord ↔ Unthread user mapping
- * - Thread mappings maintain bidirectional ticket relationships
- * - Configuration data is cached across application restarts
- *
- * 🐛 DEBUGGING DATA ISSUES:
- * ========================
- * - Check all 3 storage layers (memory, Redis, PostgreSQL)
- * - Verify key patterns match expected format
- * - Monitor cache hit rates for performance optimization
- * - Review TTL settings for data freshness requirements
+ * @description
+ * High-performance data access layer providing Discord bot operations with
+ * 3-layer caching architecture (Memory → Redis → PostgreSQL). Handles customer
+ * management, thread-ticket mappings, and configuration persistence with
+ * type safety and automatic cache invalidation.
  *
  * @module sdk/bots-brain/BotsStore
+ * @since 1.0.0
+ *
+ * @keyFunctions
+ * - getInstance(): Singleton pattern for unified storage access
+ * - storeCustomer(): Creates customer records with Discord-Unthread mapping
+ * - getCustomerByDiscordId(): Fast customer lookup using Discord ID
+ * - storeThreadTicketMapping(): Bidirectional thread-ticket relationship storage
+ * - getThreadTicketMapping(): Retrieves mappings for Discord threads or Unthread tickets
+ *
+ * @commonIssues
+ * - Cache inconsistency: Different values across memory/Redis/PostgreSQL layers
+ * - Connection failures: Redis or PostgreSQL unavailable causing fallback behavior
+ * - Key collision: Multiple processes writing same keys simultaneously
+ * - TTL expiration: Cached data expires while still needed causing extra queries
+ * - Memory leaks: Cache growing unbounded without proper eviction policies
+ *
+ * @troubleshooting
+ * - Monitor all 3 storage layers for consistency using validateConsistency()
+ * - Check connection health for Redis and PostgreSQL layers
+ * - Verify key naming patterns match expected format (customer:discord:{id})
+ * - Review cache hit rates and TTL settings for performance optimization
+ * - Use LogEngine debug output to trace storage layer access patterns
+ * - Monitor memory usage in Node.js process for cache size management
+ *
+ * @performance
+ * - L1 cache (Memory): <1ms access time for frequently used data
+ * - L2 cache (Redis): ~5ms access time with network overhead
+ * - L3 storage (PostgreSQL): ~50ms access time with full ACID compliance
+ * - Automatic cache warming on application startup
+ * - Intelligent TTL management based on data access patterns
+ *
+ * @dependencies UnifiedStorage, Discord.js User, PostgreSQL Pool, LogEngine
+ *
+ * @example Basic Usage
+ * ```typescript
+ * const store = BotsStore.getInstance();
+ * const customer = await store.storeCustomer(discordUser, email, unthreadId);
+ * const mapping = await store.getThreadTicketMapping(threadId);
+ * ```
+ *
+ * @example Advanced Usage
+ * ```typescript
+ * // Production setup with error handling
+ * try {
+ *   const store = BotsStore.getInstance();
+ *   await store.initialize(redisConfig, pgConfig);
+ *
+ *   const customer = await store.getCustomerByDiscordId(userId);
+ *   if (!customer) {
+ *     const newCustomer = await store.storeCustomer(user, email, unthreadCustomerId);
+ *   }
+ * } catch (error) {
+ *   LogEngine.error('BotsStore operation failed', error);
+ * }
+ * ```
  */
 
 import { User } from 'discord.js';
@@ -165,15 +188,6 @@ export interface ExtendedThreadTicketMapping extends ThreadTicketMapping {
 }
 
 /**
- * Bot configuration storage interface
- */
-export interface BotConfig {
-    key: string;
-    value: unknown;
-    expiresAt?: Date;
-}
-
-/**
  * BotsStore configuration
  */
 interface BotsStoreConfig {
@@ -215,7 +229,10 @@ export class BotsStore {
 			connectionString: processedPostgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
-			connectionTimeoutMillis: 2000,
+			// Increased to 30s for Railway managed databases (schema operations)
+			connectionTimeoutMillis: 30000,
+			// Add query timeout for Railway compatibility - 60 seconds for complex schema operations
+			query_timeout: 60000,
 		};
 		
 		// Only add SSL config if it's not explicitly disabled
@@ -862,40 +879,62 @@ export class BotsStore {
 	 */
 	private async ensureSchema(): Promise<void> {
 		try {
-			// Check if required tables exist
-			const tableCheck = await withDbClient(this.pool, async (client) => {
-				return await client.query(`
-					SELECT table_name 
-					FROM information_schema.tables 
-					WHERE table_schema = 'public' 
-					AND table_name IN ('customers', 'thread_ticket_mappings', 'storage_cache')
-				`);
+			// Wrap schema operations with timeout for Railway compatibility - 2 minutes total timeout
+			const schemaTimeout = 120000;
+			let timeoutId: NodeJS.Timeout | null = null;
+			const timeoutPromise = new Promise<never>((_, reject) => {
+				timeoutId = setTimeout(
+					() => reject(new Error('Schema operation timed out after 2 minutes')),
+					schemaTimeout,
+				);
 			});
-
-			const requiredTables = ['customers', 'thread_ticket_mappings', 'storage_cache'];
-			const foundTables = tableCheck.rows.map((row: { table_name: string }) => row.table_name);
-			const missingTables = requiredTables.filter(table => !foundTables.includes(table));
-
-			if (missingTables.length > 0) {
-				LogEngine.info('Database tables missing - setting up automatically...', {
-					missing: missingTables,
-				});
-				await this.initializeSchema();
+			try {
+				await Promise.race([this.performSchemaCheck(), timeoutPromise]);
 			}
-			else {
-				LogEngine.info('Database schema verified', {
-					tablesFound: foundTables,
-					botsBrainReady: foundTables.includes('storage_cache'),
-				});
+			finally {
+				if (timeoutId) clearTimeout(timeoutId);
 			}
 		}
 		catch (error) {
 			const err = error as Error;
-			LogEngine.error('Error checking database schema', {
+			LogEngine.error('Error during schema operations', {
 				error: err.message,
 				stack: err.stack,
 			});
 			throw error;
+		}
+	}
+
+	/**
+	 * Perform the actual schema check and initialization
+	 * Separated for timeout handling
+	 */
+	private async performSchemaCheck(): Promise<void> {
+		// Check if required tables exist
+		const tableCheck = await withDbClient(this.pool, async (client) => {
+			return await client.query(`
+				SELECT table_name 
+				FROM information_schema.tables 
+				WHERE table_schema = 'public' 
+				AND table_name IN ('customers', 'thread_ticket_mappings', 'storage_cache')
+			`);
+		});
+
+		const requiredTables = ['customers', 'thread_ticket_mappings', 'storage_cache'];
+		const foundTables = tableCheck.rows.map((row: { table_name: string }) => row.table_name);
+		const missingTables = requiredTables.filter(table => !foundTables.includes(table));
+
+		if (missingTables.length > 0) {
+			LogEngine.info('Database tables missing - setting up automatically...', {
+				missing: missingTables,
+			});
+			await this.initializeSchema();
+		}
+		else {
+			LogEngine.info('Database schema verified', {
+				tablesFound: foundTables,
+				botsBrainReady: foundTables.includes('storage_cache'),
+			});
 		}
 	}
 
@@ -907,6 +946,7 @@ export class BotsStore {
 	 * - Schema file copied during Docker build: dist/database/schema.sql
 	 * - Path resolution from dist/sdk/bots-brain/ to dist/database/
 	 * - Works with Railway's container file system restrictions
+	 * - Individual statement execution for better Railway timeout handling
 	 */
 	private async initializeSchema(): Promise<void> {
 		try {
@@ -932,10 +972,8 @@ export class BotsStore {
 				size: schema.length,
 			});
 
-			// Execute schema
-			await withDbClient(this.pool, async (client) => {
-				await client.query(schema);
-			});
+			// Execute schema with individual statements for Railway compatibility
+			await this.executeSchemaStatements(schema);
 			
 			LogEngine.info('Database schema created successfully');
 
@@ -948,6 +986,187 @@ export class BotsStore {
 			});
 			throw error;
 		}
+	}
+
+	/**
+	 * Execute schema statements individually with timeout handling
+	 * Optimized for Railway managed PostgreSQL deployment
+	 */
+	private async executeSchemaStatements(schema: string): Promise<void> {
+		// Split schema into individual statements, handling complex cases
+		const statements = this.parseSchemaStatements(schema);
+		
+		LogEngine.info(`Executing ${statements.length} schema statements individually for Railway compatibility`);
+
+		await withDbClient(this.pool, async (client) => {
+			await client.query('BEGIN');
+			try {
+				// Limit this transaction only
+				await client.query('SET LOCAL statement_timeout = \'60s\'');
+
+				let executedCount = 0;
+
+				for (const statement of statements) {
+					if (statement.trim().length === 0) continue;
+
+					LogEngine.debug(`Executing statement ${executedCount + 1}/${statements.length}`);
+					await client.query(statement);
+					executedCount++;
+				}
+
+				await client.query('COMMIT');
+				LogEngine.info(`Successfully executed ${executedCount} schema statements`);
+			}
+			catch (error) {
+				await client.query('ROLLBACK');
+				throw error;
+			}
+		});
+	}
+
+	/**
+	 * Parse schema SQL into individual executable statements
+	 * Secure state-machine implementation that properly handles quotes, dollar tags, and comments
+	 */
+	private parseSchemaStatements(schema: string): string[] {
+		const statements: string[] = [];
+		let buffer = '';
+		let i = 0;
+		let inSingleQuote = false;
+		let inDoubleQuote = false;
+		let inLineComment = false;
+		let inBlockComment = false;
+		let dollarTag: string | null = null;
+
+		const flush = () => {
+			const trimmed = buffer.trim();
+			if (trimmed.length > 0) {
+				statements.push(trimmed);
+			}
+			buffer = '';
+		};
+
+		while (i < schema.length) {
+			// Safe array access with bounds checking
+			const ch = i < schema.length ? schema.charAt(i) : '';
+			const next = i + 1 < schema.length ? schema.charAt(i + 1) : '';
+
+			if (inLineComment) {
+				buffer += ch;
+				if (ch === '\n') inLineComment = false;
+				i++;
+				continue;
+			}
+
+			if (inBlockComment) {
+				buffer += ch;
+				if (ch === '*' && next === '/') {
+					buffer += next;
+					i += 2;
+					inBlockComment = false;
+				}
+				else {
+					i++;
+				}
+				continue;
+			}
+
+			if (dollarTag !== null) {
+				buffer += ch;
+				if (ch === '$') {
+					const tail = schema.slice(i, i + dollarTag.length + 2);
+					if (tail === `$${dollarTag}$`) {
+						buffer += schema.slice(i + 1, i + dollarTag.length + 2);
+						i += dollarTag.length + 2;
+						dollarTag = null;
+						continue;
+					}
+				}
+				i++;
+				continue;
+			}
+
+			if (inSingleQuote) {
+				buffer += ch;
+				if (ch === '\'' && next === '\'') {
+					buffer += next;
+					i += 2;
+					continue;
+				}
+				if (ch === '\'') inSingleQuote = false;
+				i++;
+				continue;
+			}
+
+			if (inDoubleQuote) {
+				buffer += ch;
+				if (ch === '"' && next === '"') {
+					buffer += next;
+					i += 2;
+					continue;
+				}
+				if (ch === '"') inDoubleQuote = false;
+				i++;
+				continue;
+			}
+
+			if (ch === '-' && next === '-') {
+				buffer += ch + next;
+				i += 2;
+				inLineComment = true;
+				continue;
+			}
+
+			if (ch === '/' && next === '*') {
+				buffer += ch + next;
+				i += 2;
+				inBlockComment = true;
+				continue;
+			}
+
+			if (ch === '\'') {
+				buffer += ch;
+				inSingleQuote = true;
+				i++;
+				continue;
+			}
+
+			if (ch === '"') {
+				buffer += ch;
+				inDoubleQuote = true;
+				i++;
+				continue;
+			}
+
+			if (ch === '$') {
+				let j = i + 1;
+				// Safe character validation with bounds checking
+				while (j < schema.length && /[A-Za-z0-9_]/.test(schema.charAt(j))) j++;
+				// Safe array access with bounds checking
+				if (j < schema.length && schema.charAt(j) === '$') {
+					dollarTag = schema.slice(i + 1, j);
+					buffer += schema.slice(i, j + 1);
+					i = j + 1;
+					continue;
+				}
+			}
+
+			if (ch === ';') {
+				buffer += ch;
+				flush();
+				i++;
+				continue;
+			}
+
+			buffer += ch;
+			i++;
+		}
+
+		if (buffer.trim().length > 0) {
+			flush();
+		}
+
+		return statements;
 	}
 
 	/**

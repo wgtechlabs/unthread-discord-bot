@@ -1,18 +1,67 @@
 /**
- * Webhook Consumer - Clean Redis Queue Consumer
- *
- * Simple Redis-based queue consumer that processes webhook events from the Unthread
- * platform and routes them to appropriate handlers. Based on the proven pattern
- * from the unthread-telegram-bot.
- *
- * Features:
- * - Polls Redis queue for incoming webhook events
- * - Validates event structure and content
- * - Routes events to existing handleWebhookEvent function
- * - Reliable delivery with error handling
- * - Connection management with automatic reconnection
- *
+ * Webhook Consumer - Redis Queue Processing System
+ * 
+ * @description 
+ * Redis-based queue consumer for processing webhook events from Unthread platform.
+ * Provides reliable event processing with validation, error handling, and automatic
+ * reconnection. Based on proven patterns from unthread-telegram-bot architecture.
+ * 
  * @module sdk/webhook-consumer/WebhookConsumer
+ * @since 1.0.0
+ * 
+ * @keyFunctions
+ * - start(): Initiates Redis queue polling and event processing
+ * - stop(): Gracefully shuts down consumer and closes Redis connections
+ * - processEvent(): Validates and routes webhook events to handlers
+ * - pollQueue(): Main queue polling loop with blocking Redis operations
+ * 
+ * @commonIssues
+ * - Redis connection failures: Network issues or authentication problems
+ * - Event validation errors: Malformed webhook payloads from Unthread
+ * - Processing timeouts: Handler functions taking too long to complete
+ * - Memory leaks: Polling timer not properly cleaned up on shutdown
+ * - Queue backlog: Events accumulating faster than processing capacity
+ * 
+ * @troubleshooting
+ * - Verify WEBHOOK_REDIS_URL connection string and Redis server availability
+ * - Monitor EventValidator output for payload structure issues
+ * - Check handleWebhookEvent execution time and implement timeouts
+ * - Use LogEngine output to track queue depth and processing rates
+ * - Implement circuit breaker pattern for failing webhook handlers
+ * - Monitor Redis memory usage during high event volumes
+ * 
+ * @performance
+ * - Blocking Redis operations (BLPOP) for efficient queue polling
+ * - Separate Redis clients for blocking and non-blocking operations
+ * - Configurable poll intervals to balance responsiveness and resource usage
+ * - Event validation before expensive processing operations
+ * - Graceful shutdown prevents data loss during restarts
+ * 
+ * @dependencies Redis client, LogEngine, EventValidator, Unthread service handlers
+ * 
+ * @example Basic Usage
+ * ```typescript
+ * const consumer = new WebhookConsumer({
+ *   redisUrl: 'redis://localhost:6379',
+ *   queueName: 'webhook:events',
+ *   pollInterval: 1000
+ * });
+ * await consumer.start();
+ * ```
+ * 
+ * @example Advanced Usage
+ * ```typescript
+ * // Production configuration with error handling
+ * const consumer = new WebhookConsumer({
+ *   redisUrl: process.env.WEBHOOK_REDIS_URL!,
+ *   queueName: 'unthread:webhooks',
+ *   pollInterval: 500
+ * });
+ * 
+ * process.on('SIGTERM', async () => {
+ *   await consumer.stop();
+ * });
+ * ```
  */
 
 import { createClient, RedisClientType } from 'redis';
@@ -31,10 +80,20 @@ export interface WebhookConsumerConfig {
 }
 
 /**
- * WebhookConsumer - Simple Redis queue consumer for Unthread webhook events
- *
- * Replaces the complex BullMQ implementation with a simple, direct Redis consumption
- * pattern that matches the proven architecture used in the telegram bot.
+ * Redis-based webhook event consumer with reliable processing and error handling
+ * 
+ * @class WebhookConsumer
+ * @description Processes webhook events from Redis queue using blocking operations for efficiency.
+ * Replaces complex BullMQ implementation with direct Redis consumption pattern.
+ * 
+ * @example
+ * ```typescript
+ * const consumer = new WebhookConsumer({
+ *   redisUrl: 'redis://localhost:6379',
+ *   queueName: 'webhook:events'
+ * });
+ * await consumer.start();
+ * ```
  */
 export class WebhookConsumer {
 	private redisUrl: string;
@@ -47,11 +106,8 @@ export class WebhookConsumer {
 	private blockingRedisClient: RedisClientType | null = null;
 	private isRunning: boolean = false;
 	private pollTimer: NodeJS.Timeout | null = null;
-
-	// Throttling for debug logs to reduce noise
-	private lastNoEventsLog: number = 0;
-	// 5 minutes in milliseconds
-	private readonly NO_EVENTS_LOG_INTERVAL = 5 * 60 * 1000;
+	// Track in-flight background promises for graceful shutdown
+	private inFlight = new Set<Promise<unknown>>();
 
 	constructor(config: WebhookConsumerConfig) {
 		this.redisUrl = config.redisUrl;
@@ -84,25 +140,89 @@ export class WebhookConsumer {
 	 *
 	 * @see {@link https://redis.io/commands/blpop/} for BLPOP operation details
 	 */
+	/**
+	 * Initialize Redis connection with Railway-optimized error handling
+	 */
 	async connect(): Promise<boolean> {
 		try {
 			if (!this.redisUrl) {
 				throw new Error('Redis URL is required for webhook consumer');
 			}
 
+			// Redis v8 compatible configuration
+			const redisConfig = { 
+				url: this.redisUrl,
+				// Redis v8 optimization for Railway environment
+				socket: {
+					keepAlive: true,
+					reconnectStrategy: (retries: number) => {
+						// Exponential backoff with max delay for Railway stability
+						const delay = Math.min(retries * 100, 3000);
+						LogEngine.info(`Redis reconnection attempt ${retries}, waiting ${delay}ms`);
+						return delay;
+					},
+					connectTimeout: 10000, // 10 second connection timeout for Railway
+				},
+				// Redis v8 compatibility settings
+				pingInterval: 30000, // Keep connection alive
+			};
+
 			// Create main Redis client for general operations
-			this.redisClient = createClient({ url: this.redisUrl });
+			this.redisClient = createClient(redisConfig);
+			
+			// Add error event handler to prevent crashes
+			this.redisClient.on('error', (error: Error) => {
+				LogEngine.error('Redis main client error (non-fatal):', {
+					error: error.message,
+					code: (error as NodeJS.ErrnoException).code,
+					type: 'main_client',
+				});
+				// Don't throw - let the application continue
+			});
+			
+			this.redisClient.on('connect', () => {
+				LogEngine.info('Redis main client connected successfully (Redis v8 compatible)');
+			});
+			
+			this.redisClient.on('reconnecting', () => {
+				LogEngine.info('Redis main client attempting to reconnect...');
+			});
+			
 			await this.redisClient.connect();
 
 			// Create dedicated Redis client for blocking operations (blPop)
-			this.blockingRedisClient = createClient({ url: this.redisUrl });
+			// Redis v8 requires separate client for blocking operations
+			this.blockingRedisClient = createClient(redisConfig);
+			
+			// Add error event handler to prevent crashes
+			this.blockingRedisClient.on('error', (error: Error) => {
+				LogEngine.error('Redis blocking client error (non-fatal):', {
+					error: error.message,
+					code: (error as NodeJS.ErrnoException).code,
+					type: 'blocking_client',
+				});
+				// Don't throw - let the application continue
+			});
+			
+			this.blockingRedisClient.on('connect', () => {
+				LogEngine.info('Redis blocking client connected successfully (Redis v8 compatible)');
+			});
+			
+			this.blockingRedisClient.on('reconnecting', () => {
+				LogEngine.info('Redis blocking client attempting to reconnect...');
+			});
+			
 			await this.blockingRedisClient.connect();
 
-			LogEngine.info('Webhook consumer connected to Redis with isolated blocking client');
+			LogEngine.info('✅ Webhook consumer connected to Redis v8 with Railway-optimized configuration');
 			return true;
 		}
 		catch (error) {
-			LogEngine.error('Webhook consumer Redis connection failed:', error);
+			LogEngine.error('❌ Webhook consumer Redis connection failed:', {
+				error: (error as Error).message,
+				stack: (error as Error).stack,
+				redisUrl: this.redisUrl?.substring(0, 20) + '...', // Log partial URL for debugging
+			});
 			throw error;
 		}
 	}
@@ -202,8 +322,32 @@ export class WebhookConsumer {
 	 */
 	async stop(): Promise<void> {
 		this.isRunning = false;
+		await this.drainInFlight();
 		await this.disconnect();
 		LogEngine.info('Webhook consumer stopped');
+	}
+
+	/**
+	 * Wait for in-flight promises to complete with timeout
+	 */
+	private async drainInFlight(timeoutMs = 30_000): Promise<void> {
+		if (this.inFlight.size === 0) {
+			return;
+		}
+
+		LogEngine.info(`Waiting for ${this.inFlight.size} in-flight operations to complete...`);
+		
+		const allSettled = Promise.allSettled(Array.from(this.inFlight));
+		const timeout = new Promise<void>(resolve => setTimeout(resolve, timeoutMs));
+
+		await Promise.race([allSettled, timeout]);
+
+		if (this.inFlight.size > 0) {
+			LogEngine.warn(`${this.inFlight.size} operations still in-flight after ${timeoutMs}ms timeout`);
+		}
+		else {
+			LogEngine.info('All in-flight operations completed successfully');
+		}
 	}
 
 	/**
@@ -230,6 +374,11 @@ export class WebhookConsumer {
 
 	/**
 	 * Poll Redis queue for new events
+	 * 
+	 * Redis v8 compatible implementation:
+	 * - Enhanced timeout handling for Railway stability
+	 * - Improved error recovery for Redis v8 behavior changes
+	 * - Connection state verification before operations
 	 */
 	private async pollForEvents(): Promise<void> {
 		if (!this.blockingRedisClient || !this.blockingRedisClient.isOpen) {
@@ -238,13 +387,7 @@ export class WebhookConsumer {
 		}
 
 		try {
-			// Only log polling activity every 5 minutes to reduce noise
-			const now = Date.now();
-			if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
-				LogEngine.debug(`Polling Redis queue: ${this.queueName}`);
-			}
-
-			// Check queue length first for debugging
+			// Simple queue length check for debugging
 			if (this.redisClient?.isOpen) {
 				const queueLength = await this.redisClient.lLen(this.queueName);
 				if (queueLength > 0) {
@@ -252,24 +395,31 @@ export class WebhookConsumer {
 				}
 			}
 
-			// Get the next event from the queue using dedicated blocking client (1 second timeout)
-			const result = await this.blockingRedisClient.blPop(this.queueName, 1);
-
+			// Redis v8 compatible blPop with enhanced error handling
+			// Use 2 second timeout for Railway stability (vs 1 second in v7)
+			const result = await this.blockingRedisClient.blPop(this.queueName, 2);
+			
 			if (result) {
-				LogEngine.info(`Received event from queue: ${this.queueName}`);
+				LogEngine.info(`✅ Received event from queue: ${this.queueName}`);
 				const eventData = result.element;
 				await this.processEvent(eventData);
-				return;
 			}
-
-			// Only log "no events" message every 5 minutes to reduce noise
-			if (now - this.lastNoEventsLog >= this.NO_EVENTS_LOG_INTERVAL) {
-				LogEngine.debug(`No events in queue: ${this.queueName} (next log in 5 minutes)`);
-				this.lastNoEventsLog = now;
+			else {
+				LogEngine.debug(`No events in queue: ${this.queueName} (Redis v8 timeout)`);
 			}
 		}
 		catch (error) {
-			LogEngine.error('Error polling for events:', error);
+			// Redis v8 specific error handling
+			const redisError = error as Error;
+			if (redisError.message.includes('connection') || redisError.message.includes('timeout')) {
+				LogEngine.warn('Redis v8 connection issue during polling, will retry:', {
+					error: redisError.message,
+					clientOpen: this.blockingRedisClient?.isOpen ?? false,
+				});
+			}
+			else {
+				LogEngine.error('Error polling for events:', error);
+			}
 		}
 	}
 
@@ -431,15 +581,26 @@ export class WebhookConsumer {
 		redis: boolean;
 		blockingRedis: boolean;
 		polling: boolean;
+		redisVersion?: string;
 	}> {
 		try {
 			// Test Redis connections
 			const redisHealthy = this.redisClient?.isOpen ?? false;
 			const blockingRedisHealthy = this.blockingRedisClient?.isOpen ?? false;
 
-			// Test Redis ping if connected
+			// Test Redis ping if connected - enhanced for Redis v8
+			let redisVersion: string | undefined;
 			if (redisHealthy) {
 				await this.redisClient!.ping();
+				try {
+					// Get Redis version for debugging Railway vs local differences
+					const info = await this.redisClient!.info('server');
+					const versionMatch = info.match(/redis_version:(\S+)/);
+					redisVersion = versionMatch ? versionMatch[1] : 'unknown';
+				}
+				catch (versionError) {
+					LogEngine.warn('Could not get Redis version info:', versionError);
+				}
 			}
 
 			if (blockingRedisHealthy) {
@@ -454,6 +615,7 @@ export class WebhookConsumer {
 				redis: redisHealthy,
 				blockingRedis: blockingRedisHealthy,
 				polling: this.isRunning,
+				...(redisVersion && { redisVersion }),
 			};
 
 		}

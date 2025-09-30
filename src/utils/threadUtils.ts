@@ -308,7 +308,7 @@ export async function findDiscordThreadByTicketId(
 			throw error;
 		}
 
-		// Fetch the Discord thread
+		// Fetch the Discord thread with timeout to prevent Railway hanging
 		const discordClient = (global as typeof globalThis).discordClient;
 		if (!discordClient) {
 			const error = new Error('Discord client is not initialized or unavailable.');
@@ -316,7 +316,13 @@ export async function findDiscordThreadByTicketId(
 			throw error;
 		}
 
-		const channel = await discordClient.channels.fetch(ticketMapping.discordThreadId);
+		// Wrap Discord API call with timeout (Railway optimization)
+		const fetchPromise = discordClient.channels.fetch(ticketMapping.discordThreadId);
+		const timeoutPromise = new Promise<never>((_, reject) =>
+			setTimeout(() => reject(new Error('Discord API timeout - channel fetch took too long')), 10000),
+		);
+
+		const channel = await Promise.race([fetchPromise, timeoutPromise]);
 		if (!channel) {
 			const error = new Error(`Discord thread with ID ${ticketMapping.discordThreadId} not found.`);
 			LogEngine.error(error.message);

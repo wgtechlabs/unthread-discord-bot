@@ -177,6 +177,22 @@ class RedisStorage implements StorageLayer {
 
 	constructor(redisUrl: string) {
 		this.client = createClient({ url: redisUrl });
+		
+		// Add error event handler to prevent crashes (Railway optimization)
+		this.client.on('error', (error: Error) => {
+			this.connected = false;
+			LogEngine.error('Redis L2 cache connection error (non-fatal):', {
+				error: error.message,
+				code: (error as NodeJS.ErrnoException).code,
+				errorType: 'L2_cache_error',
+			});
+			// Don't throw - graceful degradation to L1 + L3 only
+		});
+		
+		this.client.on('reconnecting', () => {
+			LogEngine.info('Redis L2 cache attempting to reconnect...');
+		});
+		
 		this.initializeConnection();
 	}
 
@@ -184,20 +200,29 @@ class RedisStorage implements StorageLayer {
 		try {
 			this.client.on('connect', () => {
 				this.connected = true;
-				LogEngine.info('Redis L2 cache connected successfully');
+				LogEngine.info('✅ Redis L2 cache connected successfully');
 			});
 
-			this.client.on('error', (error: Error) => {
-				this.connected = false;
-				LogEngine.error('Redis L2 cache error:', error);
-			});
+			// Error handler already set in constructor - no duplicate needed
 
 			await this.client.connect();
-			await this.client.ping();
+			
+			// Test connection with timeout to prevent hanging on Railway
+			const pingPromise = this.client.ping();
+			const timeoutPromise = new Promise((_, reject) =>
+				setTimeout(() => reject(new Error('Redis ping timeout')), 5000),
+			);
+			
+			await Promise.race([pingPromise, timeoutPromise]);
+			LogEngine.info('✅ Redis L2 cache ping successful');
 		}
 		catch (error) {
-			LogEngine.error('Failed to initialize Redis L2 cache:', error);
+			LogEngine.error('❌ Failed to initialize Redis L2 cache (will use L1+L3 only):', {
+				error: (error as Error).message,
+				stack: (error as Error).stack,
+			});
 			this.connected = false;
+			// Continue without Redis L2 - graceful degradation
 		}
 	}
 
@@ -281,13 +306,14 @@ class PostgresStorage implements StorageLayer {
 		const sslConfig = getSSLConfig(isProduction);
 		const processedPostgresUrl = processConnectionString(postgresUrl, sslConfig);
 		
-		// Configure connection pool using the proven pattern from Telegram bot
+		// Configure connection pool with Railway-optimized timeouts
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const poolConfig: any = {
 			connectionString: processedPostgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
-			connectionTimeoutMillis: 2000,
+			// Increased to 10s for Railway managed databases
+			connectionTimeoutMillis: 10000,
 		};
 		
 		// Only add SSL config if it's not explicitly disabled

@@ -1,39 +1,61 @@
 /**
- * Message Utilities Module
+ * Message Utilities - Bidirectional Sync Processing
  *
- * This module provides utility functions for processing messages between Discord and Unthread,
- * including duplicate detection, attachment handling, and message formatting.
- *
- * 🎯 FOR CONTRIBUTORS:
- * ===================
- * These utilities are critical for message synchronization quality. They prevent
- * duplicate messages, handle attachments properly, and maintain message context
- * during bidirectional sync between Discord and Unthread.
- *
- * These utilities help ensure consistent message handling and prevent duplicate messages
- * from being synchronized between platforms, which can happen due to bidirectional sync.
- *
- * 🔄 KEY FUNCTIONS:
- * ================
- * - isDuplicateMessage: Prevents message loops and redundant syncing
- * - containsDiscordAttachments: Detects attachments for special handling
- * - removeAttachmentSection: Cleans attachment metadata for content comparison
- * - processQuotedContent: Handles reply chains and quoted messages
- *
- * 🐛 DEBUGGING MESSAGE SYNC:
- * =========================
- * - Duplicate detection not working? Check content normalization logic
- * - Attachments not processing? Verify URL patterns and content detection
- * - Quote handling broken? Review reply chain parsing and formatting
- * - Performance issues? Monitor message processing time and optimize patterns
- *
- * 🚨 SYNC LOOP PREVENTION:
- * =======================
- * The duplicate detection algorithms are crucial for preventing infinite loops
- * when messages sync between Discord and Unthread. Always test changes carefully
- * to ensure loops don't occur.
+ * @description
+ * Critical message processing utilities for Discord-Unthread synchronization.
+ * Prevents duplicate messages, handles attachments, processes quoted content,
+ * and maintains message context during bidirectional platform communication.
  *
  * @module utils/messageUtils
+ * @since 1.0.0
+ *
+ * @keyFunctions
+ * - isDuplicateMessage(): Prevents message synchronization loops and redundancy
+ * - containsDiscordAttachments(): Detects attachments requiring special processing
+ * - removeAttachmentSection(): Cleans metadata for content comparison
+ * - processQuotedContent(): Handles reply chains and quoted message threading
+ *
+ * @commonIssues
+ * - Infinite sync loops: Duplicate detection fails causing message ping-pong
+ * - Attachment processing errors: URL patterns not matching or content detection failing
+ * - Quote parsing failures: Reply chain context lost during message threading
+ * - Content normalization problems: Similar messages not recognized as duplicates
+ * - Performance degradation: Message processing taking too long with large content
+ *
+ * @troubleshooting
+ * - Monitor LogEngine for duplicate detection patterns and false positives
+ * - Test attachment URL patterns against Discord CDN format changes
+ * - Verify quote processing maintains proper threading context
+ * - Check content normalization doesn't remove important message distinctions
+ * - Profile message processing time for performance optimization
+ * - Use debug logging to trace sync loop prevention logic
+ *
+ * @performance
+ * - Duplicate detection optimized for common message patterns
+ * - Attachment processing uses efficient regex patterns
+ * - Quote processing minimizes string manipulation overhead
+ * - Content normalization balances accuracy with performance
+ *
+ * @dependencies LogEngine for structured logging and debugging
+ *
+ * @example Basic Usage
+ * ```typescript
+ * const isDupe = isDuplicateMessage(newMessage, existingMessage);
+ * if (isDupe) {
+ *   LogEngine.debug('Skipping duplicate message sync');
+ *   return;
+ * }
+ * ```
+ *
+ * @example Advanced Usage
+ * ```typescript
+ * // Full message processing pipeline
+ * if (!isDuplicateMessage(message, lastSyncedMessage)) {
+ *   const hasAttachments = containsDiscordAttachments(message.content);
+ *   const processedQuotes = processQuotedContent(message.content);
+ *   await syncToUnthread(processedQuotes, hasAttachments);
+ * }
+ * ```
  */
 
 import { LogEngine } from '../config/logger';

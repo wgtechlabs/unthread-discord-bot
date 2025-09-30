@@ -80,6 +80,7 @@ import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import { BotConfig } from './types/discord';
 import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
+import { isRailwayEnvironment } from './config/defaults';
 import './types/global';
 
 // Import new storage architecture
@@ -131,6 +132,7 @@ async function validateStartupRequirements(): Promise<void> {
 		process.exit(1);
 	}
 }
+
 
 /**
  * Main startup function
@@ -209,6 +211,11 @@ async function main(): Promise<void> {
 		await initializeWebhookConsumer();
 
 		LogEngine.info('🚀 Unthread Discord Bot started successfully as Redis consumer');
+		
+		// Confirm webhook consumer initialization
+		if (webhookConsumer) {
+			LogEngine.info('✅ Redis webhook consumer connected and ready');
+		}
 	}
 	catch (error) {
 		LogEngine.error('Failed to start bot:', error);
@@ -431,25 +438,65 @@ async function initializeWebhookConsumer(): Promise<void> {
 	try {
 		// Check if webhook Redis URL is configured
 		if (process.env.WEBHOOK_REDIS_URL) {
-			LogEngine.info('Initializing clean Redis-based webhook consumer...');
+			LogEngine.info('🔄 Initializing Redis v8 compatible webhook consumer...');
+
+			// Detect Railway environment for optimized configuration
+			const isRailway = isRailwayEnvironment();
+			LogEngine.info(`Environment detected: ${isRailway ? 'Railway (Redis v8)' : 'Local/Other'}`);
 
 			webhookConsumer = new WebhookConsumer({
 				redisUrl: process.env.WEBHOOK_REDIS_URL,
 				queueName: 'unthread-events',
-				// Poll every second
-				pollInterval: 1000,
+				// Increased polling interval for Redis v8 stability
+				pollInterval: isRailway ? 3000 : 1000,
 			});
 
 			await webhookConsumer.start();
-			LogEngine.info('✅ Webhook consumer started successfully - polling Redis queue for events');
+			LogEngine.info('✅ Redis v8 compatible webhook consumer started successfully');
+			
+			// Perform health check to verify Redis v8 compatibility
+			try {
+				const health = await webhookConsumer.healthCheck();
+				LogEngine.info('🔍 Redis health check results:', {
+					status: health.status,
+					redisVersion: health.redisVersion || 'version detection failed',
+					connections: {
+						main: health.redis,
+						blocking: health.blockingRedis,
+					},
+					polling: health.polling,
+				});
+				
+				if (health.redisVersion?.startsWith('8.')) {
+					LogEngine.info('✅ Redis v8 detected and compatible');
+				}
+				else if (health.redisVersion?.startsWith('7.')) {
+					LogEngine.warn('⚠️  Redis v7 detected - may have compatibility issues on Railway');
+				}
+				else {
+					LogEngine.warn('⚠️  Could not detect Redis version');
+				}
+			}
+			catch (healthError) {
+				LogEngine.error('Health check failed:', healthError);
+			}
+			if (isRailway) {
+				LogEngine.info('🚄 Railway-specific optimizations applied for Redis stability');
+			}
 		}
 		else {
 			LogEngine.warn('WEBHOOK_REDIS_URL not configured - webhook consumer disabled');
+			LogEngine.info('Bot will run in basic mode (Discord events only)');
 		}
 	}
 	catch (error) {
-		LogEngine.error('Failed to initialize webhook consumer:', error);
-		LogEngine.warn('Bot will continue without Redis-based webhook processing');
+		LogEngine.error('❌ Failed to initialize webhook consumer:', {
+			error: (error as Error).message,
+			stack: (error as Error).stack,
+		});
+		// Don't exit - bot can still work for Discord events without webhook processing
+		LogEngine.warn('⚠️ Bot will continue without Redis-based webhook processing capabilities');
+		LogEngine.info('Discord event handling will still function normally');
 	}
 }
 

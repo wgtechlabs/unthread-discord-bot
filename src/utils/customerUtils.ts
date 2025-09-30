@@ -1,12 +1,61 @@
 /**
- * Customer Utilities Module - Updated for 3-Layer Architecture
+ * Customer Utilities - Discord-Unthread Integration
  *
- * This module provides utility functions for working with customer data
- * using the new BotsStore 3-layer storage system.
+ * @description
+ * Manages customer data integration between Discord users and Unthread ticketing system
+ * using the 3-layer BotsStore architecture. Handles customer creation, retrieval, and
+ * mapping consistency across both platforms with unified storage persistence.
  *
- * The functions handle the integration between Discord users and Unthread customers,
- * maintaining a consistent mapping between the two systems and managing
- * customer-related data persistence through the unified storage engine.
+ * @module utils/customerUtils
+ * @since 1.0.0
+ *
+ * @keyFunctions
+ * - getOrCreateCustomer(): Main entry point for customer management with caching
+ * - getCustomerByDiscordId(): Fast customer lookup using Discord ID
+ * - createCustomerInUnthread(): Internal API integration for customer creation
+ *
+ * @commonIssues
+ * - Duplicate customer creation: Same Discord user creates multiple Unthread records
+ * - API authentication failures: Invalid UNTHREAD_API_KEY during customer creation
+ * - Storage layer inconsistency: Cache and database customer records diverge
+ * - Email validation problems: Invalid or missing email addresses cause API failures
+ * - Customer ID conflicts: Unthread response missing customerId or id fields
+ *
+ * @troubleshooting
+ * - Check UNTHREAD_API_KEY validity and permissions for customer creation
+ * - Verify BotsStore 3-layer storage consistency using validateConsistency()
+ * - Monitor API response structure changes from Unthread customer endpoint
+ * - Use LogEngine debug output to trace customer lookup and creation flow
+ * - Validate Discord user objects have required ID and username fields
+ * - Review cache TTL settings if customer lookups return stale data
+ *
+ * @performance
+ * - Customer lookups cached in BotsStore for fast subsequent access
+ * - 3-layer architecture: Memory → Redis → PostgreSQL with fallback
+ * - API calls only made when customer doesn't exist in storage layers
+ * - Concurrent customer creation handled with proper error boundaries
+ *
+ * @dependencies BotsStore, Discord.js User, Unthread API, LogEngine
+ *
+ * @example Basic Usage
+ * ```typescript
+ * const customer = await getOrCreateCustomer(discordUser, 'user@example.com');
+ * console.log(`Customer ID: ${customer.unthreadCustomerId}`);
+ * ```
+ *
+ * @example Advanced Usage
+ * ```typescript
+ * // Customer lookup with error handling
+ * try {
+ *   const existing = await getCustomerByDiscordId(userId);
+ *   if (!existing) {
+ *     const newCustomer = await getOrCreateCustomer(user, email);
+ *     LogEngine.info(`Created customer: ${newCustomer.unthreadCustomerId}`);
+ *   }
+ * } catch (error) {
+ *   LogEngine.error('Customer management failed', error);
+ * }
+ * ```
  */
 
 import { BotsStore, Customer } from '../sdk/bots-brain/BotsStore';
@@ -17,17 +66,27 @@ import { User } from 'discord.js';
 export { Customer } from '../sdk/bots-brain/BotsStore';
 
 /**
- * Creates a new customer in Unthread's system based on Discord user information
+ * Creates customer record in Unthread system via API integration
  *
- * This function handles the API communication with Unthread to create a customer record.
- * It's designed to be an internal function used by other utilities in this module.
- *
- * @param user - Discord user object containing user details
- * @returns The Unthread customer ID
+ * @async
+ * @function createCustomerInUnthread
+ * @param {User} user - Discord user object with username and ID
+ * @returns {Promise<string>} Unthread customer ID from API response
  * @throws {Error} When UNTHREAD_API_KEY environment variable is not set
  * @throws {Error} When API request fails (4xx/5xx responses)
- * @throws {Error} When API response is missing required customerId field
+ * @throws {Error} When API response is missing customerId/id field
  * @private
+ *
+ * @example
+ * ```typescript
+ * const customerId = await createCustomerInUnthread(discordUser);
+ * // Returns: "customer_abc123def456"
+ * ```
+ *
+ * @troubleshooting
+ * - Verify API key has customer creation permissions in Unthread
+ * - Check Unthread API response format for field name changes
+ * - Monitor API rate limits during bulk customer creation
  */
 async function createCustomerInUnthread(user: User): Promise<string> {
 	// Get API key (guaranteed to exist due to startup validation)
@@ -60,28 +119,28 @@ async function createCustomerInUnthread(user: User): Promise<string> {
 }
 
 /**
- * Retrieves or creates a customer record for a Discord user using BotsStore
+ * Retrieves or creates customer record using 3-layer BotsStore architecture
  *
- * This is the main function for customer management, handling:
- * 1. BotsStore lookup for existing customer records (3-layer cache)
- * 2. Creation of new customer records when needed
- * 3. Proper storage of customer data with Discord and Unthread IDs
- *
- * Use this function whenever you need to ensure a Discord user has
- * a corresponding customer record in Unthread.
- *
- * @param user - Discord user object
- * @param email - User's email address (optional)
- * @returns Customer data object with Discord and Unthread IDs
- * @throws {Error} When invalid user object is provided (missing id)
- * @throws {Error} When customer creation in Unthread fails
- * @throws {Error} When storage operations fail
+ * @async
+ * @function getOrCreateCustomer
+ * @param {User} user - Discord user object with ID and username
+ * @param {string} [email=''] - User's email address for Unthread correspondence
+ * @returns {Promise<Customer>} Customer record with Discord and Unthread IDs
+ * @throws {Error} When invalid user object provided (missing id property)
+ * @throws {Error} When customer creation in Unthread API fails
+ * @throws {Error} When BotsStore storage operations fail
  *
  * @example
  * ```typescript
  * const customer = await getOrCreateCustomer(discordUser, 'user@example.com');
- * console.log(`Customer ID: ${customer.unthreadCustomerId}`);
+ * console.log(`Mapped: Discord ${customer.discordId} → Unthread ${customer.unthreadCustomerId}`);
  * ```
+ *
+ * @troubleshooting
+ * - Ensure user object has valid ID and username properties
+ * - Check BotsStore layer consistency if lookups return unexpected results
+ * - Verify Unthread API permissions for customer creation
+ * - Monitor storage layer performance for large user bases
  */
 export async function getOrCreateCustomer(user: User, email: string = ''): Promise<Customer> {
 	if (!user || !user.id) {
