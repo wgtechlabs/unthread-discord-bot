@@ -145,6 +145,9 @@ export class WebhookConsumer {
 	 *
 	 * @see {@link https://redis.io/commands/blpop/} for BLPOP operation details
 	 */
+	/**
+	 * Initialize Redis connection with Railway-optimized error handling
+	 */
 	async connect(): Promise<boolean> {
 		try {
 			if (!this.redisUrl) {
@@ -153,17 +156,59 @@ export class WebhookConsumer {
 
 			// Create main Redis client for general operations
 			this.redisClient = createClient({ url: this.redisUrl });
+			
+			// Add error event handler to prevent crashes
+			this.redisClient.on('error', (error: Error) => {
+				LogEngine.error('Redis main client error (non-fatal):', {
+					error: error.message,
+					code: (error as NodeJS.ErrnoException).code,
+					type: 'main_client',
+				});
+				// Don't throw - let the application continue
+			});
+			
+			this.redisClient.on('connect', () => {
+				LogEngine.info('Redis main client connected successfully');
+			});
+			
+			this.redisClient.on('reconnecting', () => {
+				LogEngine.info('Redis main client attempting to reconnect...');
+			});
+			
 			await this.redisClient.connect();
 
 			// Create dedicated Redis client for blocking operations (blPop)
 			this.blockingRedisClient = createClient({ url: this.redisUrl });
+			
+			// Add error event handler to prevent crashes
+			this.blockingRedisClient.on('error', (error: Error) => {
+				LogEngine.error('Redis blocking client error (non-fatal):', {
+					error: error.message,
+					code: (error as NodeJS.ErrnoException).code,
+					type: 'blocking_client',
+				});
+				// Don't throw - let the application continue
+			});
+			
+			this.blockingRedisClient.on('connect', () => {
+				LogEngine.info('Redis blocking client connected successfully');
+			});
+			
+			this.blockingRedisClient.on('reconnecting', () => {
+				LogEngine.info('Redis blocking client attempting to reconnect...');
+			});
+			
 			await this.blockingRedisClient.connect();
 
-			LogEngine.info('Webhook consumer connected to Redis with isolated blocking client');
+			LogEngine.info('✅ Webhook consumer connected to Redis with isolated blocking client and error handling');
 			return true;
 		}
 		catch (error) {
-			LogEngine.error('Webhook consumer Redis connection failed:', error);
+			LogEngine.error('❌ Webhook consumer Redis connection failed:', {
+				error: (error as Error).message,
+				stack: (error as Error).stack,
+				redisUrl: this.redisUrl?.substring(0, 20) + '...', // Log partial URL for debugging
+			});
 			throw error;
 		}
 	}

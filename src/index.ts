@@ -80,6 +80,7 @@ import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import { BotConfig } from './types/discord';
 import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
+import { isRailwayEnvironment } from './config/defaults';
 import './types/global';
 
 // Import new storage architecture
@@ -437,25 +438,40 @@ async function initializeWebhookConsumer(): Promise<void> {
 	try {
 		// Check if webhook Redis URL is configured
 		if (process.env.WEBHOOK_REDIS_URL) {
-			LogEngine.info('Initializing clean Redis-based webhook consumer...');
+			LogEngine.info('🔄 Initializing Railway-optimized Redis webhook consumer...');
+
+			// Detect Railway environment for optimized configuration
+			const isRailway = isRailwayEnvironment();
+			LogEngine.info(`Environment detected: ${isRailway ? 'Railway' : 'Local/Other'}`);
 
 			webhookConsumer = new WebhookConsumer({
 				redisUrl: process.env.WEBHOOK_REDIS_URL,
 				queueName: 'unthread-events',
-				// Poll every second
-				pollInterval: 1000,
+				// Railway-optimized polling interval
+				pollInterval: isRailway ? 2000 : 1000,
 			});
 
 			await webhookConsumer.start();
 			LogEngine.info('✅ Webhook consumer started successfully - polling Redis queue for events');
+			
+			// Additional Railway-specific logging
+			if (isRailway) {
+				LogEngine.info('🚄 Railway-specific optimizations applied for Redis stability');
+			}
 		}
 		else {
 			LogEngine.warn('WEBHOOK_REDIS_URL not configured - webhook consumer disabled');
+			LogEngine.info('Bot will run in basic mode (Discord events only)');
 		}
 	}
 	catch (error) {
-		LogEngine.error('Failed to initialize webhook consumer:', error);
-		LogEngine.warn('Bot will continue without Redis-based webhook processing');
+		LogEngine.error('❌ Failed to initialize webhook consumer:', {
+			error: (error as Error).message,
+			stack: (error as Error).stack,
+		});
+		// Don't exit - bot can still work for Discord events without webhook processing
+		LogEngine.warn('⚠️ Bot will continue without Redis-based webhook processing capabilities');
+		LogEngine.info('Discord event handling will still function normally');
 	}
 }
 
