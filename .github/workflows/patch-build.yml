@@ -107,6 +107,8 @@ jobs:
         run: |
           echo "## 🩹 Patch Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "**PR Number:** #${{ steps.meta.outputs.pr_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch Flow:** \`${{ github.head_ref }}\` → \`main\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Type:** Hotfix (Direct to main)" >> $GITHUB_STEP_SUMMARY
           echo "**Images built and pushed:**" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.REGISTRY_DOCKERHUB }}:patch-${{ steps.meta.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.REGISTRY_GHCR }}:patch-${{ steps.meta.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
@@ -114,3 +116,4 @@ jobs:
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
           echo "docker pull ${{ env.REGISTRY_DOCKERHUB }}:patch-${{ steps.meta.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "**⚡ Patch Build Notice:** Hotfix ready for validation in production-like environment!" >> $GITHUB_STEP_SUMMARY
