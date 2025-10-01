@@ -1,23 +1,22 @@
----
-name: PR Build
+name: WIP Build
 
 on:
   pull_request:
-    branches: [dev]
+    branches-ignore: [main, dev]
     paths:
       - 'src/**'
       - 'Dockerfile'
       - 'package.json'
       - 'yarn.lock'
-      - '.github/workflows/pr-build.yml'
+      - '.github/workflows/wip-build.yml'
 
 env:
   REGISTRY_DOCKERHUB: wgtechlabs/unthread-discord-bot
   REGISTRY_GHCR: ghcr.io/wgtechlabs/unthread-discord-bot
 
 jobs:
-  build-pr:
-    name: Build PR Images
+  build-wip:
+    name: Build WIP Images
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     permissions:
@@ -51,25 +50,30 @@ jobs:
           echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
           echo "pr_number=${{ github.event.number }}" >> $GITHUB_OUTPUT
+          echo "source_branch=${{ github.head_ref }}" >> $GITHUB_OUTPUT
+          echo "target_branch=${{ github.base_ref }}" >> $GITHUB_OUTPUT
 
-      - name: Build and push PR images
+      - name: Build and push WIP images
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           platforms: linux/amd64
           tags: |
-            ${{ env.REGISTRY_DOCKERHUB }}:pr-${{ steps.meta.outputs.short_sha }}
-            ${{ env.REGISTRY_GHCR }}:pr-${{ steps.meta.outputs.short_sha }}
+            ${{ env.REGISTRY_DOCKERHUB }}:wip-${{ steps.meta.outputs.short_sha }}
+            ${{ env.REGISTRY_GHCR }}:wip-${{ steps.meta.outputs.short_sha }}
           labels: |
-            org.opencontainers.image.title=Unthread Discord Bot (PR)
-            org.opencontainers.image.description=Turn Discord servers into comprehensive support ticket hubs with real-time bidirectional communication — powered by Unthread.io. (PR Build)
-            org.opencontainers.image.version=pr-${{ steps.meta.outputs.short_sha }}
+            org.opencontainers.image.title=Unthread Discord Bot (WIP)
+            org.opencontainers.image.description=Turn Discord servers into comprehensive support ticket hubs with real-time bidirectional communication — powered by Unthread.io. (Work In Progress Build)
+            org.opencontainers.image.version=wip-${{ steps.meta.outputs.short_sha }}
             org.opencontainers.image.created=${{ steps.meta.outputs.build_date }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}/pull/${{ steps.meta.outputs.pr_number }}
             org.opencontainers.image.licenses=AGPL-3.0
+            wip.source.branch=${{ steps.meta.outputs.source_branch }}
+            wip.target.branch=${{ steps.meta.outputs.target_branch }}
+            wip.workflow.type=experimental
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -77,23 +81,28 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const comment = `## 🔨 PR Image Built Successfully
+            const comment = `## 🚧 WIP Image Built Successfully
             
-            **Test this PR with Docker:**
+            **Work In Progress Build Details:**
+            - **Source Branch:** \`${{ steps.meta.outputs.source_branch }}\`
+            - **Target Branch:** \`${{ steps.meta.outputs.target_branch }}\`
+            - **Build Type:** Experimental/WIP
+            
+            **Test this WIP build with Docker:**
             \`\`\`bash
             # Docker Hub
-            docker pull ${{ env.REGISTRY_DOCKERHUB }}:pr-${{ steps.meta.outputs.short_sha }}
+            docker pull ${{ env.REGISTRY_DOCKERHUB }}:wip-${{ steps.meta.outputs.short_sha }}
             
             # GitHub Container Registry
-            docker pull ${{ env.REGISTRY_GHCR }}:pr-${{ steps.meta.outputs.short_sha }}
+            docker pull ${{ env.REGISTRY_GHCR }}:wip-${{ steps.meta.outputs.short_sha }}
             \`\`\`
             
-            **Deploy to Railway/Cloud:**
-            - Image: \`${{ env.REGISTRY_DOCKERHUB }}:pr-${{ steps.meta.outputs.short_sha }}\`
+            **Deploy for Testing:**
+            - Image: \`${{ env.REGISTRY_DOCKERHUB }}:wip-${{ steps.meta.outputs.short_sha }}\`
             - SHA: \`${{ github.sha }}\`
             - Built: \`${{ steps.meta.outputs.build_date }}\`
             
-            > 🚀 Ready for testing in your cloud environment!`;
+            > ⚠️ **Note:** This is a Work In Progress build for testing experimental changes. Not recommended for production use.`;
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -102,17 +111,17 @@ jobs:
               body: comment
             });
 
-      - name: PR build summary
+      - name: WIP build summary
         run: |
-          echo "## 🔨 PR Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚧 WIP Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "**PR Number:** #${{ steps.meta.outputs.pr_number }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch Flow:** \`${{ github.head_ref }}\` → \`dev\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Build Type:** Development (PR to dev)" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch Flow:** \`${{ steps.meta.outputs.source_branch }}\` → \`${{ steps.meta.outputs.target_branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Type:** Work In Progress (Experimental)" >> $GITHUB_STEP_SUMMARY
           echo "**Images built and pushed:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY_DOCKERHUB }}:pr-${{ steps.meta.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY_GHCR }}:pr-${{ steps.meta.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Test the PR image:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY_DOCKERHUB }}:wip-${{ steps.meta.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY_GHCR }}:wip-${{ steps.meta.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Test the WIP image:**" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.REGISTRY_DOCKERHUB }}:pr-${{ steps.meta.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY_DOCKERHUB }}:wip-${{ steps.meta.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "**✅ PR Build Notice:** Ready for development testing and review!" >> $GITHUB_STEP_SUMMARY
+          echo "**⚠️ WIP Build Notice:** This is experimental - test thoroughly before merging!" >> $GITHUB_STEP_SUMMARY
