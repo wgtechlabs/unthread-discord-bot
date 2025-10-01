@@ -44,7 +44,7 @@ export const DEFAULT_CONFIG = {
 
 	// Timeouts & Performance (hardcoded - no env needed)
 	UNTHREAD_HTTP_TIMEOUT_MS: 10000,
-	WEBHOOK_POLL_INTERVAL: 1000,
+	WEBHOOK_POLL_INTERVAL: 5000,
 
 	// Business Logic (sensible defaults)
 	UNTHREAD_DEFAULT_PRIORITY: 5,
