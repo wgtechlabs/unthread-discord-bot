@@ -64,12 +64,15 @@ jobs:
       - name: Development build summary
         run: |
           echo "## 🔨 Development Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`dev\` (Push trigger)" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Type:** Development (Latest dev branch)" >> $GITHUB_STEP_SUMMARY
           echo "**Images built and pushed:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY_DOCKERHUB }}:dev\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY_DOCKERHUB }}:dev-${{ steps.meta.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY_GHCR }}:dev\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY_GHCR }}:dev-${{ steps.meta.outputs.short_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY_DOCKERHUB }}:dev\` (latest)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY_DOCKERHUB }}:dev-${{ steps.meta.outputs.short_sha }}\` (versioned)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY_GHCR }}:dev\` (latest)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY_GHCR }}:dev-${{ steps.meta.outputs.short_sha }}\` (versioned)" >> $GITHUB_STEP_SUMMARY
           echo "**Test the dev image:**" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
           echo "docker pull ${{ env.REGISTRY_DOCKERHUB }}:dev" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "**🚀 Development Build Notice:** Latest development changes ready for testing!" >> $GITHUB_STEP_SUMMARY
