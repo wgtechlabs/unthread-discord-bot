@@ -1,11 +1,7 @@
 /**
  * Default Configuration System
  *
- * Provides production-safe defaults for the Discord 	export function getAllConfig() {
-	return {
-		NODE_ENV: getConfig('NODE_ENV', DEFAULT_CONFIG.NODE_ENV),
-		PORT: getConfig('PORT', DEFAULT_CONFIG.PORT),
-		UNTHREAD_HTTP_TIMEOUT_MS: getConfig('UNTHREAD_HTTP_TIMEOUT_MS', DEFAULT_CONFIG.UNTHREAD_HTTP_TIMEOUT_MS),onfiguration.
+ * Provides production-safe defaults for the Discord bot configuration.
  * This follows Node.js best practices by using NODE_ENV for environment detection
  * and hardcoding sensible defaults that don't require user configuration.
  *
