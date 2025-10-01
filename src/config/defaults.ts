@@ -1,7 +1,11 @@
 /**
  * Default Configuration System
  *
- * Provides production-safe defaults for the Discord bot configuration.
+ * Provides production-safe defaults for the Discord 	export function getAllConfig() {
+	return {
+		NODE_ENV: getConfig('NODE_ENV', DEFAULT_CONFIG.NODE_ENV),
+		PORT: getConfig('PORT', DEFAULT_CONFIG.PORT),
+		UNTHREAD_HTTP_TIMEOUT_MS: getConfig('UNTHREAD_HTTP_TIMEOUT_MS', DEFAULT_CONFIG.UNTHREAD_HTTP_TIMEOUT_MS),onfiguration.
  * This follows Node.js best practices by using NODE_ENV for environment detection
  * and hardcoding sensible defaults that don't require user configuration.
  *
@@ -40,7 +44,7 @@ import { LogEngine } from '@wgtechlabs/log-engine';
 export const DEFAULT_CONFIG = {
 	// Production-safe defaults
 	NODE_ENV: 'production',
-	PORT: 3000,
+	PORT: 3001,
 
 	// Timeouts & Performance (hardcoded - no env needed)
 	UNTHREAD_HTTP_TIMEOUT_MS: 10000,

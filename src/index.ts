@@ -81,6 +81,9 @@ import { BotConfig } from './types/discord';
 import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
 import './types/global';
+import express from 'express';
+import { Server } from 'http';
+import { DEFAULT_CONFIG, getConfig } from './config/defaults';
 
 // Import new storage architecture
 import { BotsStore } from './sdk/bots-brain/BotsStore';
@@ -207,6 +210,10 @@ async function main(): Promise<void> {
 		// This ensures deterministic startup order without race conditions
 		LogEngine.info('Initializing webhook consumer...');
 		await initializeWebhookConsumer();
+
+		// Step 6: Start health check server for Railway monitoring
+		LogEngine.info('Starting health check server...');
+		await startHealthServer();
 
 		LogEngine.info('🚀 Unthread Discord Bot started successfully as Redis consumer');
 	}
@@ -465,6 +472,10 @@ process.on('SIGINT', async () => {
 		await webhookConsumer.stop();
 		LogEngine.info('Webhook consumer stopped');
 	}
+	if (healthServer) {
+		healthServer.close();
+		LogEngine.info('Health server stopped');
+	}
 });
 
 process.on('SIGTERM', async () => {
@@ -473,4 +484,95 @@ process.on('SIGTERM', async () => {
 		await webhookConsumer.stop();
 		LogEngine.info('Webhook consumer stopped');
 	}
+	if (healthServer) {
+		healthServer.close();
+		LogEngine.info('Health server stopped');
+	}
 });
+
+/**
+ * Lightweight Health Check Server
+ *
+ * Provides HTTP endpoint for Railway health monitoring to prevent SIGTERM restarts.
+ * Exposes existing BotsStore health checks plus Discord and webhook consumer status.
+ */
+let healthServer: Server | null = null;
+
+/**
+ * Start minimal Express server for health checks
+ *
+ * Creates a lightweight HTTP server that exposes health status to Railway
+ * and external monitoring systems. Prevents unnecessary container restarts.
+ */
+async function startHealthServer(): Promise<void> {
+	try {
+		const app = express();
+		// Use PORT from configuration with environment override support
+		const port = getConfig('PORT', DEFAULT_CONFIG.PORT);
+
+		// Health endpoint with comprehensive status
+		app.get('/health', async (_req, res) => {
+			try {
+				// Get storage health from BotsStore
+				const botsStore = await BotsStore.initialize();
+				const storageHealth = await botsStore.healthCheck();
+
+				// Get webhook consumer status
+				const webhookStatus = webhookConsumer?.getStatus() || {
+					isRunning: false,
+					isConnected: false,
+					isBlockingClientConnected: false,
+					queueName: 'unknown',
+				};
+
+				// Simple health response
+				const health = {
+					status: 'healthy',
+					timestamp: new Date().toISOString(),
+					uptime: Math.floor(process.uptime()),
+					discord: {
+						connected: global.discordClient?.isReady() || false,
+						ping: global.discordClient?.ws.ping || -1,
+					},
+					storage: storageHealth,
+					webhook: {
+						running: webhookStatus.isRunning,
+						connected: webhookStatus.isConnected,
+					},
+				};
+
+				// Determine if we're actually healthy
+				const isHealthy =
+					health.discord.connected &&
+					storageHealth.database_pool &&
+					health.webhook.running;
+
+				health.status = isHealthy ? 'healthy' : 'degraded';
+				res.status(isHealthy ? 200 : 503).json(health);
+			}
+			catch (error) {
+				LogEngine.error('Health check failed:', error);
+				res.status(503).json({
+					status: 'unhealthy',
+					timestamp: new Date().toISOString(),
+					error: 'Health check failed',
+				});
+			}
+		});
+
+		// Simple ping endpoint
+		app.get('/ping', (_req, res) => {
+			res.json({ message: 'pong', timestamp: new Date().toISOString() });
+		});
+
+		// Start server
+		healthServer = app.listen(port, () => {
+			LogEngine.info(`✅ Health check server running on port ${port}`);
+			LogEngine.info(`Health endpoint: http://localhost:${port}/health`);
+		});
+	}
+	catch (error) {
+		LogEngine.error('Failed to start health server:', error);
+		LogEngine.warn('Continuing without health server - Railway may restart container');
+	}
+}

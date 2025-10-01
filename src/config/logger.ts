@@ -14,7 +14,7 @@
  */
 
 import { LogEngine, LogMode } from '@wgtechlabs/log-engine';
-import { isDevelopment } from './defaults.js';
+import { isDevelopment } from './defaults';
 
 // Set the log mode based on NODE_ENV environment variable
 // In development mode (or undefined NODE_ENV), show all logs; otherwise show info and above

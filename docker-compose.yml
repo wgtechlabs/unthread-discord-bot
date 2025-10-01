@@ -49,6 +49,8 @@ services:
   # cross-repository management and standardized tooling.
   server:
     build: .  # Build from local Dockerfile instead of pulling from Docker Hub
+    ports:
+      - "3001:3001"  # Discord bot health endpoint
     env_file:
       - .env  # Contains bot tokens, API keys, and database URLs (including NODE_ENV)
     depends_on:

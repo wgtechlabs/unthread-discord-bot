@@ -61,7 +61,7 @@ export interface BotConfig {
 	WEBHOOK_REDIS_URL: string;
 	/** Comma-separated list of forum channel IDs for auto-ticket creation (optional) */
 	FORUM_CHANNEL_IDS?: string;
-	/** Port for webhook server (optional, defaults to 3000) */
+	/** Port for Discord bot health endpoint (optional, defaults to 3001) */
 	PORT?: string;
 }
 
