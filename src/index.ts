@@ -87,6 +87,7 @@ import { BotsStore } from './sdk/bots-brain/BotsStore';
 
 // Import clean webhook consumer
 import { WebhookConsumer } from './sdk/webhook-consumer';
+import { getAllConfig } from './config/defaults';
 
 /**
  * Startup Validation Function
@@ -433,11 +434,13 @@ async function initializeWebhookConsumer(): Promise<void> {
 		if (process.env.WEBHOOK_REDIS_URL) {
 			LogEngine.info('Initializing clean Redis-based webhook consumer...');
 
+			// Get configuration for polling interval
+			const config = getAllConfig();
 			webhookConsumer = new WebhookConsumer({
 				redisUrl: process.env.WEBHOOK_REDIS_URL,
 				queueName: 'unthread-events',
-				// Poll every second
-				pollInterval: 1000,
+				// Use configurable poll interval (default 5000ms)
+				pollInterval: config.WEBHOOK_POLL_INTERVAL,
 			});
 
 			await webhookConsumer.start();
