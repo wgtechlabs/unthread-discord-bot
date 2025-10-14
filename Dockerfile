@@ -24,10 +24,12 @@ ARG NODE_VERSION=22.16-alpine3.21
 # Alpine Linux 3.21 base for minimal image size with latest security updates
 FROM node:${NODE_VERSION} AS base
 
-# Install security updates for Alpine packages
+# Install security updates for Alpine packages and enable Corepack for pnpm
 RUN apk update && apk upgrade && \
     apk add --no-cache dumb-init && \
-    rm -rf /var/cache/apk/*
+    rm -rf /var/cache/apk/* && \
+    corepack enable && \
+    corepack prepare pnpm@9.15.9 --activate
 
 # Set working directory for all subsequent stages
 WORKDIR /usr/src/app
@@ -39,11 +41,11 @@ WORKDIR /usr/src/app
 FROM base AS deps
 
 # Copy package management files for dependency installation
-COPY package.json yarn.lock ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 
-# Install only production dependencies
-RUN yarn install --production --frozen-lockfile && \
-    yarn cache clean
+# Install only production dependencies using pnpm
+RUN pnpm install --prod --frozen-lockfile && \
+    pnpm store prune
 
 # =============================================================================
 # STAGE 3: Build Application  
@@ -52,14 +54,14 @@ RUN yarn install --production --frozen-lockfile && \
 FROM base AS build
 
 # Copy package management files
-COPY package.json yarn.lock ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 
 # Install all dependencies (including devDependencies for building)
-RUN yarn install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # Copy source code and build the application
 COPY . .
-RUN yarn run build
+RUN pnpm run build
 
 # Copy non-TypeScript files that need to be in the final build
 RUN mkdir -p dist/database && cp src/database/schema.sql dist/database/schema.sql
