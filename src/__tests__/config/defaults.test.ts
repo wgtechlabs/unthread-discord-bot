@@ -36,7 +36,7 @@ describe('defaults configuration', () => {
 
 		it('should have sensible timeout values', () => {
 			expect(DEFAULT_CONFIG.UNTHREAD_HTTP_TIMEOUT_MS).toBe(10000);
-			expect(DEFAULT_CONFIG.WEBHOOK_POLL_INTERVAL).toBe(1000);
+			expect(DEFAULT_CONFIG.WEBHOOK_POLL_INTERVAL).toBe(5000);
 			expect(DEFAULT_CONFIG.UNTHREAD_DEFAULT_PRIORITY).toBe(5);
 		});
 
@@ -244,7 +244,7 @@ describe('defaults configuration', () => {
 				expect(config.NODE_ENV).toBe('production');
 				expect(config.PORT).toBe(3000);
 				expect(config.UNTHREAD_HTTP_TIMEOUT_MS).toBe(10000);
-				expect(config.WEBHOOK_POLL_INTERVAL).toBe(1000);
+				expect(config.WEBHOOK_POLL_INTERVAL).toBe(5000);
 				expect(config.UNTHREAD_DEFAULT_PRIORITY).toBe(5);
 				expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.invalid');
 				expect(config.DATABASE_SSL_VALIDATE).toBe(true);
@@ -276,7 +276,7 @@ describe('defaults configuration', () => {
 				expect(config.UNTHREAD_HTTP_TIMEOUT_MS).toBe(15000);
 
 				// Non-overridden values should remain default
-				expect(config.WEBHOOK_POLL_INTERVAL).toBe(1000);
+				expect(config.WEBHOOK_POLL_INTERVAL).toBe(5000);
 				expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.invalid');
 			}
 			finally {
