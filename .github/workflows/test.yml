@@ -56,7 +56,7 @@ jobs:
         run: pnpm build
 
       - name: Run tests (fast feedback)
-        run: pnpm test
+        run: yarn test
 
       - name: Run tests with coverage (detailed analysis)
         run: pnpm test:coverage
