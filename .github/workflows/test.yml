@@ -49,7 +49,7 @@ jobs:
         run: yarn build
 
       - name: Run tests (fast feedback)
-        run: yarn test:run
+        run: yarn test
 
       - name: Run tests with coverage (detailed analysis)
         run: yarn test:coverage
