@@ -38,7 +38,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.15.9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -56,7 +56,7 @@ jobs:
         run: pnpm build
 
       - name: Run tests (fast feedback)
-        run: yarn test
+        run: pnpm test
 
       - name: Run tests with coverage (detailed analysis)
         run: pnpm test:coverage
