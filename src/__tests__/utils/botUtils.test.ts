@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getBotName, getBotFooter, getBotDisplayName } from '@utils/botUtils';
+import { version } from '../../../package.json';
 
 describe('botUtils', () => {
 	// Store original global state
@@ -127,7 +128,7 @@ describe('botUtils', () => {
 
 			const footer = getBotFooter();
 
-			expect(footer).toBe('Support Bot v1.1.0');
+			expect(footer).toBe(`Support Bot v${version}`);
 			expect(footer).toMatch(/^Support Bot v\d+\.\d+\.\d+/);
 		});
 
@@ -140,7 +141,7 @@ describe('botUtils', () => {
 
 			const footer = getBotFooter();
 
-			expect(footer).toBe('ticket-bot v1.1.0');
+			expect(footer).toBe(`ticket-bot v${version}`);
 			expect(footer).toMatch(/^ticket-bot v\d+\.\d+\.\d+/);
 		});
 
@@ -149,7 +150,7 @@ describe('botUtils', () => {
 
 			const footer = getBotFooter();
 
-			expect(footer).toBe('Unthread Discord Bot v1.1.0');
+			expect(footer).toBe(`Unthread Discord Bot v${version}`);
 			expect(footer).toMatch(/^Unthread Discord Bot v\d+\.\d+\.\d+/);
 		});
 
@@ -189,7 +190,7 @@ describe('botUtils', () => {
 
 			const footer = getBotFooter();
 
-			expect(footer).toBe('Bot-With-Dashes & Symbols! v1.1.0');
+			expect(footer).toBe(`Bot-With-Dashes & Symbols! v${version}`);
 			expect(footer).toContain('Bot-With-Dashes & Symbols!');
 		});
 
@@ -202,7 +203,7 @@ describe('botUtils', () => {
 
 			const footer = getBotFooter();
 
-			expect(footer).toBe('🤖 Unicode Bot 🚀 v1.1.0');
+			expect(footer).toBe(`🤖 Unicode Bot 🚀 v${version}`);
 			expect(footer).toContain('🤖');
 			expect(footer).toContain('🚀');
 		});
@@ -292,7 +293,7 @@ describe('botUtils', () => {
 
 			expect(displayName).toBe(botName);
 			expect(footer).toContain(botName);
-			expect(footer).toBe(`${botName} v1.1.0`);
+			expect(footer).toBe(`${botName} v${version}`);
 		});
 
 		it('should handle rapid client state changes', () => {
@@ -332,7 +333,7 @@ describe('botUtils', () => {
 
 			expect(name).toBe('minimal-bot');
 			expect(displayName).toBe('minimal-bot');
-			expect(footer).toBe('minimal-bot v1.1.0');
+			expect(footer).toBe(`minimal-bot v${version}`);
 		});
 
 		it('should handle undefined properties gracefully', () => {
@@ -349,7 +350,7 @@ describe('botUtils', () => {
 
 			expect(name).toBe('Unthread Discord Bot');
 			expect(displayName).toBe('Unthread Discord Bot');
-			expect(footer).toBe('Unthread Discord Bot v1.1.0');
+			expect(footer).toBe(`Unthread Discord Bot v${version}`);
 		});
 	});
 
@@ -369,7 +370,7 @@ describe('botUtils', () => {
 			const footer = getBotFooter();
 
 			expect(name).toBe('Unthread Support Bot');
-			expect(footer).toBe('Unthread Support Bot v1.1.0');
+			expect(footer).toBe(`Unthread Support Bot v${version}`);
 		});
 
 		it('should work during bot initialization', () => {
@@ -377,13 +378,13 @@ describe('botUtils', () => {
 			(global as any).discordClient = null;
 
 			expect(getBotName()).toBe('Unthread Discord Bot');
-			expect(getBotFooter()).toBe('Unthread Discord Bot v1.1.0');
+			expect(getBotFooter()).toBe(`Unthread Discord Bot v${version}`);
 
 			// After client connects but user not yet set
 			(global as any).discordClient = {};
 
 			expect(getBotName()).toBe('Unthread Discord Bot');
-			expect(getBotFooter()).toBe('Unthread Discord Bot v1.1.0');
+			expect(getBotFooter()).toBe(`Unthread Discord Bot v${version}`);
 
 			// After user becomes available
 			(global as any).discordClient = {
@@ -393,7 +394,7 @@ describe('botUtils', () => {
 			};
 
 			expect(getBotName()).toBe('newly-connected-bot');
-			expect(getBotFooter()).toBe('newly-connected-bot v1.1.0');
+			expect(getBotFooter()).toBe(`newly-connected-bot v${version}`);
 		});
 
 		it('should work in development environment', () => {
@@ -408,7 +409,7 @@ describe('botUtils', () => {
 			const footer = getBotFooter();
 
 			expect(name).toBe('Dev Bot [LOCAL]');
-			expect(footer).toBe('Dev Bot [LOCAL] v1.1.0');
+			expect(footer).toBe(`Dev Bot [LOCAL] v${version}`);
 			expect(footer).toContain('[LOCAL]');
 		});
 	});
@@ -452,7 +453,7 @@ describe('botUtils', () => {
 			const footer = getBotFooter();
 
 			expect(name).toBe(longName);
-			expect(footer).toBe(`${longName} v1.1.0`);
+			expect(footer).toBe(`${longName} v${version}`);
 			expect(footer.length).toBeGreaterThan(1000);
 		});
 	});
