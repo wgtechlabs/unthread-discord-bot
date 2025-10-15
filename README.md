@@ -172,8 +172,8 @@ This bot is built with **TypeScript** for enhanced maintainability, type safety,
 - **TypeScript**: For type safety and better code maintainability
 - **Discord.js v14**: Modern Discord API interactions
 - **Express.js**: RESTful API server with comprehensive monitoring
-- **Node.js 18+**: Runtime environment
-- **pnpm**: Fast, disk space efficient package manager
+- **Node.js 20+**: Runtime environment
+- **pnpm**: Fast, disk-space-efficient package manager
 - **ESLint**: Code quality and consistent formatting
 
 **Storage & Performance:**
@@ -219,17 +219,11 @@ The project includes comprehensive unit testing with Vitest and automated CI/CD 
 # Run all tests
 pnpm test
 
-# Run tests once (CI mode)
-pnpm test:run
-
 # Run tests with coverage report
 pnpm test:coverage
 
 # Run tests in watch mode (development)
 pnpm test:watch
-
-# Open Vitest UI for interactive testing
-pnpm test:ui
 ```
 
 #### Test Structure
@@ -519,8 +513,8 @@ pnpm lint:fix
 # Build only (creates dist/ folder)
 pnpm build
 
-# Deploy commands only (development mode)
-pnpm deploycommand:dev
+# Deploy commands only
+pnpm deploycommand
 ```
 
 ### How to Get Your Discord Server ID
@@ -624,7 +618,7 @@ Need assistance with the bot? Here's how to get help:
 
 - Ensure the bot has the required permissions in your server
 - Check if the bot is online in your Discord server
-- Verify that slash commands are deployed with `yarn deploycommand`
+- Verify that slash commands are deployed with `pnpm deploycommand`
 
 **Forum channel tickets not creating:**
 
