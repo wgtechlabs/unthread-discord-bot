@@ -173,7 +173,7 @@ This bot is built with **TypeScript** for enhanced maintainability, type safety,
 - **Discord.js v14**: Modern Discord API interactions
 - **Express.js**: RESTful API server with comprehensive monitoring
 - **Node.js 18+**: Runtime environment
-- **Yarn with PnP**: Package management and dependency resolution
+- **pnpm**: Fast, disk space efficient package manager
 - **ESLint**: Code quality and consistent formatting
 
 **Storage & Performance:**
@@ -189,24 +189,24 @@ This bot is built with **TypeScript** for enhanced maintainability, type safety,
 
 ### Build System
 
-The project uses TypeScript compilation with Yarn SDK integration:
+The project uses TypeScript compilation with pnpm for efficient package management:
 
 ```bash
 # Development with live reload
-yarn dev
+pnpm dev
 
 # Build for production
-yarn build
+pnpm build
 
 # Deploy commands only
-yarn deploycommand
+pnpm deploycommand
 
 # Production start
-yarn start
+pnpm start
 
 # Linting
-yarn lint
-yarn lint:fix
+pnpm lint
+pnpm lint:fix
 ```
 
 ### 🧪 Testing
@@ -217,19 +217,19 @@ The project includes comprehensive unit testing with Vitest and automated CI/CD 
 
 ```bash
 # Run all tests
-yarn test
+pnpm test
 
 # Run tests once (CI mode)
-yarn test:run
+pnpm test:run
 
 # Run tests with coverage report
-yarn test:coverage
+pnpm test:coverage
 
 # Run tests in watch mode (development)
-yarn test:watch
+pnpm test:watch
 
 # Open Vitest UI for interactive testing
-yarn test:ui
+pnpm test:ui
 ```
 
 #### Test Structure
@@ -276,8 +276,8 @@ src/__tests__/
 #### Development Workflow
 
 1. **Write tests first** for new features (TDD approach)
-2. **Run tests frequently** during development with `yarn test:watch`
-3. **Check coverage** before submitting PRs with `yarn test:coverage`
+2. **Run tests frequently** during development with `pnpm test:watch`
+3. **Check coverage** before submitting PRs with `pnpm test:coverage`
 4. **Review test reports** in the generated `coverage/` directory
 
 #### Continuous Integration
@@ -293,19 +293,19 @@ The project includes dedicated Docker scripts for local development and security
 
 ```bash
 # Build Docker image locally
-yarn docker:build
+pnpm docker:build
 
 # Build with enhanced security (no cache)
-yarn docker:build:secure
+pnpm docker:build:secure
 
 # Build with SBOM and provenance generation
-yarn docker:build:sbom
+pnpm docker:build:sbom
 
 # Run the Docker container
-yarn docker:run
+pnpm docker:run
 
 # Generate SBOM for security analysis
-yarn sbom:generate
+pnpm sbom:generate
 ```
 
 ### 🚀 CI/CD Pipeline
@@ -381,9 +381,9 @@ const consumerHealth = await webhookConsumer.healthCheck();
 
 ### Prerequisites
 
-- **Node.js**: Version 18.16.0 or higher
-- **Yarn**: Version 4.9.4 (required for proper dependency management)
-- **TypeScript**: Automatically managed via Yarn SDK
+- **Node.js**: Version 20.0.0 or higher
+- **pnpm**: Version 9.x (latest, automatically managed via package.json)
+- **TypeScript**: Automatically managed via pnpm
 - **Discord Application**: Bot token and proper permissions
 - **Unthread Account**: API access and configuration
 
@@ -473,33 +473,33 @@ docker-compose up -d postgres redis-cache redis-queue
 
    ```bash
    corepack enable
-   yarn install
+   pnpm install
    ```
 
-   > **Note**: This project uses Yarn 4.9.4 with Plug'n'Play for efficient dependency management. Corepack ensures you're using the correct Yarn version.
+   > **Note**: This project uses pnpm 9.x for fast, efficient dependency management. Corepack ensures you're using the correct pnpm version specified in package.json.
 
 3. Build the TypeScript project:
 
    ```bash
-   yarn build
+   pnpm build
    ```
 
 4. Deploy the slash commands to your Discord server:
 
    ```bash
-   yarn deploycommand
+   pnpm deploycommand
    ```
 
 5. Start the bot in production mode:
 
    ```bash
-   yarn start
+   pnpm start
    ```
 
    Or for development with TypeScript compilation and auto-restart:
 
    ```bash
-   yarn dev
+   pnpm dev
    ```
 
 6. The bot should now be running in your Discord server and the webhook server will be listening on the specified port.
@@ -510,17 +510,17 @@ For active development, use these commands:
 
 ```bash
 # Development with live reload (TypeScript)
-yarn dev
+pnpm dev
 
 # Type checking and linting
-yarn lint
-yarn lint:fix
+pnpm lint
+pnpm lint:fix
 
 # Build only (creates dist/ folder)
-yarn build
+pnpm build
 
 # Deploy commands only (development mode)
-yarn deploycommand:dev
+pnpm deploycommand:dev
 ```
 
 ### How to Get Your Discord Server ID
