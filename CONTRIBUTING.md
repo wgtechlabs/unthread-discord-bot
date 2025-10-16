@@ -26,7 +26,7 @@ To get started with development:
 
 2. **Install dependencies**
    ```bash
-   yarn install
+   pnpm install
    ```
 
 3. **Set up environment variables**
@@ -35,12 +35,12 @@ To get started with development:
 
 4. **Start the bot in development mode**
    ```bash
-   yarn dev
+   pnpm dev
    ```
 
 5. **Deploy commands when needed**
    ```bash
-   yarn deploycommand
+   pnpm deploycommand
    ```
 
 Please refer to the [README](./README.md) for more detailed setup instructions, including Discord application setup and webhook configuration.

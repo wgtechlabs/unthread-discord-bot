@@ -75,6 +75,9 @@ dist/
 # Yarn Integrity file
 .yarn-integrity
 
+# pnpm debug logs
+.pnpm-debug.log*
+
 # dotenv environment variable files
 .env
 .env.development.local

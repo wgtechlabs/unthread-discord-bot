@@ -13,14 +13,14 @@
  * 🔧 USAGE:
  * ========
  *   node dist/deploy_commands.js
- *   yarn run deploycommand
+ *   pnpm run deploycommand
  *
  * 🛠️ DEVELOPMENT WORKFLOW:
  * ========================
  * 1. Create/modify command files in src/commands/
  * 2. Ensure commands export 'data' and 'execute' properties
- * 3. Run build: `yarn build`
- * 4. Deploy commands: `yarn deploycommand`
+ * 3. Run build: `pnpm build`
+ * 4. Deploy commands: `pnpm deploycommand`
  * 5. Test commands in Discord
  *
  * 🐛 TROUBLESHOOTING:
