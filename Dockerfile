@@ -21,7 +21,7 @@ ARG NODE_VERSION=24-alpine3.22
 # =============================================================================
 # STAGE 1: Base Image
 # =============================================================================
-# Alpine Linux 3.21 base for minimal image size with latest security updates
+# Alpine Linux 3.22 base for minimal image size with latest security updates
 FROM node:${NODE_VERSION} AS base
 
 # Install security updates for Alpine packages and enable Corepack for pnpm
