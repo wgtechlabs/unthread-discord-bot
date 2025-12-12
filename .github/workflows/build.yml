@@ -75,7 +75,7 @@ jobs:
           
           # Build Arguments
           build-args: |
-            NODE_VERSION=24-alpine3.21
+            NODE_VERSION=24-alpine3.22
           
           # Labels
           labels: |

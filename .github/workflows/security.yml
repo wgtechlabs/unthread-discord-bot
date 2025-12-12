@@ -21,7 +21,7 @@ on:
 env:
   REGISTRY_DOCKERHUB: wgtechlabs/unthread-discord-bot
   REGISTRY_GHCR: ghcr.io/wgtechlabs/unthread-discord-bot
-  NODE_VERSION: '22'
+  NODE_VERSION: '24'
 
 jobs:
   docker-scout-analysis:
