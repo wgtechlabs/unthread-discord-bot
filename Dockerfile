@@ -16,20 +16,20 @@
 # syntax=docker/dockerfile:1
 
 # Use Node.js 24 LTS Alpine with security patches
-ARG NODE_VERSION=24-alpine3.21
+ARG NODE_VERSION=24-alpine3.22
 
 # =============================================================================
 # STAGE 1: Base Image
 # =============================================================================
-# Alpine Linux 3.21 base for minimal image size with latest security updates
+# Alpine Linux 3.22 base for minimal image size with latest security updates
 FROM node:${NODE_VERSION} AS base
 
 # Install security updates for Alpine packages and enable Corepack for pnpm
-RUN apk update && apk upgrade && \
+RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache dumb-init && \
     rm -rf /var/cache/apk/* && \
     corepack enable && \
-    corepack prepare pnpm@9.15.9 --activate
+    corepack prepare pnpm@latest --activate
 
 # Set working directory for all subsequent stages
 WORKDIR /usr/src/app
@@ -45,6 +45,7 @@ COPY package.json pnpm-lock.yaml .npmrc ./
 
 # Install only production dependencies using pnpm
 RUN pnpm install --prod --frozen-lockfile && \
+    pnpm audit --prod --audit-level=moderate && \
     pnpm store prune
 
 # =============================================================================
@@ -78,7 +79,7 @@ ENV NODE_ENV=production \
 
 # Create a dedicated user for the application
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 -G nodejs
+    adduser -S nodejs -u 1001 -G nodejs -s /sbin/nologin
 
 # Copy package.json for package manager commands
 COPY --chown=nodejs:nodejs package.json .
