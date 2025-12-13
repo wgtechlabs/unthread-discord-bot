@@ -11,7 +11,7 @@ import { existsSync } from 'fs';
 describe('npm v11 Lifecycle Scripts', () => {
   it('should run TypeScript build successfully', () => {
     expect(() => {
-      execSync('pnpm build', { encoding: 'utf8', cwd: process.cwd() });
+      execSync('pnpm build', { encoding: 'utf8' });
     }).not.toThrow();
     
     // Verify build output exists

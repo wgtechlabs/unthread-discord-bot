@@ -55,9 +55,11 @@ describe('Node 24 Discord API Integration', () => {
   });
 
   it('should initialize Discord REST client without errors', () => {
+    let rest;
     expect(() => {
-      const rest = new REST({ version: '10' });
+      rest = new REST({ version: '10' });
     }).not.toThrow();
+    expect(rest).toBeDefined();
   });
 
   it('should validate Node.js version is 20 or higher', () => {
