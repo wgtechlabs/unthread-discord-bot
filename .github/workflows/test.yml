@@ -11,6 +11,7 @@ on:
       - '.npmrc'
       - 'tsconfig.json'
       - 'vitest.config.ts'
+      - 'Dockerfile'
       - '.github/workflows/test.yml'
   pull_request:
     branches: [dev]
@@ -21,6 +22,7 @@ on:
       - '.npmrc'
       - 'tsconfig.json'
       - 'vitest.config.ts'
+      - 'Dockerfile'
       - '.github/workflows/test.yml'
 
 env:
