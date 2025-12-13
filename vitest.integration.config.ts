@@ -14,6 +14,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     
+    // IMPORTANT: No setupFiles - integration tests use real implementations, not mocks
+    // setupFiles: [], // Explicitly empty - no vitest.setup.ts mocking
+    
     // Only run integration tests
     include: ['src/**/*.integration.test.ts'],
     exclude: [
