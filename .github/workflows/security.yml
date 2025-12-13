@@ -84,3 +84,47 @@ jobs:
         with:
           sarif_file: 'scout-results.sarif'
           category: 'docker-scout-dev'
+
+  runtime-validation:
+    name: Runtime Validation (Node 24)
+    runs-on: ubuntu-latest
+    needs: docker-scout-analysis
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Node 24 runtime
+        run: |
+          echo "Node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "OpenSSL version: $(node -p 'process.versions.openssl')"
+
+      - name: Run integration tests on Node 24
+        run: pnpm test:integration
+        env:
+          NODE_VERSION: '24'
+
+      - name: Runtime validation summary
+        run: |
+          echo "## ✅ Node 24 Runtime Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Node.js**: $(node --version)" >> $GITHUB_STEP_SUMMARY
+          echo "**npm**: $(npm --version)" >> $GITHUB_STEP_SUMMARY
+          echo "**OpenSSL**: $(node -p 'process.versions.openssl')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All integration tests passed on Node 24" >> $GITHUB_STEP_SUMMARY
