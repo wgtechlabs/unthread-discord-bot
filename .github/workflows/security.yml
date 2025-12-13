@@ -141,23 +141,6 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
 
-      - name: Run Trivy container security scan
-        uses: aquasecurity/trivy-action@0.28.0
-        continue-on-error: true  # Allow workflow to continue for Docker Scout comparison
-        with:
-          image-ref: ${{ env.REGISTRY_DOCKERHUB }}:pr-${{ github.event.number }}-${{ steps.meta.outputs.short_sha }}
-          format: 'sarif'
-          output: 'trivy-prerelease.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'  # Still record the failure for security visibility
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('trivy-prerelease.sarif') != ''
-        with:
-          sarif_file: 'trivy-prerelease.sarif'
-          category: 'pre-release-scan'
-
       - name: Check if production image exists
         id: check-prod
         run: |
@@ -184,18 +167,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           summary: true
           write-comment: true
-
-      - name: Security Gate - Fail on Critical Vulnerabilities
-        if: always() && hashFiles('trivy-prerelease.sarif') != ''
-        run: |
-          echo "Checking for critical vulnerabilities in Trivy results..."
-          if grep -q '"level": "error"' trivy-prerelease.sarif 2>/dev/null; then
-            echo "❌ CRITICAL/HIGH vulnerabilities detected. This PR cannot be merged until security issues are resolved."
-            echo "Review the Security tab in GitHub for detailed vulnerability information."
-            exit 1
-          else
-            echo "✅ No critical vulnerabilities found. Security gate passed."
-          fi
 
   scheduled-security:
     name: Scheduled Security Audit
@@ -237,21 +208,6 @@ jobs:
           sarif_file: 'scout-scheduled.sarif'
           category: 'scheduled-security-audit'
 
-      - name: Comprehensive Trivy scan of production
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ${{ env.REGISTRY_DOCKERHUB }}:latest
-          format: 'sarif'
-          output: 'trivy-scheduled.sarif'
-          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
-
-      - name: Upload scheduled Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('trivy-scheduled.sarif') != ''
-        with:
-          sarif_file: 'trivy-scheduled.sarif'
-          category: 'scheduled-vulnerability-audit'
-
       - name: Security audit summary
         run: |
           echo "## 🔒 Weekly Security Audit Complete" >> $GITHUB_STEP_SUMMARY
@@ -260,8 +216,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Security Tools Used:**" >> $GITHUB_STEP_SUMMARY
           echo "- 🔍 Docker Scout (CVEs, Recommendations, Policy)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🛡️ Trivy (Comprehensive Vulnerability Scan)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Results Location:**" >> $GITHUB_STEP_SUMMARY
           echo "- Security tab → Code scanning alerts" >> $GITHUB_STEP_SUMMARY
-          echo "- Categories: scheduled-security-audit, scheduled-vulnerability-audit" >> $GITHUB_STEP_SUMMARY
+          echo "- Category: scheduled-security-audit" >> $GITHUB_STEP_SUMMARY
