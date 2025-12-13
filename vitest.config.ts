@@ -38,7 +38,9 @@ export default defineConfig({
       '**/*.d.ts',
       'coverage',
       'build',
-      'tmp'
+      'tmp',
+      // Exclude integration tests from unit test runs
+      'src/**/*.integration.test.ts'
     ],
 
     // Coverage configuration with v8 provider
