@@ -89,6 +89,8 @@ jobs:
     name: Runtime Validation (Node 24)
     runs-on: ubuntu-latest
     needs: docker-scout-analysis
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code
