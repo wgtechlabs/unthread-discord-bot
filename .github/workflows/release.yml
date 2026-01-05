@@ -6,8 +6,8 @@ on:
     types: [published]
 
 env:
-  REGISTRY_DOCKERHUB: wgtechlabs/unthread-discord-bot
-  REGISTRY_GHCR: ghcr.io/wgtechlabs/unthread-discord-bot
+  REGISTRY_DOCKERHUB: ${{ github.repository }}
+  REGISTRY_GHCR: ghcr.io/${{ github.repository }}
 
 jobs:
   build-production:
