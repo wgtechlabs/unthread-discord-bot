@@ -16,7 +16,7 @@
 # syntax=docker/dockerfile:1
 
 # Use Node.js 24 LTS Alpine with security patches
-ARG NODE_VERSION=24-alpine3.22
+ARG NODE_VERSION=24-alpine3.23
 
 # =============================================================================
 # STAGE 1: Base Image
