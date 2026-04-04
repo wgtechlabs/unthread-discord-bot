@@ -39,7 +39,7 @@
     "url": "https://github.com/wgtechlabs/unthread-discord-bot/issues"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.19.0"
   },
   "packageManager": "pnpm@9.15.9",
   "dependencies": {
