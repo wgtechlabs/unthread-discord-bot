@@ -37,6 +37,7 @@ export default defineConfig({
       'docker',
       '**/*.d.ts',
       'coverage',
+      'html-report',
       'build',
       'tmp',
       // Exclude integration tests from unit test runs
@@ -57,6 +58,7 @@ export default defineConfig({
         'scripts',
         'docker',
         'coverage',
+        'html-report',
         'build',
         'tmp',
         '**/*.d.ts',
@@ -99,7 +101,7 @@ export default defineConfig({
     reporter: ['verbose', 'json', 'html'],
     outputFile: {
       json: './coverage/test-results.json',
-      html: './coverage/test-results.html'
+      html: './html-report/index.html'
     }
   },
 
