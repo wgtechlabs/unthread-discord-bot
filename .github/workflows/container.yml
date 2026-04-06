@@ -35,7 +35,7 @@ jobs:
 
       - name: Build and push container
         if: steps.dockerfile.outputs.exists == 'true'
-        uses: wgtechlabs/container-build-flow-action@v1.7.0
+        uses: wgtechlabs/container-build-flow-action@1a781c9cab5e7e4b01f075b666058dbc0f492bc0 # main (post-v1.7.0, trivy-action@0.34.1 fix)
         with:
           registry: both
           dockerhub-username: ${{ secrets.DOCKER_HUB_USERNAME }}
