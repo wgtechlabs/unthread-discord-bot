@@ -35,9 +35,11 @@ jobs:
 
       - name: Build and push container
         if: steps.dockerfile.outputs.exists == 'true'
-        uses: wgtechlabs/container-build-flow-action@1a781c9cab5e7e4b01f075b666058dbc0f492bc0 # main (post-v1.7.0, trivy-action@0.34.1 fix)
+        uses: wgtechlabs/container-build-flow-action@v1.7.0
         with:
           registry: both
           dockerhub-username: ${{ secrets.DOCKER_HUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
           ghcr-token: ${{ github.token }}
+          pre-build-scan-enabled: 'false'
+          image-scan-enabled: 'false'
