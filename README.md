@@ -95,16 +95,18 @@ This is the easiest option if you want a hosted setup.
    pnpm build
    ```
 
-4. Deploy slash commands to your server:
-
-   ```bash
-   pnpm deploycommand
-   ```
-
-5. Start the bot:
+4. Start the bot:
 
    ```bash
    pnpm start
+   ```
+
+   `pnpm start` builds the project, deploys slash commands, and starts the bot.
+
+5. If you only want to deploy or force redeploy slash commands:
+
+   ```bash
+   pnpm deploycommand
    ```
 
 For local development with auto-reload, use:
@@ -241,8 +243,9 @@ The bot itself does not expose an HTTP webhook endpoint.
 Instead:
 
 - `webhook-server` receives Unthread webhook traffic
-- `webhook-server` pushes those events into `WEBHOOK_REDIS_URL`
-- the Discord bot consumes those Redis events
+- `webhook-server` pushes those events into the Redis instance configured by `REDIS_URL`
+- the Discord bot consumes those Redis events from `WEBHOOK_REDIS_URL`
+- when running the services outside `docker-compose`, set `REDIS_URL` for `webhook-server` to the same Redis instance as the bot's `WEBHOOK_REDIS_URL`
 
 If you are testing locally, expose the webhook server and point Unthread to:
 
