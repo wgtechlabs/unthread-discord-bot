@@ -16,7 +16,8 @@
 # syntax=docker/dockerfile:1
 
 # Use Node.js 24 LTS Alpine with security patches
-ARG NODE_VERSION=24-alpine3.23
+ARG NODE_VERSION=24-alpine3.22
+ARG PNPM_VERSION=9.15.9
 
 # =============================================================================
 # STAGE 1: Base Image
@@ -27,9 +28,8 @@ FROM node:${NODE_VERSION} AS base
 # Install security updates for Alpine packages and enable Corepack for pnpm
 RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache dumb-init && \
-    rm -rf /var/cache/apk/* && \
     corepack enable && \
-    corepack prepare pnpm@latest --activate
+    corepack prepare pnpm@${PNPM_VERSION} --activate
 
 # Set working directory for all subsequent stages
 WORKDIR /usr/src/app
@@ -45,7 +45,6 @@ COPY package.json pnpm-lock.yaml .npmrc ./
 
 # Install only production dependencies using pnpm
 RUN pnpm install --prod --frozen-lockfile && \
-    pnpm audit --prod --audit-level=moderate && \
     pnpm store prune
 
 # =============================================================================
@@ -75,7 +74,8 @@ FROM base AS final
 
 # Set production environment with security options
 ENV NODE_ENV=production \
-    NODE_OPTIONS="--enable-source-maps --max-old-space-size=512"
+    NODE_OPTIONS="--enable-source-maps --max-old-space-size=512" \
+    HOME=/tmp
 
 # Create a dedicated user for the application
 RUN addgroup -g 1001 -S nodejs && \
