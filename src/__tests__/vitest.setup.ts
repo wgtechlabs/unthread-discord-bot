@@ -90,42 +90,42 @@ vi.mock('discord.js', () => {
 		},
 	};
 
-	const mockClient = {
-		user: mockUser,
-		guilds: {
+	class MockClient {
+		user = mockUser;
+		guilds = {
 			cache: new Map([['test_guild_id', mockGuild]]),
 			fetch: vi.fn().mockResolvedValue(mockGuild),
-		},
-		channels: {
+		};
+		channels = {
 			cache: new Map([['test_channel_id', mockChannel]]),
 			fetch: vi.fn().mockResolvedValue(mockChannel),
-		},
-		login: vi.fn().mockResolvedValue('test_token'),
-		on: vi.fn(),
-		once: vi.fn(),
-		emit: vi.fn(),
-		destroy: vi.fn().mockResolvedValue({}),
-		commands: new Map(),
-	};
+		};
+		login = vi.fn().mockResolvedValue('test_token');
+		on = vi.fn();
+		once = vi.fn();
+		emit = vi.fn();
+		destroy = vi.fn().mockResolvedValue({});
+		commands = new Map();
+	}
 
-	const mockEmbedBuilder = {
-		setTitle: vi.fn().mockReturnThis(),
-		setDescription: vi.fn().mockReturnThis(),
-		setColor: vi.fn().mockReturnThis(),
-		setFooter: vi.fn().mockReturnThis(),
-		setTimestamp: vi.fn().mockReturnThis(),
-		addFields: vi.fn().mockReturnThis(),
-		setAuthor: vi.fn().mockReturnThis(),
-		setImage: vi.fn().mockReturnThis(),
-		setThumbnail: vi.fn().mockReturnThis(),
-		setURL: vi.fn().mockReturnThis(),
-		toJSON: vi.fn().mockReturnValue({}),
-	};
+	class MockEmbedBuilder {
+		setTitle = vi.fn().mockReturnThis();
+		setDescription = vi.fn().mockReturnThis();
+		setColor = vi.fn().mockReturnThis();
+		setFooter = vi.fn().mockReturnThis();
+		setTimestamp = vi.fn().mockReturnThis();
+		addFields = vi.fn().mockReturnThis();
+		setAuthor = vi.fn().mockReturnThis();
+		setImage = vi.fn().mockReturnThis();
+		setThumbnail = vi.fn().mockReturnThis();
+		setURL = vi.fn().mockReturnThis();
+		toJSON = vi.fn().mockReturnValue({});
+	}
 
 	const mockCollection = Map;
 
 	return {
-		Client: vi.fn(() => mockClient),
+		Client: MockClient,
 		GatewayIntentBits: {
 			Guilds: 1,
 			GuildMessages: 512,
@@ -140,7 +140,7 @@ vi.mock('discord.js', () => {
 			ThreadCreate: 'threadCreate',
 			Error: 'error',
 		},
-		EmbedBuilder: vi.fn(() => mockEmbedBuilder),
+		EmbedBuilder: MockEmbedBuilder,
 		Collection: mockCollection,
 		ChannelType: {
 			GuildText: 0,
@@ -258,13 +258,13 @@ vi.mock('@keyv/redis', () => ({
 
 // Mock keyv
 vi.mock('keyv', () => ({
-	default: vi.fn().mockImplementation(() => ({
-		get: vi.fn().mockResolvedValue(null),
-		set: vi.fn().mockResolvedValue(true),
-		delete: vi.fn().mockResolvedValue(true),
-		clear: vi.fn().mockResolvedValue(true),
-		has: vi.fn().mockResolvedValue(false),
-	})),
+	default: class MockKeyv {
+		get = vi.fn().mockResolvedValue(null);
+		set = vi.fn().mockResolvedValue(true);
+		delete = vi.fn().mockResolvedValue(true);
+		clear = vi.fn().mockResolvedValue(true);
+		has = vi.fn().mockResolvedValue(false);
+	},
 }));
 
 // Mock ioredis
@@ -285,14 +285,14 @@ vi.mock('ioredis', () => ({
 
 // Mock pg (PostgreSQL)
 vi.mock('pg', () => ({
-	Pool: vi.fn().mockImplementation(() => ({
-		connect: vi.fn().mockResolvedValue({
+	Pool: class MockPool {
+		connect = vi.fn().mockResolvedValue({
 			query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
 			release: vi.fn(),
-		}),
-		query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
-		end: vi.fn().mockResolvedValue(undefined),
-	})),
+		});
+		query = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
+		end = vi.fn().mockResolvedValue(undefined);
+	},
 }));
 
 // =============================================================================

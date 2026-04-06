@@ -37,8 +37,11 @@ export default defineConfig({
       'docker',
       '**/*.d.ts',
       'coverage',
+      'html-report',
       'build',
-      'tmp'
+      'tmp',
+      // Exclude integration tests from unit test runs
+      'src/**/*.integration.test.ts'
     ],
 
     // Coverage configuration with v8 provider
@@ -55,6 +58,7 @@ export default defineConfig({
         'scripts',
         'docker',
         'coverage',
+        'html-report',
         'build',
         'tmp',
         '**/*.d.ts',
@@ -97,7 +101,7 @@ export default defineConfig({
     reporter: ['verbose', 'json', 'html'],
     outputFile: {
       json: './coverage/test-results.json',
-      html: './coverage/test-results.html'
+      html: './html-report/index.html'
     }
   },
 

@@ -15,6 +15,7 @@
     "noEmitOnError": true,
     "sourceMap": true,
     "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
     "allowSyntheticDefaultImports": true,
     "types": ["node", "vitest/globals"],
     "noUnusedLocals": true,
