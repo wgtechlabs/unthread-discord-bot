@@ -243,9 +243,10 @@ The bot itself does not expose an HTTP webhook endpoint.
 Instead:
 
 - `webhook-server` receives Unthread webhook traffic
-- `webhook-server` pushes those events into the Redis instance configured by `REDIS_URL`
-- the Discord bot consumes those Redis events from `WEBHOOK_REDIS_URL`
-- when running the services outside `docker-compose`, set `REDIS_URL` for `webhook-server` to the same Redis instance as the bot's `WEBHOOK_REDIS_URL`
+- both services must connect to the same Redis instance for webhook syncing to work
+- `webhook-server` writes events to Redis using `REDIS_URL`
+- the Discord bot reads those events using `WEBHOOK_REDIS_URL`
+- outside `docker-compose`, point `REDIS_URL` and `WEBHOOK_REDIS_URL` at the same Redis instance
 
 If you are testing locally, expose the webhook server and point Unthread to:
 
