@@ -35,11 +35,9 @@ jobs:
 
       - name: Build and push container
         if: steps.dockerfile.outputs.exists == 'true'
-        uses: wgtechlabs/container-build-flow-action@v1.7.0
+        uses: wgtechlabs/container-build-flow-action@v1.7.1
         with:
           registry: both
           dockerhub-username: ${{ secrets.DOCKER_HUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
           ghcr-token: ${{ github.token }}
-          pre-build-scan-enabled: 'false'
-          image-scan-enabled: 'false'
