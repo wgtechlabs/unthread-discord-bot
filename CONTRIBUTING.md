@@ -1,62 +1,71 @@
 # 🎯 Contribute to Open Source
 
-Any contributions are welcome, encouraged, and valued. See the following information below for different ways to help and details about how this project handles them. Please make sure to read the relevant section before making your contribution. It will make it a lot easier for me as maintainer and smooth out the experience for all involved. The community looks forward to your contributions. 🎉✌✨
+Thank you for helping improve this project.
 
 ## 📋 Code of Conduct
 
-This project and everyone participating in it is governed by the project's [Code of Conduct](./code_of_conduct.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to <sudo@wgtechlabs.com>.
+This project follows the [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you agree to respect it.
 
-## 💖 How to Contribute
+## 💖 Ways to Contribute
 
-There are many ways to contribute to this open source project. Any contributions are welcome and appreciated. Be sure to read the details of each section for you to start contributing.
+You can help by:
 
-### 🧬 Development
+- fixing bugs
+- improving documentation
+- adding tests
+- reviewing open issues
+- proposing improvements
 
-If you can write code then create a pull request to this repo and I will review your code. Please consider submitting your pull request to the `dev` branch. I will auto reject if you submit your pull request to the `main` branch.
+## 🧬 Development
 
-#### 🔧 Setup
+Please open pull requests against the `dev` branch. Pull requests opened against `main` are not accepted.
 
-To get started with development:
+### 🔧 Local setup
 
-1. **Fork and clone the repository**
-   ```bash
-   git clone https://github.com/your-username/unthread-discord-bot.git
-   cd unthread-discord-bot
-   ```
+1. Clone the repository.
+2. Enable Corepack and install dependencies.
+3. Copy `.env.example` to `.env`.
+4. Fill in the required Discord, Unthread, PostgreSQL, and Redis values.
+5. Start working locally.
 
-2. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
+```bash
+git clone https://github.com/your-username/unthread-discord-bot.git
+cd unthread-discord-bot
+corepack enable
+pnpm install
+cp .env.example .env
+pnpm dev
+```
 
-3. **Set up environment variables**
-   - Copy `.env.example` to `.env`
-   - Fill in the required information as described in the README
+### ✅ Before you open a pull request
 
-4. **Start the bot in development mode**
-   ```bash
-   pnpm dev
-   ```
+Run the existing checks:
 
-5. **Deploy commands when needed**
-   ```bash
-   pnpm deploycommand
-   ```
+```bash
+pnpm lint
+pnpm build
+pnpm test
+```
 
-Please refer to the [README](./README.md) for more detailed setup instructions, including Discord application setup and webhook configuration.
+If you change slash commands, deploy them again while testing locally:
 
-### 📖 Documentation
+```bash
+pnpm deploycommand
+```
 
-Improvements to documentation are always welcome! This includes:
+### 📖 Documentation contributions
+
+Documentation improvements are always welcome, including:
+
 - README updates
-- Code comments
-- Examples and usage guides
-- Fixing typos or clarifying existing documentation
+- setup clarification
+- troubleshooting improvements
+- typos and wording fixes
 
-### 🐞 Reporting Bugs
+## 🐞 Reporting Bugs
 
-For any security bugs or issues, please read the [security policy](./security.md).
-For other bugs, please create an issue using the bug report template.
+- For security issues, use the [security policy](./SECURITY.md).
+- For other bugs, open a GitHub issue.
 
 ---
 
