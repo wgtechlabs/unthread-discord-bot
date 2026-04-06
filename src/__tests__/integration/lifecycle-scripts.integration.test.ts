@@ -29,6 +29,8 @@ describe('npm v11 Lifecycle Scripts', () => {
 				cpSync(join(projectRoot, 'src'), join(tempWorkspace, 'src'), { recursive: true });
 			}
 
+			execSync('pnpm install --frozen-lockfile', { encoding: 'utf8', cwd: tempWorkspace });
+
 			expect(() => {
 				execSync('pnpm build', { encoding: 'utf8', cwd: tempWorkspace });
 			}).not.toThrow();

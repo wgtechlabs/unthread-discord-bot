@@ -39,7 +39,10 @@ export default defineConfig({
       '@config': resolve(__dirname, './src/config'),
       '@utils': resolve(__dirname, './src/utils'),
       '@services': resolve(__dirname, './src/services'),
-      '@types': resolve(__dirname, './src/types')
+      '@types': resolve(__dirname, './src/types'),
+      '@tests': resolve(__dirname, './src/__tests__'),
+      '@events': resolve(__dirname, './src/events'),
+      '@sdk': resolve(__dirname, './src/sdk')
     }
   }
 });
