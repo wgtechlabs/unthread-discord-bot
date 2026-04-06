@@ -19,13 +19,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify GH_PAT is set
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "$GH_PAT" ]; then
+            echo "::error::GH_PAT secret is required. Without it the release event will not trigger downstream container builds."
+            exit 1
+          fi
+
       - name: Create release
         id: release
         uses: wgtechlabs/release-build-flow-action@v1
         with:
-          # Use GH_PAT to allow downstream release-triggered workflows.
-          # Falls back to github.token if GH_PAT is not set.
-          github-token: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
+          # GH_PAT is required so that the published release event triggers downstream workflows.
+          github-token: ${{ secrets.GH_PAT }}
           commit-convention: clean-commit
 
       - name: Release summary

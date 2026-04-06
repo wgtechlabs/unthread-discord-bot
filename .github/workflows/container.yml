@@ -2,10 +2,15 @@
 name: Container Build
 
 on:
+  workflow_run:
+    workflows: ["Test"]
+    types:
+      - completed
+    branches: [dev]
   pull_request:
     branches: [main, dev]
   push:
-    branches: [main, dev]
+    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
@@ -19,6 +24,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # For workflow_run events, only proceed when the Test workflow succeeded
+    if: |
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,7 +43,10 @@ jobs:
           fi
 
       - name: Build and push container
-        if: steps.dockerfile.outputs.exists == 'true'
+        # Skip build/push for forked PRs — secrets are not available in that context
+        if: |
+          steps.dockerfile.outputs.exists == 'true' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
         uses: wgtechlabs/container-build-flow-action@v1
         with:
           registry: both
