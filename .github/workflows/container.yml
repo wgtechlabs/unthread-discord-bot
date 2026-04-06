@@ -8,48 +8,333 @@ on:
       - completed
     branches: [dev]
   pull_request:
-    branches: [main, dev]
-  push:
-    branches: [main]
-  release:
-    types: [published]
+    branches: [dev, main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.npmrc'
+      - 'tsconfig.json'
+      - 'vitest.config.ts'
+      - 'Dockerfile'
+      - '.github/workflows/container.yml'
   workflow_dispatch:
-
-permissions:
-  contents: read
-  packages: write
-  security-events: write
-  pull-requests: write
 
 jobs:
   build:
+    name: Build Container Images
     runs-on: ubuntu-latest
-    # For workflow_run events, only proceed when the Test workflow succeeded
+    # Only run if tests passed (for workflow_run) or on PR (tests run in parallel)
     if: |
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+      security-events: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Check Dockerfile
-        id: dockerfile
+      # =====================================================================
+      # BUILD FLOW DETECTION
+      # =====================================================================
+      # Replaces wgtechlabs/container-build-flow-action (broken upstream due
+      # to aquasecurity/trivy-action supply-chain-attack tag migration).
+      # TODO: Switch back to the composite action once a fixed release is
+      # published (see https://github.com/wgtechlabs/container-build-flow-action).
+      # =====================================================================
+
+      - name: Resolve Commit SHA
+        id: sha
+        shell: bash
         run: |
-          if [ -f Dockerfile ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "Dockerfile not found. Skipping container build." >> "$GITHUB_STEP_SUMMARY"
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and push container
-        # Skip build/push for forked PRs — secrets are not available in that context
-        if: |
-          steps.dockerfile.outputs.exists == 'true' &&
-          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
-        uses: wgtechlabs/container-build-flow-action@v1
+      - name: Detect Build Flow
+        id: detect
+        shell: bash
+        run: |
+          SHORT_SHA="${{ steps.sha.outputs.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          IMAGE_NAME="unthread-discord-bot"
+          DOCKERHUB_IMAGE="${{ github.repository_owner }}/${IMAGE_NAME}"
+          GHCR_IMAGE="ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.base_ref }}"
+            HEAD="${{ github.head_ref }}"
+            if [ "$BASE" = "dev" ]; then
+              FLOW="pr"
+            elif [ "$BASE" = "main" ] && [ "$HEAD" = "dev" ]; then
+              FLOW="dev"
+            elif [ "$BASE" = "main" ]; then
+              FLOW="patch"
+            else
+              FLOW="wip"
+            fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            if [ "$BRANCH" = "dev" ]; then
+              FLOW="dev"
+            elif [ "$BRANCH" = "main" ]; then
+              FLOW="staging"
+            else
+              FLOW="wip"
+            fi
+          else
+            FLOW="wip"
+          fi
+
+          TAG="${FLOW}-${SHORT_SHA}"
+
+          {
+            echo "build-flow-type=${FLOW}"
+            echo "tags=${TAG}"
+            echo "short-sha=${SHORT_SHA}"
+            echo "dockerhub-image=${DOCKERHUB_IMAGE}"
+            echo "ghcr-image=${GHCR_IMAGE}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "::notice::Build flow: ${FLOW} | Tag: ${TAG}"
+
+      # =====================================================================
+      # PRE-BUILD SECURITY SCANNING
+      # =====================================================================
+
+      - name: Trivy - Scan Source Code (JSON)
+        uses: aquasecurity/trivy-action@v0.33.1
+        continue-on-error: true
         with:
-          registry: both
-          dockerhub-username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          dockerhub-token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-          ghcr-token: ${{ github.token }}
+          scan-type: fs
+          scan-ref: .
+          format: json
+          output: trivy-source-results.json
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          timeout: 10m0s
+
+      - name: Trivy - Scan Source Code (SARIF)
+        uses: aquasecurity/trivy-action@v0.33.1
+        continue-on-error: true
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-source-results.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          timeout: 10m0s
+
+      - name: Upload Source Scan SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: trivy-source-results.sarif
+          category: trivy-source-scan
+
+      - name: Trivy - Scan Dockerfile (JSON)
+        uses: aquasecurity/trivy-action@v0.33.1
+        continue-on-error: true
+        with:
+          scan-type: config
+          scan-ref: ./Dockerfile
+          format: json
+          output: trivy-dockerfile-results.json
+          severity: HIGH,CRITICAL
+          timeout: 10m0s
+
+      - name: Trivy - Scan Dockerfile (SARIF)
+        uses: aquasecurity/trivy-action@v0.33.1
+        continue-on-error: true
+        with:
+          scan-type: config
+          scan-ref: ./Dockerfile
+          format: sarif
+          output: trivy-dockerfile-results.sarif
+          severity: HIGH,CRITICAL
+          timeout: 10m0s
+
+      - name: Upload Dockerfile Scan SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: trivy-dockerfile-results.sarif
+          category: trivy-dockerfile-scan
+
+      # =====================================================================
+      # BUILD & PUSH
+      # =====================================================================
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ github.token }}
+
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ steps.detect.outputs.dockerhub-image }}
+            ${{ steps.detect.outputs.ghcr-image }}
+          tags: |
+            type=raw,value=${{ steps.detect.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.sha.outputs.sha }}
+            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+            org.opencontainers.image.title=Unthread Discord Bot
+            org.opencontainers.image.description=Turn Discord community servers into real-time support ticket hubs — powered by Unthread.io
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.licenses=AGPL-3.0
+
+      - name: Build and Push Container Image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NODE_VERSION=24-alpine3.22
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      # =====================================================================
+      # POST-BUILD SECURITY SCANNING
+      # =====================================================================
+
+      - name: Trivy - Scan Container Image (JSON)
+        uses: aquasecurity/trivy-action@v0.33.1
+        continue-on-error: true
+        with:
+          scan-type: image
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          format: json
+          output: trivy-image-results.json
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          timeout: 10m0s
+
+      - name: Trivy - Scan Container Image (SARIF)
+        uses: aquasecurity/trivy-action@v0.33.1
+        continue-on-error: true
+        with:
+          scan-type: image
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          format: sarif
+          output: trivy-image-results.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          timeout: 10m0s
+
+      - name: Upload Image Scan SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: trivy-image-results.sarif
+          category: trivy-container-scan
+
+      # =====================================================================
+      # PR COMMENT
+      # =====================================================================
+
+      - name: Comment on Pull Request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const flow = '${{ steps.detect.outputs.build-flow-type }}';
+            const tag = '${{ steps.detect.outputs.tags }}';
+            const sha = '${{ steps.detect.outputs.short-sha }}';
+            const dhImage = '${{ steps.detect.outputs.dockerhub-image }}';
+            const ghcrImage = '${{ steps.detect.outputs.ghcr-image }}';
+
+            const flowMeta = {
+              pr:      { emoji: '🔧', title: 'PR Build' },
+              dev:     { emoji: '🛠️', title: 'Dev Build' },
+              patch:   { emoji: '🔥', title: 'Patch Build' },
+              wip:     { emoji: '⚡', title: 'WIP Build' },
+              staging: { emoji: '🚀', title: 'Staging Build' },
+            };
+            const m = flowMeta[flow] || flowMeta.wip;
+
+            const body = [
+              `## ${m.emoji} Container Build Complete - ${m.title}`,
+              '',
+              `**Build Status:** ✅ Success`,
+              `**Flow Type:** \`${flow}\``,
+              '',
+              '---',
+              '',
+              '### 📦 Pull Image',
+              '',
+              '```bash',
+              `docker pull ${dhImage}:${tag}`,
+              '```',
+              '```bash',
+              `docker pull ${ghcrImage}:${tag}`,
+              '```',
+              '',
+              '---',
+              '',
+              `| Property | Value |`,
+              `|----------|-------|`,
+              `| **Flow** | \`${flow}\` |`,
+              `| **Commit** | [\`${sha}\`](${context.payload.repository.html_url}/commit/${{ steps.sha.outputs.sha }}) |`,
+              `| **Registry** | Docker Hub + GHCR |`,
+              '',
+              '---',
+              '',
+              `<sub>🤖 Built with [Container Build Flow](https://github.com/wgtechlabs/container-build-flow-action)</sub>`,
+            ].join('\n');
+
+            // Upsert comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Container Build Complete')
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
