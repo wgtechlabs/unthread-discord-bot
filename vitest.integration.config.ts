@@ -30,20 +30,7 @@ export default defineConfig({
     hookTimeout: 30000,
 
     // Run integration tests serially to avoid rate limits
-    maxConcurrency: 1,
-    
-    // Coverage for integration tests
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json-summary', 'lcov'],
-      include: ['src/**/*.ts'],
-      exclude: [
-        'src/__tests__/**',
-        'dist/**',
-        '**/*.test.ts',
-        '**/*.spec.ts'
-      ]
-    }
+    maxConcurrency: 1
   },
 
   resolve: {
