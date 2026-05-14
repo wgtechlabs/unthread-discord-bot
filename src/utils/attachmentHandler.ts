@@ -52,11 +52,36 @@ import { AttachmentDetectionService } from '../services/attachmentDetection';
 import { LogEngine } from '../config/logger';
 
 export class AttachmentHandler {
+	private static readonly UNTHREAD_API_BASE_URL = 'https://api.unthread.io/api';
+	private static readonly RETRYABLE_STATUS_CODES = [404, 409, 425];
+	private static readonly FILE_DOWNLOAD_MAX_RETRIES = 8;
+	private static readonly FILE_DOWNLOAD_RETRY_DELAY_MS = 1000;
+
 	/**
 	 * Type guard to check if content type is supported
 	 */
 	private isSupportedImageType(contentType: string): boolean {
 		return (DISCORD_ATTACHMENT_CONFIG.supportedImageTypes as readonly string[]).includes(contentType);
+	}
+
+	private isUnthreadApiUrl(downloadUrl: string): boolean {
+		try {
+			const target = new URL(downloadUrl);
+			const apiOrigin = new URL(AttachmentHandler.UNTHREAD_API_BASE_URL);
+			return target.origin === apiOrigin.origin;
+		}
+		catch {
+			return false;
+		}
+	}
+
+	private getFileName(file: any, fallback = 'unknown-file'): string {
+		return file.name || file.title || file.filename || fallback;
+	}
+
+	private getFileMimeType(file: any): string {
+		const rawType = file.mimetype || file.contentType || file.type || file.filetype || 'application/octet-stream';
+		return AttachmentDetectionService.normalizeType(rawType);
 	}
 
 	/**
@@ -275,6 +300,7 @@ export class AttachmentHandler {
 		discordThread: ThreadChannel,
 		files: any[],
 		messageContent?: string,
+		conversationId?: string,
 	): Promise<AttachmentProcessingResult> {
 		const startTime = Date.now();
 		const errors: string[] = [];
@@ -296,7 +322,7 @@ export class AttachmentHandler {
 			// Download files to buffers
 			const fileBuffers: FileBuffer[] = [];
 			const downloadPromises = files.map(file =>
-				this.downloadFileFromUnthread(file),
+				this.downloadFileFromUnthread(file, conversationId),
 			);
 
 			const downloadResults = await Promise.allSettled(downloadPromises);
@@ -358,10 +384,6 @@ export class AttachmentHandler {
 			};
 		}
 	}
-
-	private static readonly RETRYABLE_STATUS_CODES = [404, 409, 425];
-	private static readonly FILE_DOWNLOAD_MAX_RETRIES = 8;
-	private static readonly FILE_DOWNLOAD_RETRY_DELAY_MS = 1000;
 
 	private async drainResponseBody(response: Response): Promise<void> {
 		try {
@@ -426,7 +448,9 @@ export class AttachmentHandler {
 	/**
 	 * Download a single file from Unthread using pre-transformed file data
 	 */
-	private async downloadFileFromUnthread(file: any): Promise<FileBuffer> {
+	private async downloadFileFromUnthread(file: any, conversationId?: string): Promise<FileBuffer> {
+		const fileName = this.getFileName(file);
+
 		// Check if this is a Slack file (ID starts with 'F' and has the right structure)
 		const isSlackFile = file.id &&
 			typeof file.id === 'string' &&
@@ -436,12 +460,12 @@ export class AttachmentHandler {
 		if (isSlackFile) {
 			LogEngine.info('Detected Slack file, using thumbnail endpoint', {
 				fileId: file.id,
-				fileName: file.name,
+				fileName,
 			});
 
 			return this.downloadUnthreadSlackFile(
 				file.id,
-				file.name,
+				fileName,
 				file.size,
 			);
 		}
@@ -449,35 +473,115 @@ export class AttachmentHandler {
 		// For non-Slack files, use direct URL if available
 		if (file.urlPrivateDownload || file.urlPrivate) {
 			const downloadUrl = file.urlPrivateDownload || file.urlPrivate;
-			LogEngine.debug(`Using direct URL download for: ${file.name} from ${downloadUrl}`);
-
-			const apiKey = process.env.UNTHREAD_API_KEY!;
-			const response = await this.fetchWithRetry(
-				downloadUrl,
-				{ 'X-API-KEY': apiKey, 'User-Agent': 'unthread-discord-bot' },
-				file.name,
-			);
-
-			if (!response.ok) {
-				await this.drainResponseBody(response);
-				throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+			if (!this.isUnthreadApiUrl(downloadUrl)) {
+				LogEngine.warn('Ignoring non-Unthread direct download URL from webhook payload', {
+					fileName,
+					hasFileId: !!file.id,
+				});
 			}
+			else {
+				LogEngine.debug(`Using direct URL download for: ${fileName} from ${downloadUrl}`);
 
-			const arrayBuffer = await response.arrayBuffer();
-			const buffer = Buffer.from(arrayBuffer);
+				const apiKey = process.env.UNTHREAD_API_KEY!;
+				const response = await this.fetchWithRetry(
+					downloadUrl,
+					{ 'X-API-KEY': apiKey, 'User-Agent': 'unthread-discord-bot' },
+					fileName,
+				);
 
-			const fileBuffer: FileBuffer = {
-				buffer,
-				fileName: file.name,
-				mimeType: file.mimetype || file.contentType || 'application/octet-stream',
-				size: buffer.length,
-			};
+				if (!response.ok) {
+					await this.drainResponseBody(response);
+					throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+				}
 
-			LogEngine.debug(`Downloaded ${file.name}: ${buffer.length} bytes, MIME: ${fileBuffer.mimeType}`);
-			return fileBuffer;
+				const arrayBuffer = await response.arrayBuffer();
+				const buffer = Buffer.from(arrayBuffer);
+
+				const fileBuffer: FileBuffer = {
+					buffer,
+					fileName,
+					mimeType: this.getFileMimeType(file),
+					size: buffer.length,
+				};
+
+				LogEngine.debug(`Downloaded ${fileName}: ${buffer.length} bytes, MIME: ${fileBuffer.mimeType}`);
+				return fileBuffer;
+			}
 		}
 
-		throw new Error(`No download method available for file: ${file.name}`);
+		if (conversationId && file.id && typeof file.id === 'string') {
+			return this.downloadUnthreadConversationFile(
+				conversationId,
+				file.id,
+				fileName,
+				file.size,
+				this.getFileMimeType(file),
+			);
+		}
+
+		throw new Error(`No download method available for file: ${fileName}`);
+	}
+
+	private async downloadUnthreadConversationFile(
+		conversationId: string,
+		fileId: string,
+		fileName: string,
+		fileSize: number,
+		mimeType: string,
+	): Promise<FileBuffer> {
+		LogEngine.info('Starting conversation-scoped Unthread file download', {
+			conversationId,
+			fileId,
+			fileName,
+			fileSize,
+			method: 'conversation-file-endpoint',
+		});
+
+		const apiKey = process.env.UNTHREAD_API_KEY!;
+		const endpoint = `${AttachmentHandler.UNTHREAD_API_BASE_URL}/conversations/${encodeURIComponent(conversationId)}/files/${encodeURIComponent(fileId)}/full`;
+		const response = await this.fetchWithRetry(
+			endpoint,
+			{ 'X-API-KEY': apiKey, 'User-Agent': 'unthread-discord-bot' },
+			fileName,
+		);
+
+		if (!response.ok) {
+			await this.drainResponseBody(response);
+			throw new Error(`Failed to download conversation file: ${response.status} ${response.statusText}`);
+		}
+
+		const arrayBuffer = await response.arrayBuffer();
+		const buffer = Buffer.from(arrayBuffer);
+
+		if (buffer.length === 0) {
+			throw new Error('Downloaded file is empty');
+		}
+
+		const maxSize = DISCORD_ATTACHMENT_CONFIG.maxFileSize;
+		if (buffer.length > maxSize) {
+			throw new Error(`File too large: ${buffer.length} bytes (max: ${maxSize})`);
+		}
+
+		if (fileSize && buffer.length !== fileSize) {
+			LogEngine.warn(`Size mismatch for ${fileName}: expected ${fileSize}, got ${buffer.length}`);
+		}
+
+		const fileBuffer: FileBuffer = {
+			buffer,
+			fileName,
+			mimeType,
+			size: buffer.length,
+		};
+
+		LogEngine.info('Conversation-scoped Unthread file download successful', {
+			conversationId,
+			fileId,
+			fileName,
+			downloadedSize: buffer.length,
+			contentType: fileBuffer.mimeType,
+		});
+
+		return fileBuffer;
 	}
 
 	/**
