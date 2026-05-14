@@ -182,7 +182,15 @@ export async function deployCommandsIfNeeded(client: Client): Promise<boolean> {
 		}
 	}
 	catch (error) {
-		LogEngine.error('Failed to deploy commands to Discord:', error);
+		const errorObj = error as { code?: number; status?: number };
+		if (errorObj.code === 50001 || errorObj.status === 403) {
+			LogEngine.error(
+				'Failed to deploy commands: Missing Access (403) — Bot is not in the target guild or was not invited with the "applications.commands" OAuth2 scope. Verify GUILD_ID and re-invite the bot.',
+			);
+		}
+		else {
+			LogEngine.error('Failed to deploy commands to Discord:', error);
+		}
 		// Rethrow the error so retry logic can handle it
 		throw error;
 	}
