@@ -379,10 +379,11 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
  * @returns {Promise<void>}
  */
 async function handleMessageCreated(data: any, sourcePlatform: string): Promise<void> {
-	// Check if message originated from Discord to avoid duplication
-	// The webhook server provides sourcePlatform for reliable source detection
-	if (sourcePlatform === 'discord') {
-		LogEngine.debug('Message originated from Discord, skipping to avoid duplication', {
+	// Only process messages from the Unthread dashboard (agent/human replies).
+	// Skipping all other sources (discord, unknown, buffered) prevents duplication
+	// and avoids processing unresolved/correlated webhook events.
+	if (sourcePlatform !== 'dashboard') {
+		LogEngine.debug('Message did not originate from dashboard, skipping', {
 			sourcePlatform,
 			conversationId: data.conversationId || data.id,
 		});

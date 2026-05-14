@@ -44,6 +44,22 @@ export interface AttachmentProcessingDecision {
 
 export class AttachmentDetectionService {
 	/**
+	 * Converts extension-only strings to full MIME types.
+	 * Handles cases where Unthread sends "png" instead of "image/png".
+	 * Matches the Telegram bot's normalizeType() implementation.
+	 */
+	static normalizeType(rawType: string): string {
+		const extensionMap: Record<string, string> = {
+			png: 'image/png',
+			jpg: 'image/jpeg',
+			jpeg: 'image/jpeg',
+			gif: 'image/gif',
+			webp: 'image/webp',
+		};
+		return extensionMap[rawType.toLowerCase()] ?? rawType;
+	}
+
+	/**
 	 * Primary event validation - process dashboard → discord events
 	 * Based on Telegram bot's shouldProcessEvent pattern
 	 */
@@ -71,7 +87,7 @@ export class AttachmentDetectionService {
 		}
 
 		return event.attachments?.types?.some(type =>
-			type.startsWith('image/'),
+			this.normalizeType(type).startsWith('image/'),
 		) ?? false;
 	}
 
@@ -84,7 +100,7 @@ export class AttachmentDetectionService {
 			return false;
 		}
 
-		return event.attachments?.types?.some(t => isSupportedImageType(t.toLowerCase()))
+		return event.attachments?.types?.some(t => isSupportedImageType(this.normalizeType(t).toLowerCase()))
 			?? false;
 	}
 

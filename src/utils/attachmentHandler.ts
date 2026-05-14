@@ -359,6 +359,50 @@ export class AttachmentHandler {
 		}
 	}
 
+	private static readonly RETRYABLE_STATUS_CODES = [404, 409, 425];
+	private static readonly FILE_DOWNLOAD_MAX_RETRIES = 8;
+	private static readonly FILE_DOWNLOAD_RETRY_DELAY_MS = 1000;
+
+	/**
+	 * Fetch a URL with retry logic for transient Unthread file availability errors.
+	 * Unthread files may not be immediately available after upload, so we retry
+	 * on HTTP 404, 409, and 425 (matching the Telegram bot's proven pattern).
+	 */
+	private async fetchWithRetry(
+		url: string,
+		headers: Record<string, string>,
+		label: string,
+	): Promise<Response> {
+		const { RETRYABLE_STATUS_CODES, FILE_DOWNLOAD_MAX_RETRIES, FILE_DOWNLOAD_RETRY_DELAY_MS } = AttachmentHandler;
+
+		for (let attempt = 1; attempt <= FILE_DOWNLOAD_MAX_RETRIES; attempt++) {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), DISCORD_ATTACHMENT_CONFIG.uploadTimeout);
+
+			try {
+				const response = await fetch(url, { method: 'GET', headers, signal: controller.signal });
+				clearTimeout(timeoutId);
+
+				if (RETRYABLE_STATUS_CODES.includes(response.status) && attempt < FILE_DOWNLOAD_MAX_RETRIES) {
+					LogEngine.debug(`Retrying ${label} (attempt ${attempt}/${FILE_DOWNLOAD_MAX_RETRIES}) due to status ${response.status}`);
+					await new Promise(resolve => setTimeout(resolve, FILE_DOWNLOAD_RETRY_DELAY_MS));
+					continue;
+				}
+
+				return response;
+			}
+			catch (error: unknown) {
+				clearTimeout(timeoutId);
+				if (error instanceof Error && error.name === 'AbortError') {
+					throw new Error(`Download timeout for ${label} after ${DISCORD_ATTACHMENT_CONFIG.uploadTimeout}ms`);
+				}
+				throw error;
+			}
+		}
+
+		throw new Error(`Failed to download ${label} after ${FILE_DOWNLOAD_MAX_RETRIES} attempts`);
+	}
+
 	/**
 	 * Download a single file from Unthread using pre-transformed file data
 	 */
@@ -387,49 +431,29 @@ export class AttachmentHandler {
 			const downloadUrl = file.urlPrivateDownload || file.urlPrivate;
 			LogEngine.debug(`Using direct URL download for: ${file.name} from ${downloadUrl}`);
 
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), DISCORD_ATTACHMENT_CONFIG.uploadTimeout);
+			const apiKey = process.env.UNTHREAD_API_KEY!;
+			const response = await this.fetchWithRetry(
+				downloadUrl,
+				{ 'X-API-KEY': apiKey, 'User-Agent': 'unthread-discord-bot' },
+				file.name,
+			);
 
-			try {
-				const apiKey = process.env.UNTHREAD_API_KEY!;
-
-				const response = await fetch(downloadUrl, {
-					method: 'GET',
-					headers: {
-						'X-API-KEY': apiKey,
-						'User-Agent': 'unthread-discord-bot',
-					},
-					signal: controller.signal,
-				});
-
-				if (!response.ok) {
-					throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
-				}
-
-				const arrayBuffer = await response.arrayBuffer();
-				const buffer = Buffer.from(arrayBuffer);
-
-				const fileBuffer: FileBuffer = {
-					buffer,
-					fileName: file.name,
-					mimeType: file.mimetype || file.contentType || 'application/octet-stream',
-					size: buffer.length,
-				};
-
-				LogEngine.debug(`Downloaded ${file.name}: ${buffer.length} bytes, MIME: ${fileBuffer.mimeType}`);
-				return fileBuffer;
-
+			if (!response.ok) {
+				throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
 			}
-			catch (error: unknown) {
-				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-				if (error instanceof Error && error.name === 'AbortError') {
-					throw new Error(`Download timeout for ${file.name} after ${DISCORD_ATTACHMENT_CONFIG.uploadTimeout}ms`);
-				}
-				throw new Error(`Failed to download ${file.name}: ${errorMessage}`);
-			}
-			finally {
-				clearTimeout(timeoutId);
-			}
+
+			const arrayBuffer = await response.arrayBuffer();
+			const buffer = Buffer.from(arrayBuffer);
+
+			const fileBuffer: FileBuffer = {
+				buffer,
+				fileName: file.name,
+				mimeType: file.mimetype || file.contentType || 'application/octet-stream',
+				size: buffer.length,
+			};
+
+			LogEngine.debug(`Downloaded ${file.name}: ${buffer.length} bytes, MIME: ${fileBuffer.mimeType}`);
+			return fileBuffer;
 		}
 
 		throw new Error(`No download method available for file: ${file.name}`);
@@ -610,93 +634,71 @@ export class AttachmentHandler {
 				teamId: teamId,
 			});
 
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), DISCORD_ATTACHMENT_CONFIG.uploadTimeout);
+			LogEngine.debug('Making Unthread Slack file API request', {
+				endpoint,
+				params: { thumbSize: '160', teamId: teamId.substring(0, 8) + '...' },
+				hasApiKey: !!apiKey,
+			});
 
-			try {
-				LogEngine.debug('Making Unthread Slack file API request', {
-					endpoint,
-					params: { thumbSize: '160', teamId: teamId.substring(0, 8) + '...' },
-					hasApiKey: !!apiKey,
-				});
+			const response = await this.fetchWithRetry(
+				`${endpoint}?${params.toString()}`,
+				{ 'X-API-KEY': apiKey, 'Accept': '*/*', 'User-Agent': 'unthread-discord-bot' },
+				`Slack file ${fileId}`,
+			);
 
-				const response = await fetch(`${endpoint}?${params.toString()}`, {
-					method: 'GET',
-					headers: {
-						'X-API-KEY': apiKey,
-						'Accept': '*/*',
-						'User-Agent': 'unthread-discord-bot',
-					},
-					signal: controller.signal,
-				});
-
-				if (!response.ok) {
-					let errorMessage = `Unthread Slack file API error: ${response.status} ${response.statusText}`;
-					try {
-						const errorBody = await response.text();
-						if (errorBody) {
-							errorMessage += ` - Response: ${errorBody}`;
-						}
+			if (!response.ok) {
+				let errorMessage = `Unthread Slack file API error: ${response.status} ${response.statusText}`;
+				try {
+					const errorBody = await response.text();
+					if (errorBody) {
+						errorMessage += ` - Response: ${errorBody}`;
 					}
-					catch (bodyError) {
-						LogEngine.warn('Failed to read error response body', { bodyError });
-					}
-					throw new Error(errorMessage);
 				}
-
-				// Validate content type
-				const contentType = response.headers.get('content-type') || '';
-				LogEngine.debug('Received response', {
-					fileId,
-					status: response.status,
-					contentType,
-					contentLength: response.headers.get('content-length'),
-				});
-
-				// Get response as buffer
-				const arrayBuffer = await response.arrayBuffer();
-				const buffer = Buffer.from(arrayBuffer);
-
-				if (buffer.length === 0) {
-					throw new Error('Downloaded file is empty');
+				catch (bodyError) {
+					LogEngine.warn('Failed to read error response body', { bodyError });
 				}
-
-				// Validate size against Discord limits
-				const maxSize = DISCORD_ATTACHMENT_CONFIG.maxFileSize;
-				if (buffer.length > maxSize) {
-					throw new Error(`File too large: ${buffer.length} bytes (max: ${maxSize})`);
-				}
-
-				const fileBuffer: FileBuffer = {
-					buffer,
-					fileName,
-					mimeType: contentType || 'application/octet-stream',
-					size: buffer.length,
-				};
-
-				LogEngine.info('Slack file download successful', {
-					fileId,
-					fileName,
-					downloadedSize: buffer.length,
-					expectedSize: fileSize,
-					contentType: fileBuffer.mimeType,
-				});
-
-				return fileBuffer;
-
+				throw new Error(errorMessage);
 			}
-			catch (fetchError: unknown) {
-				clearTimeout(timeoutId);
 
-				if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-					throw new Error(`Slack file download timeout after ${DISCORD_ATTACHMENT_CONFIG.uploadTimeout}ms`);
-				}
+			// Validate content type
+			const contentType = response.headers.get('content-type') || '';
+			LogEngine.debug('Received response', {
+				fileId,
+				status: response.status,
+				contentType,
+				contentLength: response.headers.get('content-length'),
+			});
 
-				throw fetchError;
+			// Get response as buffer
+			const arrayBuffer = await response.arrayBuffer();
+			const buffer = Buffer.from(arrayBuffer);
+
+			if (buffer.length === 0) {
+				throw new Error('Downloaded file is empty');
 			}
-			finally {
-				clearTimeout(timeoutId);
+
+			// Validate size against Discord limits
+			const maxSize = DISCORD_ATTACHMENT_CONFIG.maxFileSize;
+			if (buffer.length > maxSize) {
+				throw new Error(`File too large: ${buffer.length} bytes (max: ${maxSize})`);
 			}
+
+			const fileBuffer: FileBuffer = {
+				buffer,
+				fileName,
+				mimeType: contentType || 'application/octet-stream',
+				size: buffer.length,
+			};
+
+			LogEngine.info('Slack file download successful', {
+				fileId,
+				fileName,
+				downloadedSize: buffer.length,
+				expectedSize: fileSize,
+				contentType: fileBuffer.mimeType,
+			});
+
+			return fileBuffer;
 
 		}
 		catch (error: unknown) {
@@ -738,56 +740,35 @@ export class AttachmentHandler {
 		// Fallback to direct URL download for non-Slack files
 		LogEngine.debug(`Using direct URL download for: ${unthreadAttachment.filename} from ${unthreadAttachment.url}`);
 
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), DISCORD_ATTACHMENT_CONFIG.uploadTimeout);
+		const apiKey = process.env.UNTHREAD_API_KEY!;
+		const response = await this.fetchWithRetry(
+			unthreadAttachment.url,
+			{ 'X-API-KEY': apiKey, 'User-Agent': 'unthread-discord-bot' },
+			unthreadAttachment.filename,
+		);
 
-		try {
-			// Get API key (guaranteed to exist due to startup validation)
-			const apiKey = process.env.UNTHREAD_API_KEY!;
-
-			const response = await fetch(unthreadAttachment.url, {
-				method: 'GET',
-				headers: {
-					'X-API-KEY': apiKey,
-					'User-Agent': 'unthread-discord-bot',
-				},
-				signal: controller.signal,
-			});
-
-			if (!response.ok) {
-				throw new Error(`Failed to download Unthread attachment: ${response.status} ${response.statusText}`);
-			}
-
-			// Get response as array buffer first
-			const arrayBuffer = await response.arrayBuffer();
-			const buffer = Buffer.from(arrayBuffer);
-
-			// Verify downloaded size matches expected size
-			if (buffer.length !== unthreadAttachment.size) {
-				LogEngine.warn(`Size mismatch for ${unthreadAttachment.filename}: expected ${unthreadAttachment.size}, got ${buffer.length}`);
-			}
-
-			const fileBuffer: FileBuffer = {
-				buffer,
-				fileName: unthreadAttachment.filename,
-				mimeType: unthreadAttachment.content_type,
-				size: buffer.length,
-			};
-
-			LogEngine.debug(`Downloaded ${unthreadAttachment.filename}: ${buffer.length} bytes, MIME: ${fileBuffer.mimeType}`);
-			return fileBuffer;
-
+		if (!response.ok) {
+			throw new Error(`Failed to download Unthread attachment: ${response.status} ${response.statusText}`);
 		}
-		catch (error: unknown) {
-			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-			if (error instanceof Error && error.name === 'AbortError') {
-				throw new Error(`Download timeout for ${unthreadAttachment.filename} after ${DISCORD_ATTACHMENT_CONFIG.uploadTimeout}ms`);
-			}
-			throw new Error(`Failed to download ${unthreadAttachment.filename}: ${errorMessage}`);
+
+		// Get response as array buffer first
+		const arrayBuffer = await response.arrayBuffer();
+		const buffer = Buffer.from(arrayBuffer);
+
+		// Verify downloaded size matches expected size
+		if (buffer.length !== unthreadAttachment.size) {
+			LogEngine.warn(`Size mismatch for ${unthreadAttachment.filename}: expected ${unthreadAttachment.size}, got ${buffer.length}`);
 		}
-		finally {
-			clearTimeout(timeoutId);
-		}
+
+		const fileBuffer: FileBuffer = {
+			buffer,
+			fileName: unthreadAttachment.filename,
+			mimeType: unthreadAttachment.content_type,
+			size: buffer.length,
+		};
+
+		LogEngine.debug(`Downloaded ${unthreadAttachment.filename}: ${buffer.length} bytes, MIME: ${fileBuffer.mimeType}`);
+		return fileBuffer;
 	}
 
 	/**
