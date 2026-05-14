@@ -462,6 +462,7 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 						data.files,
 						// No text message for file-only notifications
 						undefined,
+						conversationId,
 					);
 
 					if (attachmentResult.success) {
@@ -563,6 +564,7 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 					discordThread,
 					data.files,
 					messageContent.trim() || undefined,
+					conversationId,
 				);
 
 				if (attachmentResult.success) {
