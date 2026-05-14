@@ -363,6 +363,15 @@ export class AttachmentHandler {
 	private static readonly FILE_DOWNLOAD_MAX_RETRIES = 8;
 	private static readonly FILE_DOWNLOAD_RETRY_DELAY_MS = 1000;
 
+	private async drainResponseBody(response: Response): Promise<void> {
+		try {
+			await response.arrayBuffer();
+		}
+		catch {
+			// Ignore drain errors; connection will be cleaned up eventually
+		}
+	}
+
 	/**
 	 * Fetch a URL with retry logic for transient Unthread file availability errors.
 	 * Unthread files may not be immediately available after upload, so we retry
@@ -374,6 +383,8 @@ export class AttachmentHandler {
 		label: string,
 	): Promise<Response> {
 		const { RETRYABLE_STATUS_CODES, FILE_DOWNLOAD_MAX_RETRIES, FILE_DOWNLOAD_RETRY_DELAY_MS } = AttachmentHandler;
+		let lastRetryableStatus: number | undefined;
+		let lastRetryableStatusText = '';
 
 		for (let attempt = 1; attempt <= FILE_DOWNLOAD_MAX_RETRIES; attempt++) {
 			const controller = new AbortController();
@@ -383,17 +394,18 @@ export class AttachmentHandler {
 				const response = await fetch(url, { method: 'GET', headers, signal: controller.signal });
 				clearTimeout(timeoutId);
 
-				if (RETRYABLE_STATUS_CODES.includes(response.status) && attempt < FILE_DOWNLOAD_MAX_RETRIES) {
-					LogEngine.debug(`Retrying ${label} (attempt ${attempt}/${FILE_DOWNLOAD_MAX_RETRIES}) due to status ${response.status}`);
-					// Drain the response body to release the underlying socket before retrying
-					try {
-						await response.arrayBuffer();
+				if (RETRYABLE_STATUS_CODES.includes(response.status)) {
+					await this.drainResponseBody(response);
+					lastRetryableStatus = response.status;
+					lastRetryableStatusText = response.statusText;
+
+					if (attempt < FILE_DOWNLOAD_MAX_RETRIES) {
+						LogEngine.debug(`Retrying ${label} (attempt ${attempt}/${FILE_DOWNLOAD_MAX_RETRIES}) due to status ${response.status}`);
+						await new Promise(resolve => setTimeout(resolve, FILE_DOWNLOAD_RETRY_DELAY_MS));
+						continue;
 					}
-					catch {
-						// Ignore drain errors; connection will be cleaned up eventually
-					}
-					await new Promise(resolve => setTimeout(resolve, FILE_DOWNLOAD_RETRY_DELAY_MS));
-					continue;
+
+					break;
 				}
 
 				return response;
@@ -407,7 +419,8 @@ export class AttachmentHandler {
 			}
 		}
 
-		throw new Error(`Failed to download ${label} after ${FILE_DOWNLOAD_MAX_RETRIES} attempts`);
+		const statusDetails = lastRetryableStatus ? `: ${lastRetryableStatus} ${lastRetryableStatusText}` : '';
+		throw new Error(`Failed to download ${label} after ${FILE_DOWNLOAD_MAX_RETRIES} attempts${statusDetails}`);
 	}
 
 	/**
@@ -446,6 +459,7 @@ export class AttachmentHandler {
 			);
 
 			if (!response.ok) {
+				await this.drainResponseBody(response);
 				throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
 			}
 
@@ -755,6 +769,7 @@ export class AttachmentHandler {
 		);
 
 		if (!response.ok) {
+			await this.drainResponseBody(response);
 			throw new Error(`Failed to download Unthread attachment: ${response.status} ${response.statusText}`);
 		}
 
