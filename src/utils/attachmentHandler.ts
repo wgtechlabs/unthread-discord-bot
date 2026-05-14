@@ -385,6 +385,13 @@ export class AttachmentHandler {
 
 				if (RETRYABLE_STATUS_CODES.includes(response.status) && attempt < FILE_DOWNLOAD_MAX_RETRIES) {
 					LogEngine.debug(`Retrying ${label} (attempt ${attempt}/${FILE_DOWNLOAD_MAX_RETRIES}) due to status ${response.status}`);
+					// Drain the response body to release the underlying socket before retrying
+					try {
+						await response.arrayBuffer();
+					}
+					catch {
+						// Ignore drain errors; connection will be cleaned up eventually
+					}
 					await new Promise(resolve => setTimeout(resolve, FILE_DOWNLOAD_RETRY_DELAY_MS));
 					continue;
 				}
