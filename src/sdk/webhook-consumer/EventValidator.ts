@@ -9,9 +9,11 @@
  */
 
 import { LogEngine } from '../../config/logger';
-import { WebhookPayload } from '../../types/unthread';
+import type { WebhookPayload } from '../../types/unthread';
 
 export class EventValidator {
+	private constructor() {}
+
 	/**
 	 * Validate webhook event structure and content
 	 *
@@ -34,7 +36,11 @@ export class EventValidator {
 		}
 
 		// Validate targetPlatform field
-		if (!eventObj.targetPlatform || typeof eventObj.targetPlatform !== 'string' || !eventObj.targetPlatform.trim()) {
+		if (
+			!eventObj.targetPlatform ||
+			typeof eventObj.targetPlatform !== 'string' ||
+			!eventObj.targetPlatform.trim()
+		) {
 			LogEngine.warn('Event validation failed: Missing or invalid field "targetPlatform"');
 			return false;
 		}
@@ -46,7 +52,11 @@ export class EventValidator {
 		}
 
 		// Validate sourcePlatform field
-		if (!eventObj.sourcePlatform || typeof eventObj.sourcePlatform !== 'string' || !eventObj.sourcePlatform.trim()) {
+		if (
+			!eventObj.sourcePlatform ||
+			typeof eventObj.sourcePlatform !== 'string' ||
+			!eventObj.sourcePlatform.trim()
+		) {
 			LogEngine.warn('Event validation failed: Missing or invalid field "sourcePlatform"');
 			return false;
 		}
@@ -62,10 +72,10 @@ export class EventValidator {
 		if (typeof eventObj.timestamp === 'string' && eventObj.timestamp.trim()) {
 			// ISO timestamp string format
 			isValidTimestamp = !Number.isNaN(Date.parse(eventObj.timestamp));
-		}
-		else if (typeof eventObj.timestamp === 'number') {
+		} else if (typeof eventObj.timestamp === 'number') {
 			// Unix timestamp number format (milliseconds)
-			isValidTimestamp = eventObj.timestamp > 0 && !Number.isNaN(new Date(eventObj.timestamp).getTime());
+			isValidTimestamp =
+				eventObj.timestamp > 0 && !Number.isNaN(new Date(eventObj.timestamp).getTime());
 		}
 
 		if (!isValidTimestamp) {
@@ -82,7 +92,11 @@ export class EventValidator {
 		}
 
 		// Validate supported event types (updated to match actual webhook server output)
-		const supportedEvents = new Set(['message_created', 'conversation_updated', 'conversation_created']);
+		const supportedEvents = new Set([
+			'message_created',
+			'conversation_updated',
+			'conversation_created',
+		]);
 		if (!supportedEvents.has(eventObj.type)) {
 			LogEngine.debug(`Unsupported event type: ${eventObj.type}`);
 			return false;
