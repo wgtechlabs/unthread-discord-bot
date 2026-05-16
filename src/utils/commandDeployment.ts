@@ -186,6 +186,7 @@ export async function deployCommandsIfNeeded(client: Client): Promise<boolean> {
 		if (errorObj.code === 50001 || errorObj.status === 403) {
 			LogEngine.error(
 				'Failed to deploy commands: Missing Access (403) — Bot is not in the target guild or was not invited with the "applications.commands" OAuth2 scope. Verify GUILD_ID and re-invite the bot.',
+				error,
 			);
 		}
 		else {
