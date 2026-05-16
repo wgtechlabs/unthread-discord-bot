@@ -5,7 +5,7 @@
  * Tests cover basic decoding, edge cases, performance, and error handling.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities';
 import htmlEntityDecoder from '@utils/decodeHtmlEntities';
 

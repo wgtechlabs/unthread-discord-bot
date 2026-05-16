@@ -14,7 +14,7 @@
  * @module __tests__/async-test-utils
  */
 
-import { vi } from 'vitest';
+import { mock, jest as vi } from 'bun:test';
 
 // =============================================================================
 // ASYNC WAITING UTILITIES
@@ -482,7 +482,7 @@ export async function expectMockCallCount(
 // =============================================================================
 
 // Re-export all utilities for convenience
-export * from 'vitest';
+export * from 'bun:test';
 
 // Export common patterns as defaults
 export default {

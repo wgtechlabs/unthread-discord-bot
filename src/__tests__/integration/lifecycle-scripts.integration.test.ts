@@ -4,7 +4,7 @@
  * Validates that npm v11 lifecycle scripts work correctly
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { execSync } from 'child_process';
 import { cpSync, existsSync, mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';

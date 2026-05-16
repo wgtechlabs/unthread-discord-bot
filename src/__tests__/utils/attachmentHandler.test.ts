@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, jest as vi, mock } from 'bun:test';
 
-vi.mock('discord.js', () => {
+mock.module('discord.js', () => {
 	class MockAttachmentBuilder {
 		attachment: Buffer;
 		name?: string;

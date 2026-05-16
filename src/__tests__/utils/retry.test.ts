@@ -5,7 +5,7 @@
  * Tests cover retry logic, backoff strategies, error handling, and edge cases.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, jest as vi, beforeEach, afterEach } from 'bun:test';
 import { withRetry } from '@utils/retry';
 import retryUtils from '@utils/retry';
 import { LogEngine } from '@wgtechlabs/log-engine';

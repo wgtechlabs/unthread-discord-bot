@@ -5,7 +5,7 @@
  * is working correctly before implementing comprehensive test suites.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { waitFor, createDelayedMock } from './async-test-utils';
 
 describe('Test Infrastructure', () => {
@@ -24,7 +24,7 @@ describe('Test Infrastructure', () => {
 
 			expect(client.login).toBeDefined();
 			expect(client.on).toBeDefined();
-			expect(vi.isMockFunction(client.login)).toBe(true);
+			expect(typeof (client.login as unknown as { mock?: unknown }).mock).toBe('object');
 		});
 
 		it('should mock EmbedBuilder correctly', async () => {
@@ -33,14 +33,14 @@ describe('Test Infrastructure', () => {
 
 			expect(embed.setTitle).toBeDefined();
 			expect(embed.setDescription).toBeDefined();
-			expect(vi.isMockFunction(embed.setTitle)).toBe(true);
+			expect(typeof (embed.setTitle as unknown as { mock?: unknown }).mock).toBe('object');
 		});
 	});
 
 	describe('Fetch Mocking', () => {
 		it('should mock global fetch', () => {
 			expect(global.fetch).toBeDefined();
-			expect(vi.isMockFunction(global.fetch)).toBe(true);
+			expect(typeof (global.fetch as unknown as { mock?: unknown }).mock).toBe('object');
 		});
 
 		it('should handle mock API responses', async () => {
@@ -64,7 +64,7 @@ describe('Test Infrastructure', () => {
 
 			expect(cache.get).toBeDefined();
 			expect(cache.set).toBeDefined();
-			expect(vi.isMockFunction(cache.get)).toBe(true);
+			expect(typeof (cache.get as unknown as { mock?: unknown }).mock).toBe('object');
 		});
 
 		it('should mock PostgreSQL correctly', async () => {
@@ -72,7 +72,7 @@ describe('Test Infrastructure', () => {
 			const pool = new Pool();
 
 			expect(pool.query).toBeDefined();
-			expect(vi.isMockFunction(pool.query)).toBe(true);
+			expect(typeof (pool.query as unknown as { mock?: unknown }).mock).toBe('object');
 		});
 	});
 
@@ -82,7 +82,7 @@ describe('Test Infrastructure', () => {
 
 			expect(LogEngine.info).toBeDefined();
 			expect(LogEngine.error).toBeDefined();
-			expect(vi.isMockFunction(LogEngine.info)).toBe(true);
+			expect(typeof (LogEngine.info as unknown as { mock?: unknown }).mock).toBe('object');
 
 			// Should not throw when called
 			LogEngine.info('Test log message');

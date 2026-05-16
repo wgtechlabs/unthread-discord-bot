@@ -5,7 +5,7 @@
  * Tests real Discord API connectivity without mocking
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import https from 'https';
 import tls from 'tls';
 import { REST } from 'discord.js';

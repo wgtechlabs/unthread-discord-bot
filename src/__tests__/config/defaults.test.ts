@@ -5,7 +5,7 @@
  * Tests cover environment detection, configuration parsing, SSL config, and Railway detection.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import {
 	DEFAULT_CONFIG,
 	getConfig,

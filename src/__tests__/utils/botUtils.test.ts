@@ -5,7 +5,7 @@
  * Tests cover bot name retrieval, footer generation, and various client states.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { getBotName, getBotFooter, getBotDisplayName } from '@utils/botUtils';
 import { version } from '../../../package.json';
 

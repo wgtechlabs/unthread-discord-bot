@@ -6,7 +6,7 @@
  * and various edge cases for Discord ↔ Unthread message synchronization.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { 
   isDuplicateMessage, 
   removeAttachmentSection, 
