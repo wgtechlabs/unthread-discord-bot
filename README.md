@@ -35,8 +35,8 @@ Before you deploy the bot, make sure you have:
 - Two Redis connections:
   - one for bot state and cache
   - one for webhook queue processing
-- Node.js `>=20.19.0` if you want to run it without Docker
-- `pnpm@9.15.9` via Corepack for local development
+- Node.js `^22.0.0 || ^24.0.0 || ^26.0.0` if you want to run it without Docker
+- Bun `1.3.13` for local development
 
 ## Quick start
 
@@ -74,13 +74,12 @@ This is the easiest option if you want a hosted setup.
    docker-compose exec server node dist/deploy_commands.js
    ```
 
-### Option 3: Run locally with pnpm
+### Option 3: Run locally with Bun
 
 1. Install dependencies:
 
    ```bash
-   corepack enable
-   pnpm install
+   bun install
    ```
 
 2. Copy the environment file:
@@ -92,27 +91,27 @@ This is the easiest option if you want a hosted setup.
 3. Build the project:
 
    ```bash
-   pnpm build
+   bun run build
    ```
 
 4. Start the bot:
 
    ```bash
-   pnpm start
+   bun run start
    ```
 
-   `pnpm start` builds the project, deploys slash commands, and starts the bot.
+   `bun run start` builds the project, deploys slash commands, and starts the bot.
 
 5. If you only want to deploy or force redeploy slash commands:
 
    ```bash
-   pnpm deploycommand
+   bun run deploycommand
    ```
 
 For local development with auto-reload, use:
 
 ```bash
-pnpm dev
+bun dev
 ```
 
 ## Discord setup
@@ -261,7 +260,7 @@ You can use tools such as VS Code port forwarding or ngrok to make the local web
 ### Slash commands do not appear
 
 - Make sure `CLIENT_ID`, `GUILD_ID`, and `DISCORD_BOT_TOKEN` are correct
-- Run `pnpm deploycommand` again
+- Run `bun run deploycommand` again
 - Guild commands update quickly; command changes still need redeployment
 
 ### `/support` fails
@@ -292,16 +291,16 @@ You can use tools such as VS Code port forwarding or ngrok to make the local web
 ## Useful commands for contributors
 
 ```bash
-pnpm lint
-pnpm build
-pnpm test
-pnpm test:coverage
-pnpm test:integration
-pnpm cmd:deploy
-pnpm cmd:reset
-pnpm docker:build
-pnpm docker:run
-pnpm sbom:generate
+bun run lint
+bun run build
+bun run test
+bun run test:coverage
+bun run test:integration
+bun run cmd:deploy
+bun run cmd:reset
+bun run docker:build
+bun run docker:run
+bun run sbom:generate
 ```
 
 ## Help and support
