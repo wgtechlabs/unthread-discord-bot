@@ -17,7 +17,7 @@
 import { Collection, Attachment } from 'discord.js';
 import { DISCORD_ATTACHMENT_CONFIG, isSupportedImageType, normalizeContentType } from '../config/attachmentConfig';
 import { AttachmentValidationResult } from '../types/attachments';
-import { EnhancedWebhookEvent } from '../types/unthread';
+import { EnhancedWebhookEvent, WebhookAttachments, WebhookFileData } from '../types/unthread';
 import { LogEngine } from '../config/logger';
 
 /**
@@ -68,13 +68,89 @@ export class AttachmentDetectionService {
 			   event.targetPlatform === 'discord';
 	}
 
+	private static getMetadataAttachmentRecords(event: EnhancedWebhookEvent): Array<Record<string, unknown>> {
+		const metadata = event.data.metadata as {
+			event_payload?: {
+				attachments?: Array<Record<string, unknown>>;
+			};
+		} | undefined;
+
+		return Array.isArray(metadata?.event_payload?.attachments)
+			? metadata.event_payload.attachments
+			: [];
+	}
+
+	/**
+	 * Returns a normalized files list for processing.
+	 * Falls back to metadata.event_payload.attachments when event.data.files is unavailable.
+	 */
+	static getProcessableFiles(event: EnhancedWebhookEvent): WebhookFileData[] {
+		if (!this.shouldProcessEvent(event)) {
+			return [];
+		}
+
+		if (Array.isArray(event.data.files) && event.data.files.length > 0) {
+			return event.data.files;
+		}
+
+		const metadataAttachments = this.getMetadataAttachmentRecords(event);
+		if (metadataAttachments.length === 0) {
+			return [];
+		}
+
+		return metadataAttachments
+			.filter(record => typeof record.id === 'string' && record.id.trim().length > 0)
+			.map(record => {
+				const rawType = typeof record.type === 'string' ? record.type : '';
+				const normalizedType = rawType ? this.normalizeType(rawType) : 'application/octet-stream';
+				const rawSize = record.size;
+				const parsedSize = typeof rawSize === 'number'
+					? rawSize
+					: Number.parseInt(String(rawSize ?? '0'), 10);
+
+				return {
+					id: String(record.id),
+					name: typeof record.name === 'string' && record.name.trim().length > 0
+						? record.name
+						: String(record.id),
+					size: Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : 0,
+					mimetype: normalizedType,
+				} as WebhookFileData;
+			});
+	}
+
+	/**
+	 * Returns resolved attachment metadata, with fallback generation from processable files.
+	 */
+	static getResolvedAttachments(event: EnhancedWebhookEvent): WebhookAttachments | null {
+		if (!this.shouldProcessEvent(event)) {
+			return null;
+		}
+
+		if (event.attachments?.hasFiles === true) {
+			return event.attachments;
+		}
+
+		const files = this.getProcessableFiles(event);
+		if (files.length === 0) {
+			return null;
+		}
+
+		return {
+			hasFiles: true,
+			fileCount: files.length,
+			totalSize: files.reduce((sum, file) => sum + (file.size || 0), 0),
+			types: Array.from(new Set(files.map(file => this.normalizeType(file.mimetype || 'application/octet-stream')))),
+			names: files.map(file => file.name || file.id || 'unnamed-file'),
+		};
+	}
+
 	/**
 	 * Primary attachment detection using webhook metadata
 	 * Replaces complex array checking and location detection
 	 */
 	static hasAttachments(event: EnhancedWebhookEvent): boolean {
-		return this.shouldProcessEvent(event) &&
-			   event.attachments?.hasFiles === true;
+		return this.getResolvedAttachments(event)?.hasFiles === true;
 	}
 
 	/**
@@ -125,7 +201,7 @@ export class AttachmentDetectionService {
 		if (!this.hasAttachments(event)) {
 			return true;
 		}
-		const files = event.data.files ?? [];
+		const files = this.getProcessableFiles(event);
 		if (files.length === 0) return true;
 		return files.every(f => f.size <= maxSizeBytes);
 	}
@@ -138,7 +214,7 @@ export class AttachmentDetectionService {
 		if (!this.hasAttachments(event)) {
 			return false;
 		}
-		const files = event.data.files ?? [];
+		const files = this.getProcessableFiles(event);
 		if (files.length === 0) return false;
 		return files.some(f => f.size > maxSizeBytes);
 	}
@@ -148,11 +224,7 @@ export class AttachmentDetectionService {
 	 * Ready-to-use summary without manual calculation
 	 */
 	static getAttachmentSummary(event: EnhancedWebhookEvent): string {
-		if (!this.hasAttachments(event)) {
-			return 'No attachments';
-		}
-
-		const attachments = event.attachments;
+		const attachments = this.getResolvedAttachments(event);
 		if (!attachments) {
 			return 'No attachments';
 		}
@@ -169,7 +241,7 @@ export class AttachmentDetectionService {
 	 * Instant count from metadata
 	 */
 	static getFileCount(event: EnhancedWebhookEvent): number {
-		return event.attachments?.fileCount || 0;
+		return this.getResolvedAttachments(event)?.fileCount || 0;
 	}
 
 	/**
@@ -177,7 +249,7 @@ export class AttachmentDetectionService {
 	 * Pre-calculated size from metadata
 	 */
 	static getTotalSize(event: EnhancedWebhookEvent): number {
-		return event.attachments?.totalSize || 0;
+		return this.getResolvedAttachments(event)?.totalSize || 0;
 	}
 
 	/**
@@ -185,7 +257,7 @@ export class AttachmentDetectionService {
 	 * Deduplicated types from metadata
 	 */
 	static getFileTypes(event: EnhancedWebhookEvent): string[] {
-		return event.attachments?.types || [];
+		return this.getResolvedAttachments(event)?.types || [];
 	}
 
 	/**
@@ -193,7 +265,7 @@ export class AttachmentDetectionService {
 	 * names[i] corresponds to data.files[i]
 	 */
 	static getFileNames(event: EnhancedWebhookEvent): string[] {
-		return event.attachments?.names || [];
+		return this.getResolvedAttachments(event)?.names || [];
 	}
 
 	/**
@@ -206,15 +278,15 @@ export class AttachmentDetectionService {
 		}
 
 		const metadata = event.attachments;
-		const files = event.data.files;
+		const files = this.getProcessableFiles(event);
 
 		// No files scenario - both should be empty/false
-		if (!metadata?.hasFiles && (!files || files.length === 0)) {
+		if (!metadata?.hasFiles && files.length === 0) {
 			return true;
 		}
 
 		// Has files scenario - counts should match
-		if (metadata?.hasFiles && files && files.length === metadata.fileCount) {
+		if (metadata?.hasFiles && files.length === metadata.fileCount) {
 			return true;
 		}
 
@@ -222,7 +294,7 @@ export class AttachmentDetectionService {
 		LogEngine.warn('Attachment metadata inconsistency detected', {
 			metadataHasFiles: metadata?.hasFiles,
 			metadataCount: metadata?.fileCount,
-			actualFilesCount: files?.length || 0,
+			actualFilesCount: files.length,
 			eventId: event.eventId,
 			sourcePlatform: event.sourcePlatform,
 			conversationId: event.data.conversationId,
