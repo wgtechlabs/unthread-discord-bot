@@ -11,23 +11,6 @@ import { join } from 'node:path';
 
 const isBunRuntime = typeof Bun !== 'undefined';
 
-function copyDirectorySync(sourceDir: string, destinationDir: string): void {
-	fs.mkdirSync(destinationDir, { recursive: true });
-
-	for (const entry of fs.readdirSync(sourceDir)) {
-		const sourcePath = join(sourceDir, entry);
-		const destinationPath = join(destinationDir, entry);
-		const sourceStats = fs.statSync(sourcePath);
-
-		if (sourceStats.isDirectory()) {
-			copyDirectorySync(sourcePath, destinationPath);
-			continue;
-		}
-
-		fs.copyFileSync(sourcePath, destinationPath);
-	}
-}
-
 describe('npm v11 Lifecycle Scripts', () => {
 	it.skipIf(isBunRuntime)(
 		'should run TypeScript build successfully',
@@ -50,7 +33,7 @@ describe('npm v11 Lifecycle Scripts', () => {
 				}
 
 				if (fs.existsSync(join(projectRoot, 'src'))) {
-					copyDirectorySync(join(projectRoot, 'src'), join(tempWorkspace, 'src'));
+					fs.cpSync(join(projectRoot, 'src'), join(tempWorkspace, 'src'), { recursive: true });
 				}
 
 				execSync('pnpm install --frozen-lockfile', { encoding: 'utf8', cwd: tempWorkspace });
