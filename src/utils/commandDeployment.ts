@@ -10,7 +10,7 @@
  * @module utils/commandDeployment
  */
 
-import { REST, Routes, Client } from 'discord.js';
+import { type Client, REST, Routes } from 'discord.js';
 import { LogEngine } from '../config/logger';
 
 /**
@@ -36,9 +36,9 @@ function normalizeCommand(command: Record<string, unknown>): string {
 
 	// Remove only Discord-generated metadata that changes on every deployment
 	// These fields are managed by Discord and should not affect deployment decisions
-	delete normalized.id;
-	delete normalized.application_id;
-	delete normalized.version;
+	normalized.id = undefined;
+	normalized.application_id = undefined;
+	normalized.version = undefined;
 
 	// Preserve functional configuration fields that represent developer intent:
 	// - default_member_permissions: Controls who can see/use the command
@@ -74,27 +74,23 @@ function compareCommands(
 	};
 
 	// Create maps for easier comparison using normalized commands
-	const localMap = new Map(localCommands.map(cmd => [
-		(cmd as { name: string }).name,
-		normalizeCommand(cmd),
-	]));
+	const localMap = new Map(
+		localCommands.map((cmd) => [(cmd as { name: string }).name, normalizeCommand(cmd)]),
+	);
 
-	const discordMap = new Map(discordCommands.map(cmd => [
-		(cmd as { name: string }).name,
-		normalizeCommand(cmd),
-	]));
+	const discordMap = new Map(
+		discordCommands.map((cmd) => [(cmd as { name: string }).name, normalizeCommand(cmd)]),
+	);
 
 	// Check for added or modified commands
 	for (const [name, localJson] of localMap) {
 		if (!discordMap.has(name)) {
 			result.added.push(name);
 			result.needsUpdate = true;
-		}
-		else if (discordMap.get(name) !== localJson) {
+		} else if (discordMap.get(name) !== localJson) {
 			result.modified.push(name);
 			result.needsUpdate = true;
-		}
-		else {
+		} else {
 			result.unchanged.push(name);
 		}
 	}
@@ -126,19 +122,25 @@ export async function deployCommandsIfNeeded(client: Client): Promise<boolean> {
 		const { DISCORD_BOT_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 
 		if (!DISCORD_BOT_TOKEN || !CLIENT_ID || !GUILD_ID) {
-			LogEngine.warn('Skipping command deployment: Missing required environment variables (DISCORD_BOT_TOKEN, CLIENT_ID, or GUILD_ID)');
+			LogEngine.warn(
+				'Skipping command deployment: Missing required environment variables (DISCORD_BOT_TOKEN, CLIENT_ID, or GUILD_ID)',
+			);
 			return false;
 		}
 
 		// Get commands from client (need to cast to access commands property)
-		const extendedClient = client as Client & { commands: Map<string, { data: { toJSON: () => Record<string, unknown> } }> };
+		const extendedClient = client as Client & {
+			commands: Map<string, { data: { toJSON: () => Record<string, unknown> } }>;
+		};
 		if (!extendedClient.commands) {
 			LogEngine.warn('No commands collection found on client');
 			return false;
 		}
 
 		// Convert local commands collection to JSON array
-		const localCommands = Array.from(extendedClient.commands.values()).map(command => command.data.toJSON());
+		const localCommands = Array.from(extendedClient.commands.values()).map((command) =>
+			command.data.toJSON(),
+		);
 
 		if (localCommands.length === 0) {
 			LogEngine.warn('No local commands found to deploy');
@@ -150,9 +152,9 @@ export async function deployCommandsIfNeeded(client: Client): Promise<boolean> {
 
 		// Fetch existing commands from Discord
 		LogEngine.debug('Fetching existing commands from Discord...');
-		const existingCommands = await rest.get(
+		const existingCommands = (await rest.get(
 			Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-		) as Record<string, unknown>[];
+		)) as Record<string, unknown>[];
 
 		// Compare commands
 		const comparison = compareCommands(localCommands, existingCommands);
@@ -160,36 +162,37 @@ export async function deployCommandsIfNeeded(client: Client): Promise<boolean> {
 		// Log comparison results
 		if (comparison.needsUpdate) {
 			const changes: string[] = [];
-			if (comparison.added.length > 0) changes.push(`${comparison.added.length} added (${comparison.added.join(', ')})`);
-			if (comparison.modified.length > 0) changes.push(`${comparison.modified.length} modified (${comparison.modified.join(', ')})`);
-			if (comparison.removed.length > 0) changes.push(`${comparison.removed.length} removed (${comparison.removed.join(', ')})`);
+			if (comparison.added.length > 0)
+				changes.push(`${comparison.added.length} added (${comparison.added.join(', ')})`);
+			if (comparison.modified.length > 0)
+				changes.push(`${comparison.modified.length} modified (${comparison.modified.join(', ')})`);
+			if (comparison.removed.length > 0)
+				changes.push(`${comparison.removed.length} removed (${comparison.removed.join(', ')})`);
 
 			LogEngine.info(`Command changes detected: ${changes.join(', ')}`);
 			LogEngine.info(`Deploying ${localCommands.length} commands to Discord...`);
 
 			// Deploy commands to Discord API
-			const data = await rest.put(
-				Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-				{ body: localCommands },
-			) as Record<string, unknown>[];
+			const data = (await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), {
+				body: localCommands,
+			})) as Record<string, unknown>[];
 
 			LogEngine.info(`Successfully deployed ${data.length} slash commands to Discord API`);
 			return true;
 		}
-		else {
-			LogEngine.info(`Commands are up-to-date (${comparison.unchanged.length} commands unchanged) - skipping deployment`);
-			return false;
-		}
-	}
-	catch (error) {
+
+		LogEngine.info(
+			`Commands are up-to-date (${comparison.unchanged.length} commands unchanged) - skipping deployment`,
+		);
+		return false;
+	} catch (error) {
 		const errorObj = error as { code?: number; status?: number };
 		if (errorObj.code === 50001 || errorObj.status === 403) {
 			LogEngine.error(
 				'Failed to deploy commands: Missing Access (403) — Bot is not in the target guild or was not invited with the "applications.commands" OAuth2 scope. Verify GUILD_ID and re-invite the bot.',
 				error,
 			);
-		}
-		else {
+		} else {
 			LogEngine.error('Failed to deploy commands to Discord:', error);
 		}
 		// Rethrow the error so retry logic can handle it
