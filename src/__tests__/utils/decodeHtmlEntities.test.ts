@@ -86,7 +86,7 @@ describe('decodeHtmlEntities', () => {
 
 		it('should handle complex nested-like patterns', () => {
 			const complex = '&amp;amp; &amp;gt; &amp;lt;';
-			// Single-pass decode: decode named entities first, then ampersands.
+			// Single-pass decode: decode &gt; / &lt; first, then ampersands.
 			// This avoids double-decoding values like "&amp;lt;" in one call.
 			const expected = '&amp; &gt; &lt;';
 			expect(decodeHtmlEntities(complex)).toBe(expected);
