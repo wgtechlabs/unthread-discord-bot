@@ -55,7 +55,7 @@
  * ```
  */
 
-import { Events, ActivityType, Client } from 'discord.js';
+import { ActivityType, type Client, Events } from 'discord.js';
 import * as packageJSON from '../../package.json';
 import { LogEngine } from '../config/logger';
 import channelUtils from '../utils/channelUtils';
@@ -96,14 +96,18 @@ const readyEvent = {
 		// This is important as sometimes Discord bots may default to 'idle' or not show proper status
 		bot.user?.setPresence({
 			status: 'online',
-			activities: [{
-				name: 'support tickets',
-				type: ActivityType.Listening,
-			}],
+			activities: [
+				{
+					name: 'support tickets',
+					type: ActivityType.Listening,
+				},
+			],
 		});
 
 		// Log successful initialization with version information for monitoring
-		LogEngine.info(`Logged in as ${bot.user?.displayName || bot.user?.username} @ v${packageJSON.version}`);
+		LogEngine.info(
+			`Logged in as ${bot.user?.displayName || bot.user?.username} @ v${packageJSON.version}`,
+		);
 
 		// Deploy Discord slash commands using smart deployment utility with retry strategy
 		// This ensures command registration is guaranteed or the bot fails definitively
@@ -119,9 +123,11 @@ const readyEvent = {
 					baseDelayMs: 2000,
 				},
 			);
-		}
-		catch (deployError) {
-			LogEngine.error('Critical failure: Discord command deployment failed after all retry attempts. Bot startup aborted.', deployError);
+		} catch (deployError) {
+			LogEngine.error(
+				'Critical failure: Discord command deployment failed after all retry attempts. Bot startup aborted.',
+				deployError,
+			);
 			process.exit(1);
 		}
 
@@ -129,19 +135,24 @@ const readyEvent = {
 		try {
 			const validForumChannels = await getValidatedForumChannelIds();
 			if (process.env.FORUM_CHANNEL_IDS) {
-				const allChannelIds = process.env.FORUM_CHANNEL_IDS.split(',').map(id => id.trim()).filter(id => id);
+				const allChannelIds = process.env.FORUM_CHANNEL_IDS.split(',')
+					.map((id) => id.trim())
+					.filter((id) => id);
 				const invalidCount = allChannelIds.length - validForumChannels.length;
 
 				if (invalidCount > 0) {
-					LogEngine.warn(`${invalidCount} channel(s) in FORUM_CHANNEL_IDS are not forum channels and will be ignored`);
+					LogEngine.warn(
+						`${invalidCount} channel(s) in FORUM_CHANNEL_IDS are not forum channels and will be ignored`,
+					);
 				}
 
 				if (validForumChannels.length > 0) {
-					LogEngine.info(`Monitoring ${validForumChannels.length} forum channel(s) for ticket creation`);
+					LogEngine.info(
+						`Monitoring ${validForumChannels.length} forum channel(s) for ticket creation`,
+					);
 				}
 			}
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Error validating forum channels on startup:', error);
 		}
 	},
