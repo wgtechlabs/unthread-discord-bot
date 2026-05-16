@@ -14,7 +14,7 @@ import { LogEngine } from '../config/logger';
 import { User } from 'discord.js';
 
 // Re-export Customer interface for backward compatibility
-export { Customer } from '../sdk/bots-brain/BotsStore';
+export type { Customer } from '../sdk/bots-brain/BotsStore';
 
 /**
  * Creates a new customer in Unthread's system based on Discord user information

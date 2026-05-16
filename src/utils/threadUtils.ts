@@ -17,10 +17,10 @@
 import { LogEngine } from '../config/logger';
 import { ThreadChannel, Message } from 'discord.js';
 import { BotsStore, ExtendedThreadTicketMapping } from '../sdk/bots-brain/BotsStore';
-import { ThreadTicketMapping } from '../types/discord';
+import type { ThreadTicketMapping } from '../types/discord';
 
 // Re-export interfaces for backward compatibility
-export { ThreadTicketMapping } from '../types/discord';
+export type { ThreadTicketMapping } from '../types/discord';
 
 /**
  * Custom error class for mapping not found scenarios

@@ -48,7 +48,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { UnifiedStorage } from './UnifiedStorage';
 import { LogEngine } from '../../config/logger';
-import { ThreadTicketMapping } from '../../types/discord';
+import type { ThreadTicketMapping } from '../../types/discord';
 import { getSSLConfig, processConnectionString, isDevelopment } from '../../config/defaults';
 
 // Declare __dirname for CommonJS compatibility
