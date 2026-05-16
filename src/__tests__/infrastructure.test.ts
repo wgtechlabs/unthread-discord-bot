@@ -5,8 +5,8 @@
  * is working correctly before implementing comprehensive test suites.
  */
 
-import { describe, it, expect } from 'bun:test';
-import { waitFor, createDelayedMock } from './async-test-utils';
+import { describe, expect, it } from 'bun:test';
+import { createDelayedMock, waitFor } from './async-test-utils';
 
 describe('Test Infrastructure', () => {
 	describe('Environment Setup', () => {
