@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
+import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import { version } from '../../../package.json';
 import { getBotFooter } from '../../utils/botUtils';
 
@@ -50,7 +50,7 @@ export const data = new SlashCommandBuilder()
  */
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	const embed = new EmbedBuilder()
-		.setColor(0xEB1A1A)
+		.setColor(0xeb1a1a)
 		.setTitle('Bot Version')
 		.setDescription(`Current version: v${version}`)
 		.setFooter({ text: getBotFooter() })

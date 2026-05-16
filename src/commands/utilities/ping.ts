@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
+import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 
 /**
  * Ping Command
@@ -40,7 +40,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	// Create an embed to display the latency metrics.
 	// Red color for emphasis. #EB1A1A
 	const embed = new EmbedBuilder()
-		.setColor(0xEB1A1A)
+		.setColor(0xeb1a1a)
 		.setTitle('🏓 Pong!')
 		.addFields(
 			{ name: 'API Latency', value: `${apiLatency}ms`, inline: true },

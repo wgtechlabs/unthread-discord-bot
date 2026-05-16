@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
+import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 
 /**
  * Server Command
@@ -27,17 +27,24 @@ export const data = new SlashCommandBuilder()
  */
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	if (!interaction.guild) {
-		await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+		await interaction.reply({
+			content: 'This command can only be used in a server.',
+			ephemeral: true,
+		});
 		return;
 	}
 
 	const embed = new EmbedBuilder()
-		.setColor(0xEB1A1A)
+		.setColor(0xeb1a1a)
 		.setTitle('Server Information')
 		.addFields(
 			{ name: 'Server Name', value: interaction.guild.name, inline: true },
 			{ name: 'Total Members', value: `${interaction.guild.memberCount}`, inline: true },
-			{ name: 'Created At', value: `<t:${Math.floor(interaction.guild.createdTimestamp / 1000)}:F>`, inline: false },
+			{
+				name: 'Created At',
+				value: `<t:${Math.floor(interaction.guild.createdTimestamp / 1000)}:F>`,
+				inline: false,
+			},
 		)
 		.setFooter({ text: `Server ID: ${interaction.guild.id}` })
 		.setTimestamp();
