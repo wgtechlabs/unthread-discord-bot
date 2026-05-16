@@ -86,10 +86,9 @@ describe('decodeHtmlEntities', () => {
 
 		it('should handle complex nested-like patterns', () => {
 			const complex = '&amp;amp; &amp;gt; &amp;lt;';
-			// &amp;amp; -> &amp; -> &amp; (stops there)
-			// &amp;gt; -> &gt; -> >
-			// &amp;lt; -> &lt; -> <
-			const expected = '&amp; > <';
+			// Single-pass decode: decode named entities first, then ampersands.
+			// This avoids double-decoding values like "&amp;lt;" in one call.
+			const expected = '&amp; &gt; &lt;';
 			expect(decodeHtmlEntities(complex)).toBe(expected);
 		});
 
@@ -167,14 +166,14 @@ describe('decodeHtmlEntities', () => {
 			expect(result1).toBe(result2);
 		});
 
-		it('should not double-decode entities', () => {
+		it('should not double-decode entities in a single pass', () => {
 			const encoded = '&amp;gt;'; // This represents &gt; in HTML
 			const result = decodeHtmlEntities(encoded);
 
-			// Should decode &amp; to &, making &gt;, then &gt; becomes >
-			expect(result).toBe('>');
+			// Single pass decodes &amp; to &, leaving &gt; intact.
+			expect(result).toBe('&gt;');
 
-			// Running again should not change it further since there are no entities
+			// A second pass can then decode &gt; to >.
 			expect(decodeHtmlEntities(result)).toBe('>');
 		});
 	});
