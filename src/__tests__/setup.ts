@@ -16,7 +16,7 @@
  * @module __tests__/setup
  */
 
-import { mock, jest as vi, beforeEach, beforeAll, afterEach, afterAll } from 'bun:test';
+import { afterAll, afterEach, beforeAll, beforeEach, mock, jest as vi } from 'bun:test';
 
 // =============================================================================
 // ENVIRONMENT SETUP
@@ -193,11 +193,12 @@ const mockFetchImplementation = vi.fn((url: string | Request, options?: RequestI
 		return Promise.resolve({
 			ok: true,
 			status: 201,
-			json: () => Promise.resolve({
-				customerId: 'test_customer_id_12345',
-				email: 'test@example.com',
-				name: 'Test User',
-			}),
+			json: () =>
+				Promise.resolve({
+					customerId: 'test_customer_id_12345',
+					email: 'test@example.com',
+					name: 'Test User',
+				}),
 		});
 	}
 
@@ -206,27 +207,33 @@ const mockFetchImplementation = vi.fn((url: string | Request, options?: RequestI
 		return Promise.resolve({
 			ok: true,
 			status: 201,
-			json: () => Promise.resolve({
-				conversationId: 'test_ticket_id_12345',
-				title: 'Test Ticket',
-				status: 'open',
-				customer: {
-					customerId: 'test_customer_id_12345',
-					email: 'test@example.com',
-				},
-			}),
+			json: () =>
+				Promise.resolve({
+					conversationId: 'test_ticket_id_12345',
+					title: 'Test Ticket',
+					status: 'open',
+					customer: {
+						customerId: 'test_customer_id_12345',
+						email: 'test@example.com',
+					},
+				}),
 		});
 	}
 
 	// Mock message posting response
-	if (urlStr.includes('/conversations/') && urlStr.includes('/messages') && options?.method === 'POST') {
+	if (
+		urlStr.includes('/conversations/') &&
+		urlStr.includes('/messages') &&
+		options?.method === 'POST'
+	) {
 		return Promise.resolve({
 			ok: true,
 			status: 201,
-			json: () => Promise.resolve({
-				messageId: 'test_message_id_12345',
-				content: options.body ? JSON.parse(options.body as string).markdown : 'Test message',
-			}),
+			json: () =>
+				Promise.resolve({
+					messageId: 'test_message_id_12345',
+					content: options.body ? JSON.parse(options.body as string).markdown : 'Test message',
+				}),
 		});
 	}
 
@@ -336,7 +343,11 @@ mock.module('express', () => {
 		set: vi.fn(),
 	};
 
-	const expressMock = vi.fn(() => mockApp) as unknown as typeof import('express') & { json: ReturnType<typeof vi.fn>; urlencoded: ReturnType<typeof vi.fn>; static: ReturnType<typeof vi.fn> };
+	const expressMock = vi.fn(() => mockApp) as unknown as typeof import('express') & {
+		json: ReturnType<typeof vi.fn>;
+		urlencoded: ReturnType<typeof vi.fn>;
+		static: ReturnType<typeof vi.fn>;
+	};
 	(expressMock as unknown as Record<string, unknown>).json = vi.fn();
 	(expressMock as unknown as Record<string, unknown>).urlencoded = vi.fn();
 	(expressMock as unknown as Record<string, unknown>).static = vi.fn();
@@ -404,8 +415,7 @@ beforeEach(() => {
 });
 
 // Cleanup after each test
-afterEach(() => {
-});
+afterEach(() => {});
 
 // Global test cleanup
 afterAll(() => {
