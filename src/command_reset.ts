@@ -24,9 +24,9 @@
  * @module command_reset
  */
 
+import * as readline from 'node:readline';
 import { REST, Routes } from 'discord.js';
 import * as dotenv from 'dotenv';
-import * as readline from 'node:readline';
 import { LogEngine } from './config/logger';
 
 // Load environment variables
@@ -34,6 +34,16 @@ dotenv.config();
 
 // Load Discord bot configuration from environment variables
 const { DISCORD_BOT_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
+
+function requireEnv(name: 'DISCORD_BOT_TOKEN' | 'CLIENT_ID' | 'GUILD_ID'): string {
+	const value = process.env[name];
+	if (!value) {
+		LogEngine.error(`${name} is required but not set in environment variables`);
+		process.exit(1);
+	}
+
+	return value;
+}
 
 /**
  * Validate required environment variables
@@ -61,19 +71,23 @@ function validateEnvironment(): void {
  * @returns Array of currently registered commands
  */
 async function getExistingCommands(): Promise<Record<string, unknown>[]> {
+	const botToken = requireEnv('DISCORD_BOT_TOKEN');
+	const clientId = requireEnv('CLIENT_ID');
+	const guildId = requireEnv('GUILD_ID');
+
 	// Initialize Discord REST client
-	const rest = new REST().setToken(DISCORD_BOT_TOKEN!);
+	const rest = new REST().setToken(botToken);
 
 	try {
 		LogEngine.info('Fetching existing commands from Discord...');
-		const commands = await rest.get(
-			Routes.applicationGuildCommands(CLIENT_ID!, GUILD_ID!),
-		) as Record<string, unknown>[];
+		const commands = (await rest.get(Routes.applicationGuildCommands(clientId, guildId))) as Record<
+			string,
+			unknown
+		>[];
 
 		LogEngine.info(`Found ${commands.length} existing commands`);
 		return commands;
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error('Failed to fetch existing commands:', error);
 		throw error;
 	}
@@ -92,13 +106,15 @@ function askForConfirmation(commandCount: number): Promise<boolean> {
 			output: process.stdout,
 		});
 
-		const message = commandCount > 0
-			? `This will remove ${commandCount} commands from Discord. Are you sure? (y/N): `
-			: 'No commands found to remove. Continue anyway? (y/N): ';
+		const message =
+			commandCount > 0
+				? `This will remove ${commandCount} commands from Discord. Are you sure? (y/N): `
+				: 'No commands found to remove. Continue anyway? (y/N): ';
 
 		rl.question(message, (answer) => {
 			rl.close();
-			const confirmed = answer.toLowerCase().trim() === 'y' || answer.toLowerCase().trim() === 'yes';
+			const confirmed =
+				answer.toLowerCase().trim() === 'y' || answer.toLowerCase().trim() === 'yes';
 			resolve(confirmed);
 		});
 	});
@@ -108,22 +124,22 @@ function askForConfirmation(commandCount: number): Promise<boolean> {
  * Reset (remove) all commands from Discord API
  */
 async function resetCommands(): Promise<void> {
+	const botToken = requireEnv('DISCORD_BOT_TOKEN');
+	const clientId = requireEnv('CLIENT_ID');
+	const guildId = requireEnv('GUILD_ID');
+
 	// Initialize Discord REST client
-	const rest = new REST().setToken(DISCORD_BOT_TOKEN!);
+	const rest = new REST().setToken(botToken);
 
 	LogEngine.info('Removing all commands from Discord...');
 
 	try {
 		// Remove all commands by sending an empty array
-		await rest.put(
-			Routes.applicationGuildCommands(CLIENT_ID!, GUILD_ID!),
-			{ body: [] },
-		);
+		await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [] });
 
 		LogEngine.info('Successfully removed all slash commands from Discord API');
 		LogEngine.info('All commands have been unregistered and are no longer available in Discord');
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error('Command reset failed:', error);
 		process.exit(1);
 	}
@@ -144,12 +160,11 @@ async function main(): Promise<void> {
 	// Show current commands if any exist
 	if (existingCommands.length > 0) {
 		LogEngine.info('Current registered commands:');
-		existingCommands.forEach((cmd) => {
+		for (const cmd of existingCommands) {
 			const command = cmd as { name: string; description?: string };
-			LogEngine.info(`  - ${command.name}${command.description ? ': ' + command.description : ''}`);
-		});
-	}
-	else {
+			LogEngine.info(`  - ${command.name}${command.description ? `: ${command.description}` : ''}`);
+		}
+	} else {
 		LogEngine.info('No commands are currently registered');
 	}
 
