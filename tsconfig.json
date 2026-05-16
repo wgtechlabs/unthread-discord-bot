@@ -17,7 +17,7 @@
     "moduleResolution": "node",
     "ignoreDeprecations": "6.0",
     "allowSyntheticDefaultImports": true,
-    "types": ["node", "vitest/globals"],
+    "types": ["node"],
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "exactOptionalPropertyTypes": true,
