@@ -7,7 +7,7 @@
  * @module types/global
  */
 
-import { Client } from 'discord.js';
+import type { Client } from 'discord.js';
 
 /**
  * Extended Discord Client with commands collection
@@ -23,5 +23,3 @@ declare global {
 
 	var discordClient: ExtendedClient | undefined;
 }
-
-export {};
