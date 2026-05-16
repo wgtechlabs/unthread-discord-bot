@@ -565,8 +565,9 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 			}
 		}
 
-		// Send text content if present
-		if (messageContent.trim()) {
+		// Send text-only messages directly. When files are present, the attachment upload
+		// message carries the content so Discord receives a single combined post.
+		if (messageContent.trim() && fileCount === 0) {
 			await discordThread.send(messageContent);
 			LogEngine.info(`Sent text message to Discord thread ${discordThread.id}`);
 		}
