@@ -127,6 +127,9 @@ dist
 
 # TernJS port file
 .tern-port
+.bun/
+.pnpm-store/
+.pnpm-debug.log*
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
@@ -141,7 +144,7 @@ dist
 # HTTP request files
 *.http
 
-# Database
+# Optional: Remove Vitest HTML report output
 *.sqlite
 
 # VS Code settings
