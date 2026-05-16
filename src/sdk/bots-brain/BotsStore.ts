@@ -1114,14 +1114,14 @@ export class BotsStore {
 			}
 
 			// Handle special tokens when not in quotes or comments
-			if (ch === "'" && !inDoubleQuote) {
+			if (ch === "'") {
 				inSingleQuote = true;
 				buffer += ch;
 				i++;
 				continue;
 			}
 
-			if (ch === '"' && !inSingleQuote) {
+			if (ch === '"') {
 				inDoubleQuote = true;
 				buffer += ch;
 				i++;
