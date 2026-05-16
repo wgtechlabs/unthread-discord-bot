@@ -5,22 +5,25 @@
  * Tests real Discord API connectivity without mocking
  */
 
-import { describe, it, expect } from 'bun:test';
-import https from 'https';
-import tls from 'tls';
+import { describe, expect, it } from 'bun:test';
+import https from 'node:https';
+import tls from 'node:tls';
 import { REST } from 'discord.js';
 
 describe('Node 24 Discord API Integration', () => {
 	const discordApiBase = 'https://discord.com/api/v10';
 
-	it.skipIf(!process.env.INTEGRATION_NETWORK)('should connect to Discord API over TLS with OpenSSL 3.5', async () => {
-		const response = await fetch(`${discordApiBase}/gateway`);
-		expect(response.ok).toBe(true);
+	it.skipIf(!process.env.INTEGRATION_NETWORK)(
+		'should connect to Discord API over TLS with OpenSSL 3.5',
+		async () => {
+			const response = await fetch(`${discordApiBase}/gateway`);
+			expect(response.ok).toBe(true);
 
-		const data = await response.json();
-		expect(data).toHaveProperty('url');
-		expect(data.url).toContain('wss://');
-	});
+			const data = await response.json();
+			expect(data).toHaveProperty('url');
+			expect(data.url).toContain('wss://');
+		},
+	);
 
 	it('should support modern TLS cipher suites', () => {
 		const ciphers = tls.getCiphers();
@@ -43,7 +46,7 @@ describe('Node 24 Discord API Integration', () => {
 	});
 
 	it('should initialize Discord REST client without errors', () => {
-		let rest;
+		let rest: REST | undefined;
 		expect(() => {
 			rest = new REST({ version: '10' });
 		}).not.toThrow();
@@ -52,14 +55,14 @@ describe('Node 24 Discord API Integration', () => {
 
 	it('should validate Node.js version is 20 or higher', () => {
 		const [major] = process.version.slice(1).split('.');
-		expect(parseInt(major)).toBeGreaterThanOrEqual(20);
+		expect(Number.parseInt(major)).toBeGreaterThanOrEqual(20);
 	});
 
 	it('should validate npm version is 10 or higher', async () => {
-		const { execSync } = await import('child_process');
+		const { execSync } = await import('node:child_process');
 		const npmVersion = execSync('npm --version', { encoding: 'utf8' }).trim();
 		const [major] = npmVersion.split('.');
 
-		expect(parseInt(major)).toBeGreaterThanOrEqual(10); // npm 10+ ships with Node 20+
+		expect(Number.parseInt(major)).toBeGreaterThanOrEqual(10); // npm 10+ ships with Node 20+
 	});
 });

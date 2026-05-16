@@ -4,10 +4,10 @@
  * Validates that npm v11 lifecycle scripts work correctly
  */
 
-import { describe, it, expect } from 'bun:test';
-import { execSync } from 'child_process';
-import { cpSync, existsSync, mkdtempSync, rmSync } from 'fs';
-import { join } from 'path';
+import { describe, expect, it } from 'bun:test';
+import { execSync } from 'node:child_process';
+import { cpSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('npm v11 Lifecycle Scripts', () => {
 	it('should run TypeScript build successfully', () => {
