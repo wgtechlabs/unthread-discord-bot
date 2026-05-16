@@ -5,7 +5,7 @@
  * Tests cover basic decoding, edge cases, performance, and error handling.
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities';
 import htmlEntityDecoder from '@utils/decodeHtmlEntities';
 
@@ -112,8 +112,10 @@ describe('decodeHtmlEntities', () => {
 		});
 
 		it('should decode ticket content from external systems', () => {
-			const ticketContent = 'Issue: Database query returned rows where id &gt; 1000 &amp; status = &amp;quot;active&amp;quot;';
-			const expected = 'Issue: Database query returned rows where id > 1000 & status = &quot;active&quot;';
+			const ticketContent =
+				'Issue: Database query returned rows where id &gt; 1000 &amp; status = &amp;quot;active&amp;quot;';
+			const expected =
+				'Issue: Database query returned rows where id > 1000 & status = &quot;active&quot;';
 			expect(decodeHtmlEntities(ticketContent)).toBe(expected);
 		});
 

@@ -5,27 +5,41 @@
  * Tests cover bot name retrieval, footer generation, and various client states.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { getBotName, getBotFooter, getBotDisplayName } from '@utils/botUtils';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { getBotDisplayName, getBotFooter, getBotName } from '@utils/botUtils';
 import { version } from '../../../package.json';
+
+type DiscordClientMock = {
+	user?: {
+		displayName?: string | null;
+		username?: string | null;
+		[key: string]: unknown;
+	} | null;
+} | null;
+
+type GlobalWithDiscordClient = typeof globalThis & {
+	discordClient?: DiscordClientMock;
+};
+
+const globalWithDiscordClient = globalThis as GlobalWithDiscordClient;
 
 describe('botUtils', () => {
 	// Store original global state
-	let originalGlobal: any;
+	let originalGlobal: DiscordClientMock | undefined;
 
 	beforeEach(() => {
 		// Store original global state
-		originalGlobal = (global as any).discordClient;
+		originalGlobal = globalWithDiscordClient.discordClient;
 	});
 
 	afterEach(() => {
 		// Restore original global state
-		(global as any).discordClient = originalGlobal;
+		globalWithDiscordClient.discordClient = originalGlobal;
 	});
 
 	describe('getBotName', () => {
 		it('should return display name when available', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'My Awesome Bot',
 					username: 'unthread-bot',
@@ -36,7 +50,7 @@ describe('botUtils', () => {
 		});
 
 		it('should return username when display name is not available', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: null,
 					username: 'unthread-bot',
@@ -47,7 +61,7 @@ describe('botUtils', () => {
 		});
 
 		it('should return username when display name is undefined', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					username: 'discord-helper',
 				},
@@ -57,7 +71,7 @@ describe('botUtils', () => {
 		});
 
 		it('should return fallback when user is not available', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: null,
 			};
 
@@ -65,25 +79,25 @@ describe('botUtils', () => {
 		});
 
 		it('should return fallback when user is undefined', () => {
-			(global as any).discordClient = {};
+			globalWithDiscordClient.discordClient = {};
 
 			expect(getBotName()).toBe('Unthread Discord Bot');
 		});
 
 		it('should return fallback when client is not available', () => {
-			(global as any).discordClient = null;
+			globalWithDiscordClient.discordClient = null;
 
 			expect(getBotName()).toBe('Unthread Discord Bot');
 		});
 
 		it('should return fallback when client is undefined', () => {
-			(global as any).discordClient = undefined;
+			globalWithDiscordClient.discordClient = undefined;
 
 			expect(getBotName()).toBe('Unthread Discord Bot');
 		});
 
 		it('should handle empty display name gracefully', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: '',
 					username: 'backup-name',
@@ -94,7 +108,7 @@ describe('botUtils', () => {
 		});
 
 		it('should handle empty username gracefully', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: null,
 					username: '',
@@ -105,7 +119,7 @@ describe('botUtils', () => {
 		});
 
 		it('should handle whitespace-only display name', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: '   ',
 					username: 'real-username',
@@ -119,7 +133,7 @@ describe('botUtils', () => {
 
 	describe('getBotFooter', () => {
 		it('should return formatted footer with display name and version', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'Support Bot',
 					username: 'support-bot',
@@ -133,7 +147,7 @@ describe('botUtils', () => {
 		});
 
 		it('should return formatted footer with username when display name unavailable', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					username: 'ticket-bot',
 				},
@@ -146,7 +160,7 @@ describe('botUtils', () => {
 		});
 
 		it('should return formatted footer with fallback name when client unavailable', () => {
-			(global as any).discordClient = null;
+			globalWithDiscordClient.discordClient = null;
 
 			const footer = getBotFooter();
 
@@ -155,7 +169,7 @@ describe('botUtils', () => {
 		});
 
 		it('should include version information', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'Test Bot',
 				},
@@ -168,7 +182,7 @@ describe('botUtils', () => {
 		});
 
 		it('should maintain consistent format', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'Consistent Bot',
 				},
@@ -182,7 +196,7 @@ describe('botUtils', () => {
 		});
 
 		it('should handle special characters in bot name', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'Bot-With-Dashes & Symbols!',
 				},
@@ -195,7 +209,7 @@ describe('botUtils', () => {
 		});
 
 		it('should handle Unicode characters in bot name', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: '🤖 Unicode Bot 🚀',
 				},
@@ -211,7 +225,7 @@ describe('botUtils', () => {
 
 	describe('getBotDisplayName', () => {
 		it('should return the same as getBotName', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'Display Name Test',
 					username: 'username-test',
@@ -249,9 +263,9 @@ describe('botUtils', () => {
 			},
 		];
 
-		testScenariosForConsistency.forEach(({ description, client, expected }) => {
+		for (const { description, client, expected } of testScenariosForConsistency) {
 			it(`should handle ${description}`, () => {
-				(global as any).discordClient = client;
+				globalWithDiscordClient.discordClient = client;
 
 				const displayName = getBotDisplayName();
 				const botName = getBotName();
@@ -259,11 +273,11 @@ describe('botUtils', () => {
 				expect(displayName).toBe(botName);
 				expect(displayName).toBe(expected);
 			});
-		});
+		}
 
 		it('should provide alias functionality for getBotName', () => {
 			// Test that getBotDisplayName is effectively an alias
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'Alias Test Bot',
 				},
@@ -280,7 +294,7 @@ describe('botUtils', () => {
 
 	describe('Integration and Consistency', () => {
 		it('should maintain consistency across all functions', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'Integration Test Bot',
 					username: 'integration-bot',
@@ -298,7 +312,7 @@ describe('botUtils', () => {
 
 		it('should handle rapid client state changes', () => {
 			// Test that functions work correctly when client state changes
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'Initial Bot',
 					username: 'initial-user',
@@ -309,7 +323,7 @@ describe('botUtils', () => {
 			expect(initialName).toBe('Initial Bot');
 
 			// Change client state
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					username: 'changed-user',
 				},
@@ -321,7 +335,7 @@ describe('botUtils', () => {
 		});
 
 		it('should work with minimal client object', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					username: 'minimal-bot',
 				},
@@ -337,7 +351,7 @@ describe('botUtils', () => {
 		});
 
 		it('should handle undefined properties gracefully', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: undefined,
 					username: undefined,
@@ -356,7 +370,7 @@ describe('botUtils', () => {
 
 	describe('Real-world Usage Scenarios', () => {
 		it('should work in typical production environment', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'Unthread Support Bot',
 					username: 'unthread-support',
@@ -375,19 +389,19 @@ describe('botUtils', () => {
 
 		it('should work during bot initialization', () => {
 			// Before client is ready
-			(global as any).discordClient = null;
+			globalWithDiscordClient.discordClient = null;
 
 			expect(getBotName()).toBe('Unthread Discord Bot');
 			expect(getBotFooter()).toBe(`Unthread Discord Bot v${version}`);
 
 			// After client connects but user not yet set
-			(global as any).discordClient = {};
+			globalWithDiscordClient.discordClient = {};
 
 			expect(getBotName()).toBe('Unthread Discord Bot');
 			expect(getBotFooter()).toBe(`Unthread Discord Bot v${version}`);
 
 			// After user becomes available
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					username: 'newly-connected-bot',
 				},
@@ -398,7 +412,7 @@ describe('botUtils', () => {
 		});
 
 		it('should work in development environment', () => {
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: 'Dev Bot [LOCAL]',
 					username: 'dev-unthread-bot',
@@ -417,7 +431,7 @@ describe('botUtils', () => {
 	describe('Error Handling and Edge Cases', () => {
 		it('should not throw when global is modified externally', () => {
 			// Test resilience to external global modifications
-			delete (global as any).discordClient;
+			globalWithDiscordClient.discordClient = undefined;
 
 			expect(() => getBotName()).not.toThrow();
 			expect(() => getBotDisplayName()).not.toThrow();
@@ -434,7 +448,7 @@ describe('botUtils', () => {
 				}),
 			});
 
-			(global as any).discordClient = frozenClient;
+			globalWithDiscordClient.discordClient = frozenClient;
 
 			expect(() => getBotName()).not.toThrow();
 			expect(getBotName()).toBe('Frozen Bot');
@@ -443,7 +457,7 @@ describe('botUtils', () => {
 		it('should handle very long bot names', () => {
 			const longName = 'A'.repeat(1000);
 
-			(global as any).discordClient = {
+			globalWithDiscordClient.discordClient = {
 				user: {
 					displayName: longName,
 				},
