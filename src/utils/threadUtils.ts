@@ -14,9 +14,9 @@
  * @module utils/threadUtils
  */
 
+import type { Message, ThreadChannel } from 'discord.js';
 import { LogEngine } from '../config/logger';
-import { ThreadChannel, Message } from 'discord.js';
-import { BotsStore, ExtendedThreadTicketMapping } from '../sdk/bots-brain/BotsStore';
+import { BotsStore, type ExtendedThreadTicketMapping } from '../sdk/bots-brain/BotsStore';
 import type { ThreadTicketMapping } from '../types/discord';
 
 // Re-export interfaces for backward compatibility
@@ -51,31 +51,31 @@ export class MappingNotFoundError extends Error {
  * Enhanced error with additional context for debugging
  */
 interface EnhancedError extends Error {
-    /** Additional context about the error and retry attempts */
-    context?: {
-        /** The ticket ID that was being looked up */
-        ticketId: string;
-        /** Number of retry attempts made */
-        attemptsMade: number;
-        /** Total time spent retrying in milliseconds */
-        totalRetryTime: number;
-        /** Whether this appears to be a race condition */
-        likelyRaceCondition: boolean;
-        /** Original error message */
-        originalError: string;
-    };
+	/** Additional context about the error and retry attempts */
+	context?: {
+		/** The ticket ID that was being looked up */
+		ticketId: string;
+		/** Number of retry attempts made */
+		attemptsMade: number;
+		/** Total time spent retrying in milliseconds */
+		totalRetryTime: number;
+		/** Whether this appears to be a race condition */
+		likelyRaceCondition: boolean;
+		/** Original error message */
+		originalError: string;
+	};
 }
 
 /**
  * Configuration options for retry behavior
  */
 interface RetryOptions {
-    /** Maximum number of retry attempts (default: 3) */
-    maxAttempts?: number;
-    /** Maximum time window for retries in milliseconds (default: 10000) */
-    maxRetryWindow?: number;
-    /** Base delay between retries in milliseconds (default: 1000) */
-    baseDelayMs?: number;
+	/** Maximum number of retry attempts (default: 3) */
+	maxAttempts?: number;
+	/** Maximum time window for retries in milliseconds (default: 10000) */
+	maxRetryWindow?: number;
+	/** Base delay between retries in milliseconds (default: 1000) */
+	baseDelayMs?: number;
 }
 
 /**
@@ -178,8 +178,7 @@ export async function findDiscordThreadByTicketIdWithRetry(
 
 			// Default lookup using BotsStore
 			return await findDiscordThreadByTicketId(unthreadTicketId);
-		}
-		catch (error: unknown) {
+		} catch (error: unknown) {
 			lastError = error instanceof Error ? error : new Error('Unknown error');
 			const timeSinceStart = Date.now() - startTime;
 
@@ -195,15 +194,17 @@ export async function findDiscordThreadByTicketIdWithRetry(
 
 			if (!isLastAttempt && withinRetryWindow && lastWasMappingError) {
 				// Exponential backoff with jitter: base * 2^(attempt-1) + random jitter
-				const exponentialDelay = baseDelayMs * Math.pow(2, attempt - 1);
+				const exponentialDelay = baseDelayMs * 2 ** (attempt - 1);
 				// 10% jitter
 				const jitter = Math.random() * baseDelayMs * 0.1;
 				// Cap at 5 seconds
 				const delay = Math.min(exponentialDelay + jitter, 5000);
 
-				LogEngine.debug(`Mapping not found for ticket ${unthreadTicketId}, attempt ${attempt}/${maxAttempts}. Retrying in ${Math.round(delay)}ms... (${timeSinceStart}ms since start)`);
+				LogEngine.debug(
+					`Mapping not found for ticket ${unthreadTicketId}, attempt ${attempt}/${maxAttempts}. Retrying in ${Math.round(delay)}ms... (${timeSinceStart}ms since start)`,
+				);
 
-				await new Promise(resolve => setTimeout(resolve, delay));
+				await new Promise((resolve) => setTimeout(resolve, delay));
 				continue;
 			}
 
@@ -226,10 +227,13 @@ export async function findDiscordThreadByTicketIdWithRetry(
 
 		// Log with enhanced context
 		if (enhancedError.context.likelyRaceCondition) {
-			LogEngine.warn(`Potential race condition detected for ticket ${unthreadTicketId}: mapping not found after ${attemptsUsed} attempts over ${totalTime}ms`);
-		}
-		else {
-			LogEngine.error(`Thread lookup failed for ticket ${unthreadTicketId} after ${attemptsUsed} attempts over ${totalTime}ms: ${lastError.message}`);
+			LogEngine.warn(
+				`Potential race condition detected for ticket ${unthreadTicketId}: mapping not found after ${attemptsUsed} attempts over ${totalTime}ms`,
+			);
+		} else {
+			LogEngine.error(
+				`Thread lookup failed for ticket ${unthreadTicketId} after ${attemptsUsed} attempts over ${totalTime}ms: ${lastError.message}`,
+			);
 		}
 
 		throw enhancedError;
@@ -303,7 +307,9 @@ export async function findDiscordThreadByTicketId(
 		// Get the ticket mapping using BotsStore (3-layer lookup)
 		const ticketMapping = await botsStore.getMappingByTicketId(unthreadTicketId);
 		if (!ticketMapping) {
-			const error = new MappingNotFoundError(`No Discord thread found for Unthread ticket ${unthreadTicketId}`);
+			const error = new MappingNotFoundError(
+				`No Discord thread found for Unthread ticket ${unthreadTicketId}`,
+			);
 			LogEngine.error(error.message);
 			throw error;
 		}
@@ -325,7 +331,9 @@ export async function findDiscordThreadByTicketId(
 
 		// Ensure the channel is actually a thread
 		if (!channel.isThread()) {
-			const error = new Error(`Discord channel with ID ${ticketMapping.discordThreadId} is not a thread.`);
+			const error = new Error(
+				`Discord channel with ID ${ticketMapping.discordThreadId} is not a thread.`,
+			);
 			LogEngine.error(error.message);
 			throw error;
 		}
@@ -336,10 +344,11 @@ export async function findDiscordThreadByTicketId(
 			ticketMapping,
 			discordThread: channel,
 		};
-	}
-	catch (error: unknown) {
+	} catch (error: unknown) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		LogEngine.error(`Error fetching Discord thread for ticket ${unthreadTicketId}: ${errorMessage}`);
+		LogEngine.error(
+			`Error fetching Discord thread for ticket ${unthreadTicketId}: ${errorMessage}`,
+		);
 		throw error;
 	}
 }
@@ -370,8 +379,7 @@ export async function fetchStarterMessage(thread: ThreadChannel): Promise<Messag
 		// Use Discord.js built-in method for the starter message
 		const starterMessage = await thread.fetchStarterMessage();
 		return starterMessage;
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error('Failed to fetch starter message:', error);
 		return null;
 	}

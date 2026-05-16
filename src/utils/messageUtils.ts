@@ -90,7 +90,7 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 	}
 
 	// Check for exact content match (case-sensitive)
-	const exactDuplicate = messages.some(msg => msg.content === trimmedContent);
+	const exactDuplicate = messages.some((msg) => msg.content === trimmedContent);
 	if (exactDuplicate) {
 		LogEngine.debug('Exact duplicate message detected');
 		return true;
@@ -99,10 +99,13 @@ function isDuplicateMessage(messages: ProcessableMessage[], newContent: string):
 	// Check for content containment (handles forum post content that may have extra formatting)
 	// Only apply fuzzy matching for messages with sufficient content
 	if (trimmedContent.length >= 10) {
-		const contentDuplicate = messages.some(msg => {
+		const contentDuplicate = messages.some((msg) => {
 			// First check if this is just a case difference (no fuzzy matching for that)
 			const originalContent = msg.content.trim();
-			if (originalContent.toLowerCase() === trimmedContent.toLowerCase() && originalContent !== trimmedContent) {
+			if (
+				originalContent.toLowerCase() === trimmedContent.toLowerCase() &&
+				originalContent !== trimmedContent
+			) {
 				return false;
 			}
 
@@ -168,7 +171,7 @@ function removeAttachmentSection(messageContent: string): string {
 
 	// Split content into sections and filter out attachment sections
 	const sections = messageContent.split(/\n\n/);
-	const filteredSections = sections.filter(section => {
+	const filteredSections = sections.filter((section) => {
 		// Remove sections that start with "Attachments:"
 		return !section.trim().startsWith('Attachments:');
 	});
@@ -245,8 +248,7 @@ function processQuotedContent(
 		if (line.trim().startsWith('>')) {
 			quotedLines.push(line);
 			foundQuotedContent = true;
-		}
-		else if (foundQuotedContent) {
+		} else if (foundQuotedContent) {
 			// Stop at first non-quoted line after finding quoted content
 			break;
 		}
@@ -257,7 +259,7 @@ function processQuotedContent(
 	// Extract the quoted portion and clean it up
 	const quotedMessageRaw = quotedLines.join('\n');
 	const quotedMessage = quotedLines
-		.map(line => line.replace(/^>\s?/, '').trim())
+		.map((line) => line.replace(/^>\s?/, '').trim())
 		.join('\n')
 		.trim();
 
@@ -271,10 +273,11 @@ function processQuotedContent(
 	}
 
 	// Try to find the quoted message in existing messages using normalized content
-	const matchingMsg = existingMessages.find(msg =>
-		removeAttachmentSection(msg.content).trim() === removeAttachmentSection(quotedMessage).trim(),
+	const matchingMsg = existingMessages.find(
+		(msg) =>
+			removeAttachmentSection(msg.content).trim() === removeAttachmentSection(quotedMessage).trim(),
 	);
-	if (matchingMsg && matchingMsg.id) {
+	if (matchingMsg?.id) {
 		result.replyReference = matchingMsg.id;
 		// Empty message fallback
 		result.contentToSend = remainingText || ' ';

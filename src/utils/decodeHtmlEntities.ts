@@ -29,10 +29,7 @@
  * // Result: "Hello & welcome to our site! <Click here>"
  */
 function decodeHtmlEntities(text: string): string {
-	return text
-		.replace(/&amp;/g, '&')
-		.replace(/&gt;/g, '>')
-		.replace(/&lt;/g, '<');
+	return text.replace(/&amp;/g, '&').replace(/&gt;/g, '>').replace(/&lt;/g, '<');
 }
 
 /**
