@@ -51,9 +51,10 @@ import { LogEngine } from '../config/logger';
 import { isDuplicateMessage } from '../utils/messageUtils';
 import { findDiscordThreadByTicketId, findDiscordThreadByTicketIdWithRetry } from '../utils/threadUtils';
 import { getOrCreateCustomer, getCustomerByDiscordId, Customer } from '../utils/customerUtils';
-import { WebhookPayload, UnthreadApiResponse, UnthreadTicket } from '../types/unthread';
+import { WebhookPayload, UnthreadApiResponse, UnthreadTicket, EnhancedWebhookEvent } from '../types/unthread';
 import { FileBuffer } from '../types/attachments';
 import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
+import { AttachmentDetectionService } from './attachmentDetection';
 
 /**
  * ==================== ENVIRONMENT VALIDATION ====================
@@ -379,10 +380,11 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
  * @returns {Promise<void>}
  */
 async function handleMessageCreated(data: any, sourcePlatform: string): Promise<void> {
-	// Check if message originated from Discord to avoid duplication
-	// The webhook server provides sourcePlatform for reliable source detection
-	if (sourcePlatform === 'discord') {
-		LogEngine.debug('Message originated from Discord, skipping to avoid duplication', {
+	// Only process messages from the Unthread dashboard (agent/human replies).
+	// Skipping all other sources (discord, unknown, buffered) prevents duplication
+	// and avoids processing unresolved/correlated webhook events.
+	if (sourcePlatform !== 'dashboard') {
+		LogEngine.debug('Message did not originate from dashboard, skipping', {
 			sourcePlatform,
 			conversationId: data.conversationId || data.id,
 		});
@@ -409,25 +411,43 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 	const conversationId = data.conversationId || data.id;
 	const messageText = data.text || data.content;
 
-	// Use pre-transformed data directly from webhook server
-	const hasFiles = data.files && data.files.length > 0;
-	const fileCount = data.files ? data.files.length : 0;
+	const attachmentEvent: EnhancedWebhookEvent = {
+		platform: 'unthread',
+		targetPlatform: 'discord',
+		type: 'message_created',
+		sourcePlatform,
+		attachments: data.attachments,
+		data: {
+			id: conversationId || data.id || 'unknown',
+			content: data.content,
+			text: data.text,
+			files: Array.isArray(data.files) ? data.files : undefined,
+			conversationId: conversationId || data.id || 'unknown',
+			userId: data.userId,
+			metadata: data.metadata,
+		},
+		timestamp: Date.now(),
+		eventId: String(data.id || data.conversationId || Date.now()),
+	};
+
+	const effectiveFiles = AttachmentDetectionService.getProcessableFiles(attachmentEvent);
+	const fileCount = effectiveFiles.length;
 
 	LogEngine.info('📋 Processing pre-transformed message data', {
 		conversationId,
-		hasFiles,
+		hasFiles: fileCount > 0,
 		fileCount,
 		hasText: !!messageText?.trim(),
 		sourcePlatform,
 	});
 
-	if (!conversationId || (!messageText?.trim() && !hasFiles)) {
+	if (!conversationId || (!messageText?.trim() && fileCount === 0)) {
 		LogEngine.warn('Message created event missing required data (must have text or files)');
 		return;
 	}
 
 	// Detect file attachment notification patterns - process files only, skip text
-	const isFileAttachedNotification = messageText && hasFiles && (
+	const isFileAttachedNotification = messageText && fileCount > 0 && (
 		messageText.trim().toLowerCase() === 'file attached' ||
 		/^\d+\s+files?\s+attached$/i.test(messageText.trim())
 	);
@@ -441,7 +461,7 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 		});
 
 		// Process files directly from pre-transformed data
-		if (data.files && data.files.length > 0) {
+		if (effectiveFiles.length > 0) {
 			try {
 				const { discordThread } = await findDiscordThreadByTicketIdWithRetry(
 					conversationId,
@@ -449,8 +469,8 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 				);
 
 				if (discordThread) {
-					LogEngine.info(`Processing ${data.files.length} files from pre-transformed data:`,
-						data.files.map((f: any) => ({ id: f.id, name: f.name, type: f.mimetype, size: f.size })));
+					LogEngine.info(`Processing ${effectiveFiles.length} files from pre-transformed data:`,
+						effectiveFiles.map((f: any) => ({ id: f.id, name: f.name, type: f.mimetype || f.type, size: f.size })));
 
 					// Use pre-transformed file data directly - no conversion needed
 					const { AttachmentHandler } = await import('../utils/attachmentHandler');
@@ -458,9 +478,10 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 
 					const attachmentResult = await attachmentHandler.downloadUnthreadFilesToDiscord(
 						discordThread,
-						data.files,
+						effectiveFiles,
 						// No text message for file-only notifications
 						undefined,
+						conversationId,
 					);
 
 					if (attachmentResult.success) {
@@ -482,7 +503,7 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 			LogEngine.warn('File attachment notification detected but no files found in pre-transformed data', {
 				conversationId,
 				hasFiles: !!data.files,
-				filesLength: data.files?.length || 0,
+				filesLength: fileCount,
 				notificationText: messageText.trim(),
 			});
 		}
@@ -512,8 +533,8 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 		// Check for oversized files (simple size check)
 		// 8MB Discord limit
 		const maxSizeBytes = 8 * 1024 * 1024;
-		if (hasFiles && data.files) {
-			const totalSize = data.files.reduce((sum: number, file: any) => sum + (file.size || 0), 0);
+		if (fileCount > 0) {
+			const totalSize = effectiveFiles.reduce((sum: number, file: any) => sum + (file.size || 0), 0);
 			if (totalSize > maxSizeBytes) {
 				await handleOversizedFiles(discordThread, totalSize, maxSizeBytes);
 				return;
@@ -544,15 +565,16 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 			}
 		}
 
-		// Send text content if present
-		if (messageContent.trim()) {
+		// Send text-only messages directly. When files are present, the attachment upload
+		// message carries the content so Discord receives a single combined post.
+		if (messageContent.trim() && fileCount === 0) {
 			await discordThread.send(messageContent);
 			LogEngine.info(`Sent text message to Discord thread ${discordThread.id}`);
 		}
 
 		// Process files if present
-		if (hasFiles && data.files && data.files.length > 0) {
-			LogEngine.info(`Processing ${data.files.length} files from pre-transformed data`);
+		if (fileCount > 0) {
+			LogEngine.info(`Processing ${fileCount} files from pre-transformed data`);
 
 			const { AttachmentHandler } = await import('../utils/attachmentHandler');
 			const attachmentHandler = new AttachmentHandler();
@@ -560,8 +582,9 @@ async function handleMessageCreated(data: any, sourcePlatform: string): Promise<
 			try {
 				const attachmentResult = await attachmentHandler.downloadUnthreadFilesToDiscord(
 					discordThread,
-					data.files,
+					effectiveFiles,
 					messageContent.trim() || undefined,
+					conversationId,
 				);
 
 				if (attachmentResult.success) {
