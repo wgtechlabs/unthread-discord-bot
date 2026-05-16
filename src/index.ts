@@ -74,20 +74,20 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
-import { BotConfig } from './types/discord';
-import { validateEnvironment } from './services/unthread';
 import { LogEngine } from './config/logger';
+import { validateEnvironment } from './services/unthread';
+import type { BotConfig } from './types/discord';
 import './types/global';
 
 // Import new storage architecture
 import { BotsStore } from './sdk/bots-brain/BotsStore';
 
+import { getAllConfig } from './config/defaults';
 // Import clean webhook consumer
 import { WebhookConsumer } from './sdk/webhook-consumer';
-import { getAllConfig } from './config/defaults';
 
 /**
  * Startup Validation Function
@@ -116,13 +116,14 @@ async function validateStartupRequirements(): Promise<void> {
 		if (!health.database_pool) failedLayers.push('database_pool');
 
 		if (failedLayers.length > 0) {
-			throw new Error(`Storage layer health check failed: ${failedLayers.join(', ')} layer(s) unhealthy`);
+			throw new Error(
+				`Storage layer health check failed: ${failedLayers.join(', ')} layer(s) unhealthy`,
+			);
 		}
 
 		LogEngine.info('3-layer storage architecture validated successfully');
 		LogEngine.info('All startup requirements validated successfully');
-	}
-	catch (error) {
+	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		const errorStack = error instanceof Error ? error.stack : undefined;
 		LogEngine.error('Startup validation failed:', errorMessage);
@@ -156,7 +157,8 @@ async function main(): Promise<void> {
 			'PLATFORM_REDIS_URL',
 			'WEBHOOK_REDIS_URL',
 		];
-		const { DISCORD_BOT_TOKEN, POSTGRES_URL, PLATFORM_REDIS_URL } = process.env as Partial<BotConfig>;
+		const { DISCORD_BOT_TOKEN, POSTGRES_URL, PLATFORM_REDIS_URL } =
+			process.env as Partial<BotConfig>;
 
 		const missingVars: string[] = [];
 
@@ -170,7 +172,9 @@ async function main(): Promise<void> {
 
 		if (missingVars.length > 0) {
 			LogEngine.error(`Missing required environment variables: ${missingVars.join(', ')}`);
-			LogEngine.error('Please ensure all required environment variables are set before starting the bot');
+			LogEngine.error(
+				'Please ensure all required environment variables are set before starting the bot',
+			);
 			process.exit(1);
 		}
 
@@ -185,7 +189,9 @@ async function main(): Promise<void> {
 
 		if (!POSTGRES_URL) {
 			LogEngine.error('POSTGRES_URL is required for PostgreSQL connection');
-			LogEngine.error('Please provide a valid PostgreSQL connection URL (e.g., postgres://user:password@localhost:5432/database)');
+			LogEngine.error(
+				'Please provide a valid PostgreSQL connection URL (e.g., postgres://user:password@localhost:5432/database)',
+			);
 			process.exit(1);
 		}
 
@@ -210,13 +216,11 @@ async function main(): Promise<void> {
 		await initializeWebhookConsumer();
 
 		LogEngine.info('🚀 Unthread Discord Bot started successfully as Redis consumer');
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error('Failed to start bot:', error);
 		process.exit(1);
 	}
 }
-
 
 /**
  * Extended Discord client with commands collection
@@ -265,12 +269,7 @@ const client = new Client({
 		GatewayIntentBits.GuildMessages,
 		GatewayIntentBits.GuildMessageReactions,
 	],
-	partials: [
-		Partials.Channel,
-		Partials.Message,
-		Partials.Reaction,
-		Partials.ThreadMember,
-	],
+	partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.ThreadMember],
 }) as ExtendedClient;
 
 /**
@@ -294,9 +293,9 @@ try {
 		const usingTsNode = __filename.endsWith('.ts');
 
 		// eslint-disable-next-line security/detect-non-literal-fs-filename
-		const commandFiles = fs.readdirSync(commandsPath).filter(file =>
-			usingTsNode ? file.endsWith('.ts') : file.endsWith('.js'),
-		);
+		const commandFiles = fs
+			.readdirSync(commandsPath)
+			.filter((file) => (usingTsNode ? file.endsWith('.ts') : file.endsWith('.js')));
 
 		for (const file of commandFiles) {
 			const filePath = path.join(commandsPath, file);
@@ -310,28 +309,26 @@ try {
 				const command = ('default' in mod ? mod.default : mod) as CommandModule;
 
 				// Robust validation with explicit type checks
-				if (command &&
+				if (
+					command &&
 					typeof command === 'object' &&
 					command.data &&
 					typeof command.data === 'object' &&
 					typeof command.data.name === 'string' &&
 					command.data.name.trim() !== '' &&
-					typeof command.execute === 'function') {
-
+					typeof command.execute === 'function'
+				) {
 					client.commands.set(command.data.name, command);
 					// Individual command loading moved to summary for cleaner logs
-				}
-				else {
+				} else {
 					// Enhanced error reporting with specific validation failures
 					const issues: string[] = [];
 					if (!command || typeof command !== 'object') {
 						issues.push('command is not an object');
-					}
-					else {
+					} else {
 						if (!command.data || typeof command.data !== 'object') {
 							issues.push('command.data is missing or not an object');
-						}
-						else if (typeof command.data.name !== 'string' || command.data.name.trim() === '') {
+						} else if (typeof command.data.name !== 'string' || command.data.name.trim() === '') {
 							issues.push('command.data.name is missing or not a non-empty string');
 						}
 						if (typeof command.execute !== 'function') {
@@ -340,8 +337,7 @@ try {
 					}
 					LogEngine.warn(`Skipping invalid command at ${filePath}: ${issues.join(', ')}`);
 				}
-			}
-			catch (error) {
+			} catch (error) {
 				LogEngine.error(`Failed to load command from ${filePath}:`, error);
 			}
 		}
@@ -349,8 +345,7 @@ try {
 
 	const commandNames = Array.from(client.commands.keys()).join(', ');
 	LogEngine.info(`Loaded ${client.commands.size} commands successfully: ${commandNames}`);
-}
-catch (error) {
+} catch (error) {
 	LogEngine.error('Failed to load commands directory:', error);
 }
 
@@ -370,7 +365,7 @@ try {
 
 	const eventFiles = fs
 		.readdirSync(eventsPath)
-		.filter((file) => usingTsNode ? file.endsWith('.ts') : file.endsWith('.js'));
+		.filter((file) => (usingTsNode ? file.endsWith('.ts') : file.endsWith('.js')));
 
 	const loadedEventNames: string[] = [];
 
@@ -387,27 +382,28 @@ try {
 
 			// Validate required properties before registering events
 			if (!event?.name || typeof event.execute !== 'function') {
-				LogEngine.warn(`The event at ${filePath} is missing required "name" or "execute" properties.`);
+				LogEngine.warn(
+					`The event at ${filePath} is missing required "name" or "execute" properties.`,
+				);
 				continue;
 			}
 
 			if (event.once) {
-				client.once(event.name, (...args: unknown[]) => event.execute!(...args));
-			}
-			else {
-				client.on(event.name, (...args: unknown[]) => event.execute!(...args));
+				client.once(event.name, (...args: unknown[]) => event.execute?.(...args));
+			} else {
+				client.on(event.name, (...args: unknown[]) => event.execute?.(...args));
 			}
 
 			loadedEventNames.push(event.name);
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error(`Failed to load event from ${filePath}:`, error);
 		}
 	}
 
-	LogEngine.info(`Loaded ${loadedEventNames.length} events successfully: ${loadedEventNames.join(', ')}`);
-}
-catch (error) {
+	LogEngine.info(
+		`Loaded ${loadedEventNames.length} events successfully: ${loadedEventNames.join(', ')}`,
+	);
+} catch (error) {
 	LogEngine.error('Failed to load events directory:', error);
 }
 
@@ -445,12 +441,10 @@ async function initializeWebhookConsumer(): Promise<void> {
 
 			await webhookConsumer.start();
 			LogEngine.info('✅ Webhook consumer started successfully - polling Redis queue for events');
-		}
-		else {
+		} else {
 			LogEngine.warn('WEBHOOK_REDIS_URL not configured - webhook consumer disabled');
 		}
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error('Failed to initialize webhook consumer:', error);
 		LogEngine.warn('Bot will continue without Redis-based webhook processing');
 	}
