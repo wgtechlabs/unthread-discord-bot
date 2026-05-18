@@ -54,3 +54,12 @@ jobs:
         with:
           github-token: ${{ secrets.GH_PAT }}
           commit-convention: clean-commit
+
+      - name: Write release summary
+        if: steps.release.outputs.tag_name != ''
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ steps.release.outputs.tag_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Release URL | ${{ steps.release.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
