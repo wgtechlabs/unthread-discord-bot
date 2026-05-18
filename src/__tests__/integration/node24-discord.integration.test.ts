@@ -6,9 +6,20 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import https from 'node:https';
-import tls from 'node:tls';
-import { REST } from 'discord.js';
+import { execFileSync } from 'node:child_process';
+
+function runNodeScript(script: string): string {
+	return execFileSync('node', ['--input-type=module', '--eval', script], {
+		encoding: 'utf8',
+	}).trim();
+}
+
+const GET_TLS_CIPHERS_SCRIPT =
+	"import tls from 'node:tls'; console.log(JSON.stringify(tls.getCiphers()))";
+const GET_HTTPS_AGENT_MIN_VERSION_SCRIPT =
+	"import https from 'node:https'; const agent = new https.Agent({ keepAlive: true, maxSockets: 10, minVersion: 'TLSv1.2' }); console.log(agent.options.minVersion);";
+const INIT_DISCORD_REST_SCRIPT =
+	"import { REST } from 'discord.js'; const rest = new REST({ version: '10' }); console.log(rest ? 'ok' : 'fail');";
 
 describe('Node 24 Discord API Integration', () => {
 	const discordApiBase = 'https://discord.com/api/v10';
@@ -26,7 +37,7 @@ describe('Node 24 Discord API Integration', () => {
 	);
 
 	it('should support modern TLS cipher suites', () => {
-		const ciphers = tls.getCiphers();
+		const ciphers = JSON.parse(runNodeScript(GET_TLS_CIPHERS_SCRIPT));
 
 		// Verify OpenSSL 3.5 includes modern ciphers
 		expect(ciphers).toContain('tls_aes_256_gcm_sha384');
@@ -35,32 +46,23 @@ describe('Node 24 Discord API Integration', () => {
 	});
 
 	it('should create HTTPS agent with correct TLS settings', () => {
-		const agent = new https.Agent({
-			keepAlive: true,
-			maxSockets: 10,
-			minVersion: 'TLSv1.2',
-		});
-
-		expect(agent).toBeDefined();
-		expect(agent.options.minVersion).toBe('TLSv1.2');
+		const minVersion = runNodeScript(GET_HTTPS_AGENT_MIN_VERSION_SCRIPT);
+		expect(minVersion).toBe('TLSv1.2');
 	});
 
 	it('should initialize Discord REST client without errors', () => {
-		let rest: REST | undefined;
-		expect(() => {
-			rest = new REST({ version: '10' });
-		}).not.toThrow();
-		expect(rest).toBeDefined();
+		const restCheck = runNodeScript(INIT_DISCORD_REST_SCRIPT);
+		expect(restCheck).toBe('ok');
 	});
 
 	it('should validate Node.js version is 20 or higher', () => {
-		const [major] = process.version.slice(1).split('.');
+		const nodeVersion = execFileSync('node', ['--version'], { encoding: 'utf8' }).trim();
+		const [major] = nodeVersion.slice(1).split('.');
 		expect(Number.parseInt(major)).toBeGreaterThanOrEqual(20);
 	});
 
-	it('should validate npm version is 10 or higher', async () => {
-		const { execSync } = await import('node:child_process');
-		const npmVersion = execSync('npm --version', { encoding: 'utf8' }).trim();
+	it('should validate npm version is 10 or higher', () => {
+		const npmVersion = execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim();
 		const [major] = npmVersion.split('.');
 
 		expect(Number.parseInt(major)).toBeGreaterThanOrEqual(10); // npm 10+ ships with Node 20+
