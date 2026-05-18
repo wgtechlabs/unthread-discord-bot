@@ -42,9 +42,12 @@ Run the existing checks:
 
 ```bash
 bun run lint
+bun run type-check
 bun run build
 bun run test
 ```
+
+Linting and formatting uses [Biome](https://biomejs.dev). Run `bun run lint` to check and `bun run format` to auto-fix formatting.
 
 If you change slash commands, deploy them again while testing locally:
 
