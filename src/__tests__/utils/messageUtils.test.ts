@@ -145,14 +145,14 @@ describe('messageUtils', () => {
 
 		describe('Edge Cases', () => {
 			it('should handle null/undefined messages array', () => {
-				expect(isDuplicateMessage(null as any, 'test')).toBe(false);
-				expect(isDuplicateMessage(undefined as any, 'test')).toBe(false);
+				expect(isDuplicateMessage(null as unknown as TestMessage[], 'test')).toBe(false);
+				expect(isDuplicateMessage(undefined as unknown as TestMessage[], 'test')).toBe(false);
 			});
 
 			it('should handle null/undefined content', () => {
 				const messages = [{ content: 'test' }];
-				expect(isDuplicateMessage(messages, null as any)).toBe(false);
-				expect(isDuplicateMessage(messages, undefined as any)).toBe(false);
+				expect(isDuplicateMessage(messages, null as unknown as string)).toBe(false);
+				expect(isDuplicateMessage(messages, undefined as unknown as string)).toBe(false);
 			});
 
 			it('should handle empty content array', () => {
@@ -220,8 +220,8 @@ describe('messageUtils', () => {
 			});
 
 			it('should handle null/undefined input', () => {
-				expect(removeAttachmentSection(null as any)).toBe('');
-				expect(removeAttachmentSection(undefined as any)).toBe('');
+				expect(removeAttachmentSection(null as unknown as string)).toBe('');
+				expect(removeAttachmentSection(undefined as unknown as string)).toBe('');
 			});
 
 			it('should return original string if no attachments section', () => {
@@ -419,12 +419,12 @@ describe('messageUtils', () => {
 			});
 
 			it('should handle null/undefined inputs', () => {
-				expect(processQuotedContent(null as any, sampleMessages)).toEqual({
+				expect(processQuotedContent(null as unknown as string, sampleMessages)).toEqual({
 					replyReference: null,
 					contentToSend: null,
 				});
 
-				expect(processQuotedContent('test', null as any)).toEqual({
+				expect(processQuotedContent('test', null as unknown as TestMessage[])).toEqual({
 					replyReference: null,
 					contentToSend: 'test',
 				});

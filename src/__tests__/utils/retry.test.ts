@@ -105,7 +105,7 @@ describe('withRetry', () => {
 				await withRetry(operation, { maxAttempts: 2 });
 			} catch (error) {
 				expect(error).toBeInstanceOf(Error);
-				expect((error as any).cause).toBe(originalError);
+				expect((error as Error).cause).toBe(originalError);
 			}
 		});
 	});
@@ -137,7 +137,7 @@ describe('withRetry', () => {
 
 			try {
 				await withRetry(operation, { maxAttempts: 2, baseDelayMs: 50 });
-			} catch (error) {
+			} catch {
 				// Test passes if it doesn't time out
 				expect(operation).toHaveBeenCalledTimes(2);
 			}
@@ -150,7 +150,7 @@ describe('withRetry', () => {
 
 			try {
 				await withRetry(operation, { baseDelayMs: 1 }); // Use small delay for testing
-			} catch (error) {
+			} catch {
 				// Expected to fail
 			}
 
@@ -214,7 +214,7 @@ describe('withRetry', () => {
 
 			try {
 				await withRetry(operation, { maxAttempts: 2, operationName: 'debug-test', baseDelayMs: 1 });
-			} catch (e) {
+			} catch {
 				// Expected to fail
 			}
 
@@ -227,7 +227,7 @@ describe('withRetry', () => {
 
 			try {
 				await withRetry(operation, { maxAttempts: 2, operationName: 'final-test', baseDelayMs: 1 });
-			} catch (e) {
+			} catch {
 				// Expected to fail
 			}
 
