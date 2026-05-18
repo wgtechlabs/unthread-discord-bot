@@ -156,3 +156,6 @@ dist
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
+
+# Local temporary debug artifacts
+lint_output.txt
