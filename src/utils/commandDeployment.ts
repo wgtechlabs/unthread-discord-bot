@@ -32,13 +32,11 @@ interface CommandComparison {
  * @returns Normalized command object for comparison
  */
 function normalizeCommand(command: Record<string, unknown>): string {
-	const normalized = { ...command };
-
 	// Remove only Discord-generated metadata that changes on every deployment
 	// These fields are managed by Discord and should not affect deployment decisions
-	normalized.id = undefined;
-	normalized.application_id = undefined;
-	normalized.version = undefined;
+	// Using destructuring to explicitly omit fields rather than assigning undefined,
+	// which would leave the key present on the object and is fragile across serializers.
+	const { id: _id, application_id: _application_id, version: _version, ...normalized } = command;
 
 	// Preserve functional configuration fields that represent developer intent:
 	// - default_member_permissions: Controls who can see/use the command

@@ -8,6 +8,13 @@
 import { describe, expect, it } from 'bun:test';
 import { execFileSync } from 'node:child_process';
 
+function getSpawnedNodeMajorVersion(): number {
+	const raw = execFileSync('node', ['--version'], { encoding: 'utf8' }).trim();
+	return Number.parseInt(raw.slice(1).split('.')[0]);
+}
+
+const spawnedNodeMajor = getSpawnedNodeMajorVersion();
+
 function runNodeScript(script: string): string {
 	return execFileSync('node', ['--input-type=module', '--eval', script], {
 		encoding: 'utf8',
@@ -36,29 +43,36 @@ describe('Node 24 Discord API Integration', () => {
 		},
 	);
 
-	it('should support modern TLS cipher suites', () => {
-		const ciphers = JSON.parse(runNodeScript(GET_TLS_CIPHERS_SCRIPT));
+	it.skipIf(spawnedNodeMajor < 24)(
+		'should support modern TLS cipher suites',
+		() => {
+			const ciphers = JSON.parse(runNodeScript(GET_TLS_CIPHERS_SCRIPT));
 
-		// Verify OpenSSL 3.5 includes modern ciphers
-		expect(ciphers).toContain('tls_aes_256_gcm_sha384');
-		expect(ciphers).toContain('tls_aes_128_gcm_sha256');
-		expect(ciphers).toContain('tls_chacha20_poly1305_sha256');
-	});
+			// Verify OpenSSL 3.5 includes modern ciphers
+			expect(ciphers).toContain('tls_aes_256_gcm_sha384');
+			expect(ciphers).toContain('tls_aes_128_gcm_sha256');
+			expect(ciphers).toContain('tls_chacha20_poly1305_sha256');
+		},
+	);
 
-	it('should create HTTPS agent with correct TLS settings', () => {
-		const minVersion = runNodeScript(GET_HTTPS_AGENT_MIN_VERSION_SCRIPT);
-		expect(minVersion).toBe('TLSv1.2');
-	});
+	it.skipIf(spawnedNodeMajor < 24)(
+		'should create HTTPS agent with correct TLS settings',
+		() => {
+			const minVersion = runNodeScript(GET_HTTPS_AGENT_MIN_VERSION_SCRIPT);
+			expect(minVersion).toBe('TLSv1.2');
+		},
+	);
 
-	it('should initialize Discord REST client without errors', () => {
-		const restCheck = runNodeScript(INIT_DISCORD_REST_SCRIPT);
-		expect(restCheck).toBe('ok');
-	});
+	it.skipIf(spawnedNodeMajor < 24)(
+		'should initialize Discord REST client without errors',
+		() => {
+			const restCheck = runNodeScript(INIT_DISCORD_REST_SCRIPT);
+			expect(restCheck).toBe('ok');
+		},
+	);
 
 	it('should validate Node.js version is 20 or higher', () => {
-		const nodeVersion = execFileSync('node', ['--version'], { encoding: 'utf8' }).trim();
-		const [major] = nodeVersion.slice(1).split('.');
-		expect(Number.parseInt(major)).toBeGreaterThanOrEqual(20);
+		expect(spawnedNodeMajor).toBeGreaterThanOrEqual(20);
 	});
 
 	it('should validate npm version is 10 or higher', () => {
