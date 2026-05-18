@@ -23,18 +23,17 @@ Please open pull requests against the `dev` branch. Pull requests opened against
 ### 🔧 Local setup
 
 1. Clone the repository.
-2. Enable Corepack and install dependencies.
+2. Install Bun and install dependencies.
 3. Copy `.env.example` to `.env`.
 4. Fill in the required Discord, Unthread, PostgreSQL, and Redis values.
 5. Start working locally.
 
 ```bash
-git clone https://github.com/your-username/unthread-discord-bot.git
+git clone https://github.com/wgtechlabs/unthread-discord-bot.git
 cd unthread-discord-bot
-corepack enable
-pnpm install
+bun install
 cp .env.example .env
-pnpm dev
+bun dev
 ```
 
 ### ✅ Before you open a pull request
@@ -42,15 +41,15 @@ pnpm dev
 Run the existing checks:
 
 ```bash
-pnpm lint
-pnpm build
-pnpm test
+bun run lint
+bun run build
+bun run test
 ```
 
 If you change slash commands, deploy them again while testing locally:
 
 ```bash
-pnpm deploycommand
+bun run deploycommand
 ```
 
 ### 📖 Documentation contributions

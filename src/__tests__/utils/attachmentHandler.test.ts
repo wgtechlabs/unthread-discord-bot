@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, mock, jest as vi } from 'bun:test';
+import type { ThreadChannel } from 'discord.js';
 
-vi.mock('discord.js', () => {
+mock.module('discord.js', () => {
 	class MockAttachmentBuilder {
 		attachment: Buffer;
 		name?: string;
@@ -30,14 +31,21 @@ vi.mock('discord.js', () => {
 
 import { AttachmentHandler } from '@utils/attachmentHandler';
 
+type FetchMock = {
+	mockReset: () => void;
+	mockResolvedValueOnce: (value: unknown) => void;
+};
+
+const getFetchMock = (): FetchMock => global.fetch as unknown as FetchMock;
+
 function createFetchResponse(body: Buffer, status = 200) {
 	return {
 		ok: status >= 200 && status < 300,
 		status,
 		statusText: status >= 200 && status < 300 ? 'OK' : 'Error',
-		arrayBuffer: vi.fn().mockResolvedValue(
-			body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
-		),
+		arrayBuffer: vi
+			.fn()
+			.mockResolvedValue(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength)),
 	};
 }
 
@@ -50,17 +58,17 @@ function createDiscordThread() {
 
 describe('AttachmentHandler Unthread downloads', () => {
 	beforeEach(() => {
-		(global.fetch as any).mockReset();
+		getFetchMock().mockReset();
 	});
 
 	it('downloads webhook files through the conversation-scoped fallback when no direct URL is present', async () => {
 		const body = Buffer.from([1, 2, 3, 4]);
-		(global.fetch as any).mockResolvedValueOnce(createFetchResponse(body));
+		getFetchMock().mockResolvedValueOnce(createFetchResponse(body));
 		const discordThread = createDiscordThread();
 		const attachmentHandler = new AttachmentHandler();
 
 		const result = await attachmentHandler.downloadUnthreadFilesToDiscord(
-			discordThread as any,
+			discordThread as unknown as ThreadChannel,
 			[
 				{
 					id: 'file_123',
@@ -90,12 +98,12 @@ describe('AttachmentHandler Unthread downloads', () => {
 
 	it('ignores non-Unthread direct URLs and falls back to conversation file downloads', async () => {
 		const body = Buffer.from([5, 6, 7]);
-		(global.fetch as any).mockResolvedValueOnce(createFetchResponse(body));
+		getFetchMock().mockResolvedValueOnce(createFetchResponse(body));
 		const discordThread = createDiscordThread();
 		const attachmentHandler = new AttachmentHandler();
 
 		const result = await attachmentHandler.downloadUnthreadFilesToDiscord(
-			discordThread as any,
+			discordThread as unknown as ThreadChannel,
 			[
 				{
 					id: 'file_456',
@@ -119,12 +127,12 @@ describe('AttachmentHandler Unthread downloads', () => {
 
 	it('uses direct Unthread API URLs when provided by the webhook payload', async () => {
 		const body = Buffer.from([8, 9]);
-		(global.fetch as any).mockResolvedValueOnce(createFetchResponse(body));
+		getFetchMock().mockResolvedValueOnce(createFetchResponse(body));
 		const discordThread = createDiscordThread();
 		const attachmentHandler = new AttachmentHandler();
 
 		const result = await attachmentHandler.downloadUnthreadFilesToDiscord(
-			discordThread as any,
+			discordThread as unknown as ThreadChannel,
 			[
 				{
 					id: 'file_789',

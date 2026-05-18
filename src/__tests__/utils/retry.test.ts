@@ -5,14 +5,11 @@
  * Tests cover retry logic, backoff strategies, error handling, and edge cases.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, jest as vi } from 'bun:test';
+import { advanceTimersAndWait, createEventualSuccessMock } from '@tests/async-test-utils';
 import { withRetry } from '@utils/retry';
 import retryUtils from '@utils/retry';
 import { LogEngine } from '@wgtechlabs/log-engine';
-import {
-	createEventualSuccessMock,
-	advanceTimersAndWait,
-} from '@tests/async-test-utils';
 
 describe('withRetry', () => {
 	beforeEach(() => {
@@ -66,7 +63,7 @@ describe('withRetry', () => {
 		it('should retry failed operations up to maxAttempts', async () => {
 			const operation = createEventualSuccessMock('success', 2);
 
-			const retryPromise = withRetry(operation, { 
+			const retryPromise = withRetry(operation, {
 				maxAttempts: 3,
 				baseDelayMs: 100,
 			});
@@ -106,10 +103,9 @@ describe('withRetry', () => {
 
 			try {
 				await withRetry(operation, { maxAttempts: 2 });
-			}
-			catch (error) {
+			} catch (error) {
 				expect(error).toBeInstanceOf(Error);
-				expect((error as any).cause).toBe(originalError);
+				expect((error as Error).cause).toBe(originalError);
 			}
 		});
 	});
@@ -134,7 +130,6 @@ describe('withRetry', () => {
 			const result = await promise;
 			expect(result).toBe('success');
 			expect(operation).toHaveBeenCalledTimes(3);
-
 		});
 
 		it('should not delay before the last attempt fails', async () => {
@@ -142,8 +137,7 @@ describe('withRetry', () => {
 
 			try {
 				await withRetry(operation, { maxAttempts: 2, baseDelayMs: 50 });
-			}
-			catch (error) {
+			} catch {
 				// Test passes if it doesn't time out
 				expect(operation).toHaveBeenCalledTimes(2);
 			}
@@ -156,8 +150,7 @@ describe('withRetry', () => {
 
 			try {
 				await withRetry(operation, { baseDelayMs: 1 }); // Use small delay for testing
-			}
-			catch (error) {
+			} catch {
 				// Expected to fail
 			}
 
@@ -221,8 +214,7 @@ describe('withRetry', () => {
 
 			try {
 				await withRetry(operation, { maxAttempts: 2, operationName: 'debug-test', baseDelayMs: 1 });
-			}
-			catch (e) {
+			} catch {
 				// Expected to fail
 			}
 
@@ -235,8 +227,7 @@ describe('withRetry', () => {
 
 			try {
 				await withRetry(operation, { maxAttempts: 2, operationName: 'final-test', baseDelayMs: 1 });
-			}
-			catch (e) {
+			} catch {
 				// Expected to fail
 			}
 

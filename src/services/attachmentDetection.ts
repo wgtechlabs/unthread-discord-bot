@@ -14,11 +14,15 @@
  * @module services/attachmentDetection
  */
 
-import { Collection, Attachment } from 'discord.js';
-import { DISCORD_ATTACHMENT_CONFIG, isSupportedImageType, normalizeContentType } from '../config/attachmentConfig';
-import { AttachmentValidationResult } from '../types/attachments';
-import { EnhancedWebhookEvent, WebhookAttachments, WebhookFileData } from '../types/unthread';
+import type { Attachment, Collection } from 'discord.js';
+import {
+	DISCORD_ATTACHMENT_CONFIG,
+	isSupportedImageType,
+	normalizeContentType,
+} from '../config/attachmentConfig';
 import { LogEngine } from '../config/logger';
+import type { AttachmentValidationResult } from '../types/attachments';
+import type { EnhancedWebhookEvent, WebhookAttachments, WebhookFileData } from '../types/unthread';
 
 /**
  * Processing decision result for attachment handling
@@ -43,6 +47,8 @@ export interface AttachmentProcessingDecision {
 }
 
 export class AttachmentDetectionService {
+	private constructor() {}
+
 	/**
 	 * Converts extension-only strings to full MIME types.
 	 * Handles cases where Unthread sends "png" instead of "image/png".
@@ -64,16 +70,19 @@ export class AttachmentDetectionService {
 	 * Based on Telegram bot's shouldProcessEvent pattern
 	 */
 	static shouldProcessEvent(event: EnhancedWebhookEvent): boolean {
-		return event.sourcePlatform === 'dashboard' &&
-			   event.targetPlatform === 'discord';
+		return event.sourcePlatform === 'dashboard' && event.targetPlatform === 'discord';
 	}
 
-	private static getMetadataAttachmentRecords(event: EnhancedWebhookEvent): Array<Record<string, unknown>> {
-		const metadata = event.data.metadata as {
-			event_payload?: {
-				attachments?: Array<Record<string, unknown>>;
-			};
-		} | undefined;
+	private static getMetadataAttachmentRecords(
+		event: EnhancedWebhookEvent,
+	): Array<Record<string, unknown>> {
+		const metadata = event.data.metadata as
+			| {
+					event_payload?: {
+						attachments?: Array<Record<string, unknown>>;
+					};
+			  }
+			| undefined;
 
 		return Array.isArray(metadata?.event_payload?.attachments)
 			? metadata.event_payload.attachments
@@ -85,7 +94,7 @@ export class AttachmentDetectionService {
 	 * Falls back to metadata.event_payload.attachments when event.data.files is unavailable.
 	 */
 	static getProcessableFiles(event: EnhancedWebhookEvent): WebhookFileData[] {
-		if (!this.shouldProcessEvent(event)) {
+		if (!AttachmentDetectionService.shouldProcessEvent(event)) {
 			return [];
 		}
 
@@ -93,26 +102,28 @@ export class AttachmentDetectionService {
 			return event.data.files;
 		}
 
-		const metadataAttachments = this.getMetadataAttachmentRecords(event);
+		const metadataAttachments = AttachmentDetectionService.getMetadataAttachmentRecords(event);
 		if (metadataAttachments.length === 0) {
 			return [];
 		}
 
 		return metadataAttachments
-			.filter(record => typeof record.id === 'string' && record.id.trim().length > 0)
-			.map(record => {
+			.filter((record) => typeof record.id === 'string' && record.id.trim().length > 0)
+			.map((record) => {
 				const rawType = typeof record.type === 'string' ? record.type : '';
-				const normalizedType = rawType ? this.normalizeType(rawType) : 'application/octet-stream';
+				const normalizedType = rawType
+					? AttachmentDetectionService.normalizeType(rawType)
+					: 'application/octet-stream';
 				const rawSize = record.size;
-				const parsedSize = typeof rawSize === 'number'
-					? rawSize
-					: Number.parseInt(String(rawSize ?? '0'), 10);
+				const parsedSize =
+					typeof rawSize === 'number' ? rawSize : Number.parseInt(String(rawSize ?? '0'), 10);
 
 				return {
 					id: String(record.id),
-					name: typeof record.name === 'string' && record.name.trim().length > 0
-						? record.name
-						: String(record.id),
+					name:
+						typeof record.name === 'string' && record.name.trim().length > 0
+							? record.name
+							: String(record.id),
 					size: Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : 0,
 					mimetype: normalizedType,
 				} as WebhookFileData;
@@ -123,7 +134,7 @@ export class AttachmentDetectionService {
 	 * Returns resolved attachment metadata, with fallback generation from processable files.
 	 */
 	static getResolvedAttachments(event: EnhancedWebhookEvent): WebhookAttachments | null {
-		if (!this.shouldProcessEvent(event)) {
+		if (!AttachmentDetectionService.shouldProcessEvent(event)) {
 			return null;
 		}
 
@@ -131,7 +142,7 @@ export class AttachmentDetectionService {
 			return event.attachments;
 		}
 
-		const files = this.getProcessableFiles(event);
+		const files = AttachmentDetectionService.getProcessableFiles(event);
 		if (files.length === 0) {
 			return null;
 		}
@@ -140,8 +151,14 @@ export class AttachmentDetectionService {
 			hasFiles: true,
 			fileCount: files.length,
 			totalSize: files.reduce((sum, file) => sum + (file.size || 0), 0),
-			types: Array.from(new Set(files.map(file => this.normalizeType(file.mimetype || 'application/octet-stream')))),
-			names: files.map(file => file.name || file.id || 'unnamed-file'),
+			types: Array.from(
+				new Set(
+					files.map((file) =>
+						AttachmentDetectionService.normalizeType(file.mimetype || 'application/octet-stream'),
+					),
+				),
+			),
+			names: files.map((file) => file.name || file.id || 'unnamed-file'),
 		};
 	}
 
@@ -150,7 +167,7 @@ export class AttachmentDetectionService {
 	 * Replaces complex array checking and location detection
 	 */
 	static hasAttachments(event: EnhancedWebhookEvent): boolean {
-		return this.getResolvedAttachments(event)?.hasFiles === true;
+		return AttachmentDetectionService.getResolvedAttachments(event)?.hasFiles === true;
 	}
 
 	/**
@@ -158,13 +175,14 @@ export class AttachmentDetectionService {
 	 * Uses metadata types array for instant categorization
 	 */
 	static hasImageAttachments(event: EnhancedWebhookEvent): boolean {
-		if (!this.hasAttachments(event)) {
+		const resolved = AttachmentDetectionService.getResolvedAttachments(event);
+		if (resolved?.hasFiles !== true) {
 			return false;
 		}
 
-		return event.attachments?.types?.some(type =>
-			this.normalizeType(type).startsWith('image/'),
-		) ?? false;
+		return resolved.types.some((type) =>
+			AttachmentDetectionService.normalizeType(type).startsWith('image/'),
+		);
 	}
 
 	/**
@@ -172,12 +190,14 @@ export class AttachmentDetectionService {
 	 * Only processes image types we can handle reliably
 	 */
 	static hasSupportedImages(event: EnhancedWebhookEvent): boolean {
-		if (!this.hasImageAttachments(event)) {
+		const resolved = AttachmentDetectionService.getResolvedAttachments(event);
+		if (resolved?.hasFiles !== true) {
 			return false;
 		}
 
-		return event.attachments?.types?.some(t => isSupportedImageType(this.normalizeType(t).toLowerCase()))
-			?? false;
+		return resolved.types.some((type) =>
+			isSupportedImageType(AttachmentDetectionService.normalizeType(type).toLowerCase()),
+		);
 	}
 
 	/**
@@ -185,12 +205,12 @@ export class AttachmentDetectionService {
 	 * Enables clear user communication about what we can't process yet
 	 */
 	static hasUnsupportedAttachments(event: EnhancedWebhookEvent): boolean {
-		if (!this.hasAttachments(event)) {
+		if (!AttachmentDetectionService.hasAttachments(event)) {
 			return false;
 		}
 
 		// If we have attachments but no supported images, they're unsupported
-		return !this.hasSupportedImages(event);
+		return !AttachmentDetectionService.hasSupportedImages(event);
 	}
 
 	/**
@@ -198,12 +218,12 @@ export class AttachmentDetectionService {
 	 * Discord's 8MB limit applies per file, not total size
 	 */
 	static isWithinSizeLimit(event: EnhancedWebhookEvent, maxSizeBytes: number): boolean {
-		if (!this.hasAttachments(event)) {
+		if (!AttachmentDetectionService.hasAttachments(event)) {
 			return true;
 		}
-		const files = this.getProcessableFiles(event);
+		const files = AttachmentDetectionService.getProcessableFiles(event);
 		if (files.length === 0) return true;
-		return files.every(f => f.size <= maxSizeBytes);
+		return files.every((f) => f.size <= maxSizeBytes);
 	}
 
 	/**
@@ -211,12 +231,12 @@ export class AttachmentDetectionService {
 	 * Enables specific messaging for oversized files
 	 */
 	static isOversized(event: EnhancedWebhookEvent, maxSizeBytes: number): boolean {
-		if (!this.hasAttachments(event)) {
+		if (!AttachmentDetectionService.hasAttachments(event)) {
 			return false;
 		}
-		const files = this.getProcessableFiles(event);
+		const files = AttachmentDetectionService.getProcessableFiles(event);
 		if (files.length === 0) return false;
-		return files.some(f => f.size > maxSizeBytes);
+		return files.some((f) => f.size > maxSizeBytes);
 	}
 
 	/**
@@ -224,13 +244,13 @@ export class AttachmentDetectionService {
 	 * Ready-to-use summary without manual calculation
 	 */
 	static getAttachmentSummary(event: EnhancedWebhookEvent): string {
-		const attachments = this.getResolvedAttachments(event);
+		const attachments = AttachmentDetectionService.getResolvedAttachments(event);
 		if (!attachments) {
 			return 'No attachments';
 		}
 
 		const { fileCount, totalSize, types } = attachments;
-		const sizeMB = Math.round(totalSize / 1024 / 1024 * 100) / 100;
+		const sizeMB = Math.round((totalSize / 1024 / 1024) * 100) / 100;
 		const typeList = types.join(', ');
 
 		return `${fileCount} files (${sizeMB}MB) - ${typeList}`;
@@ -241,7 +261,7 @@ export class AttachmentDetectionService {
 	 * Instant count from metadata
 	 */
 	static getFileCount(event: EnhancedWebhookEvent): number {
-		return this.getResolvedAttachments(event)?.fileCount || 0;
+		return AttachmentDetectionService.getResolvedAttachments(event)?.fileCount || 0;
 	}
 
 	/**
@@ -249,7 +269,7 @@ export class AttachmentDetectionService {
 	 * Pre-calculated size from metadata
 	 */
 	static getTotalSize(event: EnhancedWebhookEvent): number {
-		return this.getResolvedAttachments(event)?.totalSize || 0;
+		return AttachmentDetectionService.getResolvedAttachments(event)?.totalSize || 0;
 	}
 
 	/**
@@ -257,7 +277,7 @@ export class AttachmentDetectionService {
 	 * Deduplicated types from metadata
 	 */
 	static getFileTypes(event: EnhancedWebhookEvent): string[] {
-		return this.getResolvedAttachments(event)?.types || [];
+		return AttachmentDetectionService.getResolvedAttachments(event)?.types || [];
 	}
 
 	/**
@@ -265,7 +285,7 @@ export class AttachmentDetectionService {
 	 * names[i] corresponds to data.files[i]
 	 */
 	static getFileNames(event: EnhancedWebhookEvent): string[] {
-		return this.getResolvedAttachments(event)?.names || [];
+		return AttachmentDetectionService.getResolvedAttachments(event)?.names || [];
 	}
 
 	/**
@@ -273,12 +293,12 @@ export class AttachmentDetectionService {
 	 * Ensures webhook metadata matches actual file data
 	 */
 	static validateConsistency(event: EnhancedWebhookEvent): boolean {
-		if (!this.shouldProcessEvent(event)) {
+		if (!AttachmentDetectionService.shouldProcessEvent(event)) {
 			return false;
 		}
 
 		const metadata = event.attachments;
-		const files = this.getProcessableFiles(event);
+		const files = AttachmentDetectionService.getProcessableFiles(event);
 
 		// No files scenario - both should be empty/false
 		if (!metadata?.hasFiles && files.length === 0) {
@@ -307,32 +327,30 @@ export class AttachmentDetectionService {
 	 * Generate processing decision summary
 	 * Central method for determining how to handle attachments
 	 */
-	static getProcessingDecision(event: EnhancedWebhookEvent, maxSizeBytes: number = DISCORD_ATTACHMENT_CONFIG.maxFileSize): AttachmentProcessingDecision {
-		const shouldProcess = this.shouldProcessEvent(event);
-		const hasAttachments = this.hasAttachments(event);
-		const hasImages = this.hasImageAttachments(event);
-		const hasSupportedImages = this.hasSupportedImages(event);
-		const hasUnsupported = this.hasUnsupportedAttachments(event);
-		const isOversized = this.isOversized(event, maxSizeBytes);
-		const summary = this.getAttachmentSummary(event);
+	static getProcessingDecision(
+		event: EnhancedWebhookEvent,
+		maxSizeBytes: number = DISCORD_ATTACHMENT_CONFIG.maxFileSize,
+	): AttachmentProcessingDecision {
+		const shouldProcess = AttachmentDetectionService.shouldProcessEvent(event);
+		const hasAttachments = AttachmentDetectionService.hasAttachments(event);
+		const hasImages = AttachmentDetectionService.hasImageAttachments(event);
+		const hasSupportedImages = AttachmentDetectionService.hasSupportedImages(event);
+		const hasUnsupported = AttachmentDetectionService.hasUnsupportedAttachments(event);
+		const isOversized = AttachmentDetectionService.isOversized(event, maxSizeBytes);
+		const summary = AttachmentDetectionService.getAttachmentSummary(event);
 
 		let reason = '';
 		if (!shouldProcess) {
 			reason = 'Non-dashboard event';
-		}
-		else if (!hasAttachments) {
+		} else if (!hasAttachments) {
 			reason = 'No attachments';
-		}
-		else if (isOversized) {
+		} else if (isOversized) {
 			reason = 'Files too large';
-		}
-		else if (hasUnsupported) {
+		} else if (hasUnsupported) {
 			reason = 'Unsupported file types';
-		}
-		else if (hasSupportedImages) {
+		} else if (hasSupportedImages) {
 			reason = 'Ready for image processing';
-		}
-		else {
+		} else {
 			reason = 'Unknown state';
 		}
 
@@ -355,16 +373,18 @@ export class AttachmentDetectionService {
 	 * Checks if a Discord message has any image attachments (legacy method)
 	 */
 	static hasDiscordImageAttachments(attachments: Collection<string, Attachment>): boolean {
-		return attachments.some(attachment =>
-			attachment.contentType && isSupportedImageType(attachment.contentType),
+		return attachments.some(
+			(attachment) => attachment.contentType && isSupportedImageType(attachment.contentType),
 		);
 	}
 
 	/**
 	 * Filters attachments to only include supported images
 	 */
-	static filterSupportedImages(attachments: Collection<string, Attachment>): Collection<string, Attachment> {
-		return attachments.filter(attachment => {
+	static filterSupportedImages(
+		attachments: Collection<string, Attachment>,
+	): Collection<string, Attachment> {
+		return attachments.filter((attachment) => {
 			if (!attachment.contentType) {
 				LogEngine.debug(`Attachment ${attachment.name} has no content type, skipping`);
 				return false;
@@ -372,12 +392,16 @@ export class AttachmentDetectionService {
 
 			const normalized = normalizeContentType(attachment.contentType);
 			if (!isSupportedImageType(attachment.contentType)) {
-				LogEngine.debug(`Attachment ${attachment.name} has unsupported type ${normalized} (original: ${attachment.contentType}), skipping`);
+				LogEngine.debug(
+					`Attachment ${attachment.name} has unsupported type ${normalized} (original: ${attachment.contentType}), skipping`,
+				);
 				return false;
 			}
 
-			if (!this.validateFileSize(attachment)) {
-				LogEngine.debug(`Attachment ${attachment.name} is too large (${attachment.size} bytes), skipping`);
+			if (!AttachmentDetectionService.validateFileSize(attachment)) {
+				LogEngine.debug(
+					`Attachment ${attachment.name} is too large (${attachment.size} bytes), skipping`,
+				);
 				return false;
 			}
 
@@ -421,7 +445,9 @@ export class AttachmentDetectionService {
 		// Check if file type is supported
 		if (!isSupportedImageType(attachment.contentType)) {
 			const normalized = normalizeContentType(attachment.contentType);
-			LogEngine.debug(`Attachment validation failed: unsupported type ${normalized} (original: ${attachment.contentType})`);
+			LogEngine.debug(
+				`Attachment validation failed: unsupported type ${normalized} (original: ${attachment.contentType})`,
+			);
 			return {
 				isValid: false,
 				error: DISCORD_ATTACHMENT_CONFIG.errorMessages.unsupportedFileType,
@@ -429,7 +455,7 @@ export class AttachmentDetectionService {
 		}
 
 		// Check file size
-		if (!this.validateFileSize(attachment)) {
+		if (!AttachmentDetectionService.validateFileSize(attachment)) {
 			return {
 				isValid: false,
 				error: DISCORD_ATTACHMENT_CONFIG.errorMessages.fileTooLarge,
@@ -462,31 +488,30 @@ export class AttachmentDetectionService {
 		// Check total count first
 		if (attachments.size > DISCORD_ATTACHMENT_CONFIG.maxFilesPerMessage) {
 			// Mark all as invalid if too many files
-			attachments.forEach(attachment => {
+			for (const attachment of attachments.values()) {
 				invalid.push({
 					attachment,
 					error: DISCORD_ATTACHMENT_CONFIG.errorMessages.tooManyFiles,
 				});
-			});
+			}
 
 			return { valid, invalid, totalSize: 0 };
 		}
 
 		// Validate each attachment individually
-		attachments.forEach(attachment => {
-			const validation = this.validateAttachment(attachment);
+		for (const attachment of attachments.values()) {
+			const validation = AttachmentDetectionService.validateAttachment(attachment);
 
 			if (validation.isValid && validation.fileInfo) {
 				valid.push(attachment);
 				totalSize += attachment.size;
-			}
-			else {
+			} else {
 				invalid.push({
 					attachment,
 					error: validation.error || 'Unknown validation error',
 				});
 			}
-		});
+		}
 
 		return { valid, invalid, totalSize };
 	}

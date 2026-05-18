@@ -1,12 +1,16 @@
-import { Events, Message } from 'discord.js';
+import { Events, type Message } from 'discord.js';
 import { version } from '../../package.json';
-import { sendMessageToUnthread, getTicketByDiscordThreadId, getCustomerById } from '../services/unthread';
-import { isValidatedForumChannel } from '../utils/channelUtils';
-import { LogEngine } from '../config/logger';
-import { AttachmentHandler } from '../utils/attachmentHandler';
-import { AttachmentDetectionService } from '../services/attachmentDetection';
 import { DISCORD_ATTACHMENT_CONFIG } from '../config/attachmentConfig';
-import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
+import { DEFAULT_CONFIG, getConfig } from '../config/defaults';
+import { LogEngine } from '../config/logger';
+import { AttachmentDetectionService } from '../services/attachmentDetection';
+import {
+	getCustomerById,
+	getTicketByDiscordThreadId,
+	sendMessageToUnthread,
+} from '../services/unthread';
+import { AttachmentHandler } from '../utils/attachmentHandler';
+import { isValidatedForumChannel } from '../utils/channelUtils';
 
 /**
  * Message Creation Event Handler
@@ -93,7 +97,9 @@ export async function execute(message: Message): Promise<void> {
 			const isForumPost = isValidForum && message.id === message.channel.id;
 
 			if (isForumPost) {
-				LogEngine.debug(`Skipping forum post ID ${message.id} that created thread ${message.channel.id}`);
+				LogEngine.debug(
+					`Skipping forum post ID ${message.id} that created thread ${message.channel.id}`,
+				);
 				return;
 			}
 
@@ -103,15 +109,14 @@ export async function execute(message: Message): Promise<void> {
 				let messageToSend = message.content;
 
 				// Handle quoted/referenced message for better context preservation
-				if (message.reference && message.reference.messageId) {
+				if (message.reference?.messageId) {
 					let quotedMessage: string;
 					try {
 						const referenced = await message.channel.messages.fetch(message.reference.messageId);
 						quotedMessage = `> ${referenced.content}`;
 						messageToSend = `${quotedMessage}\n\n${message.content}`;
 						LogEngine.debug(`Added quote context from message ${message.reference.messageId}`);
-					}
-					catch (err) {
+					} catch (err) {
 						LogEngine.error('Error fetching the referenced message:', err);
 						// Continue with original message if quote retrieval fails
 					}
@@ -124,7 +129,9 @@ export async function execute(message: Message): Promise<void> {
 
 				// Process image attachments if present
 				if (message.attachments.size > 0) {
-					const imageAttachments = AttachmentDetectionService.filterSupportedImages(message.attachments);
+					const imageAttachments = AttachmentDetectionService.filterSupportedImages(
+						message.attachments,
+					);
 
 					if (imageAttachments.size > 0) {
 						LogEngine.debug(`Found ${imageAttachments.size} valid image attachments`);
@@ -138,36 +145,42 @@ export async function execute(message: Message): Promise<void> {
 						);
 
 						if (uploadResult.success) {
-							LogEngine.info(`Successfully uploaded ${uploadResult.processedCount} attachments for ticket ${ticketMapping.unthreadTicketId} in ${uploadResult.processingTime}ms`);
+							LogEngine.info(
+								`Successfully uploaded ${uploadResult.processedCount} attachments for ticket ${ticketMapping.unthreadTicketId} in ${uploadResult.processingTime}ms`,
+							);
 
 							// Send success feedback to user
 							try {
 								await message.react('📎');
-							}
-							catch (reactionError) {
+							} catch (reactionError) {
 								LogEngine.debug('Could not add reaction to message:', reactionError);
 							}
-						}
-						else {
-							LogEngine.warn(`Attachment upload failed: ${uploadResult.errors.join(', ')}. Falling back to text message.`);
+						} else {
+							LogEngine.warn(
+								`Attachment upload failed: ${uploadResult.errors.join(', ')}. Falling back to text message.`,
+							);
 
 							// Fallback to text message if upload fails
 							if (messageToSend) {
-								await sendMessageToUnthread(ticketMapping.unthreadTicketId, message.author, messageToSend, email);
+								await sendMessageToUnthread(
+									ticketMapping.unthreadTicketId,
+									message.author,
+									messageToSend,
+									email,
+								);
 							}
 
 							// Send error feedback to user
 							try {
 								await message.react('❌');
-							}
-							catch (reactionError) {
+							} catch (reactionError) {
 								LogEngine.debug('Could not add reaction to message:', reactionError);
 							}
 						}
-					}
-					else {
+					} else {
 						// Handle unsupported attachments
-						const { invalid: unsupportedAttachments } = AttachmentDetectionService.validateAttachments(message.attachments);
+						const { invalid: unsupportedAttachments } =
+							AttachmentDetectionService.validateAttachments(message.attachments);
 
 						if (unsupportedAttachments.length > 0) {
 							LogEngine.debug(`Found ${unsupportedAttachments.length} unsupported attachments`);
@@ -175,28 +188,36 @@ export async function execute(message: Message): Promise<void> {
 							// Send feedback about unsupported files
 							try {
 								await message.reply(DISCORD_ATTACHMENT_CONFIG.errorMessages.unsupportedFileType);
-							}
-							catch (replyError) {
+							} catch (replyError) {
 								LogEngine.debug('Could not reply to message:', replyError);
 							}
 						}
 
 						// Send text message if there's content
 						if (messageToSend) {
-							await sendMessageToUnthread(ticketMapping.unthreadTicketId, message.author, messageToSend, email);
+							await sendMessageToUnthread(
+								ticketMapping.unthreadTicketId,
+								message.author,
+								messageToSend,
+								email,
+							);
 						}
 					}
-				}
-				else if (messageToSend) {
+				} else if (messageToSend) {
 					// Regular text message
-					await sendMessageToUnthread(ticketMapping.unthreadTicketId, message.author, messageToSend, email);
+					await sendMessageToUnthread(
+						ticketMapping.unthreadTicketId,
+						message.author,
+						messageToSend,
+						email,
+					);
 				}
+			} else {
+				LogEngine.debug(
+					`Message in thread ${message.channel.id} has no Unthread ticket mapping, skipping`,
+				);
 			}
-			else {
-				LogEngine.debug(`Message in thread ${message.channel.id} has no Unthread ticket mapping, skipping`);
-			}
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Error sending message to Unthread:', error);
 			// Consider adding error notification to the thread in production environments
 		}

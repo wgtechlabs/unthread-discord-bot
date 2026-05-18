@@ -29,10 +29,8 @@
  * // Result: "Hello & welcome to our site! <Click here>"
  */
 function decodeHtmlEntities(text: string): string {
-	return text
-		.replace(/&amp;/g, '&')
-		.replace(/&gt;/g, '>')
-		.replace(/&lt;/g, '<');
+	// Decode ampersand last to avoid double-unescaping values like "&amp;lt;".
+	return text.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
 }
 
 /**

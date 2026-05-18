@@ -9,12 +9,12 @@
  * customer-related data persistence through the unified storage engine.
  */
 
-import { BotsStore, Customer } from '../sdk/bots-brain/BotsStore';
+import type { User } from 'discord.js';
 import { LogEngine } from '../config/logger';
-import { User } from 'discord.js';
+import { BotsStore, type Customer } from '../sdk/bots-brain/BotsStore';
 
 // Re-export Customer interface for backward compatibility
-export { Customer } from '../sdk/bots-brain/BotsStore';
+export type { Customer } from '../sdk/bots-brain/BotsStore';
 
 /**
  * Creates a new customer in Unthread's system based on Discord user information
@@ -31,7 +31,10 @@ export { Customer } from '../sdk/bots-brain/BotsStore';
  */
 async function createCustomerInUnthread(user: User): Promise<string> {
 	// Get API key (guaranteed to exist due to startup validation)
-	const apiKey = process.env.UNTHREAD_API_KEY!;
+	const apiKey = process.env.UNTHREAD_API_KEY;
+	if (!apiKey) {
+		throw new Error('UNTHREAD_API_KEY environment variable is required');
+	}
 
 	// Construct the API request to create a customer in Unthread
 	const response = await fetch('https://api.unthread.io/api/customers', {
@@ -83,7 +86,7 @@ async function createCustomerInUnthread(user: User): Promise<string> {
  * console.log(`Customer ID: ${customer.unthreadCustomerId}`);
  * ```
  */
-export async function getOrCreateCustomer(user: User, email: string = ''): Promise<Customer> {
+export async function getOrCreateCustomer(user: User, email = ''): Promise<Customer> {
 	if (!user || !user.id) {
 		throw new Error('Invalid user object provided to getOrCreateCustomer');
 	}
@@ -106,11 +109,11 @@ export async function getOrCreateCustomer(user: User, email: string = ''): Promi
 		// Store customer using BotsStore
 		customer = await botsStore.storeCustomer(user, email, unthreadCustomerId);
 
-		LogEngine.info(`Customer created and stored: Discord ${user.id} -> Unthread ${unthreadCustomerId}`);
+		LogEngine.info(
+			`Customer created and stored: Discord ${user.id} -> Unthread ${unthreadCustomerId}`,
+		);
 		return customer;
-
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error('Error in getOrCreateCustomer:', error);
 		throw error;
 	}
@@ -145,15 +148,12 @@ export async function getCustomerByDiscordId(discordId: string): Promise<Custome
 
 		if (customer) {
 			LogEngine.debug(`Retrieved customer for Discord ID ${discordId}`);
-		}
-		else {
+		} else {
 			LogEngine.debug(`No customer found for Discord ID ${discordId}`);
 		}
 
 		return customer;
-
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error('Error in getCustomerByDiscordId:', error);
 		throw error;
 	}

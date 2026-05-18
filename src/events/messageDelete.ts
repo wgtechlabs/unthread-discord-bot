@@ -1,4 +1,4 @@
-import { Events, Message } from 'discord.js';
+import { Events, type Message } from 'discord.js';
 import { LogEngine } from '../config/logger';
 import { BotsStore } from '../sdk/bots-brain/BotsStore';
 
@@ -42,15 +42,20 @@ export async function execute(message: Message): Promise<void> {
 		// Store individual deleted message details
 		// Key format: deleted:{messageId}
 		// TTL: 5 minutes (300 seconds)
-		await botsStore.setBotConfig(`deleted:${message.id}`, {
-			channelId: message.channel.id,
-			timestamp: Date.now(),
-		}, 300);
+		await botsStore.setBotConfig(
+			`deleted:${message.id}`,
+			{
+				channelId: message.channel.id,
+				timestamp: Date.now(),
+			},
+			300,
+		);
 
 		// Track multiple deleted messages by channel for bulk operations
 		// Key format: deleted:channel:{channelId}
 		const channelKey = `deleted:channel:${message.channel.id}`;
-		const recentlyDeletedInChannel = (await botsStore.getBotConfig<Array<Record<string, unknown>>>(channelKey)) || [];
+		const recentlyDeletedInChannel =
+			(await botsStore.getBotConfig<Array<Record<string, unknown>>>(channelKey)) || [];
 
 		// Add this message to the channel's deletion history
 		recentlyDeletedInChannel.push({
@@ -69,8 +74,7 @@ export async function execute(message: Message): Promise<void> {
 		await botsStore.setBotConfig(channelKey, filteredList, 60);
 
 		LogEngine.debug(`Cached deleted message ID: ${message.id} from channel: ${message.channel.id}`);
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error('Error caching deleted message:', error);
 	}
 }

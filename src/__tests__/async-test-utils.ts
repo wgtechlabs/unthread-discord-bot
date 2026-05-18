@@ -14,7 +14,7 @@
  * @module __tests__/async-test-utils
  */
 
-import { vi } from 'vitest';
+import { jest as vi } from 'bun:test';
 
 // =============================================================================
 // ASYNC WAITING UTILITIES
@@ -24,12 +24,12 @@ import { vi } from 'vitest';
  * Configuration options for async waiting operations
  */
 export interface WaitOptions {
-  /** Maximum time to wait in milliseconds (default: 5000) */
-  timeout?: number;
-  /** Interval between condition checks in milliseconds (default: 50) */
-  interval?: number;
-  /** Custom error message for timeout (optional) */
-  timeoutMessage?: string;
+	/** Maximum time to wait in milliseconds (default: 5000) */
+	timeout?: number;
+	/** Interval between condition checks in milliseconds (default: 50) */
+	interval?: number;
+	/** Custom error message for timeout (optional) */
+	timeoutMessage?: string;
 }
 
 /**
@@ -83,7 +83,7 @@ export async function waitForCondition(
  * ```
  */
 export async function waitFor(ms: number): Promise<void> {
-	return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -101,7 +101,7 @@ export const sleep = waitFor;
  * ```
  */
 export async function nextTick(): Promise<void> {
-	return new Promise(resolve => setImmediate(resolve));
+	return new Promise((resolve) => setImmediate(resolve));
 }
 
 // =============================================================================
@@ -121,10 +121,7 @@ export async function nextTick(): Promise<void> {
  * const result = await slowApi(); // Resolves after 1 second
  * ```
  */
-export function createDelayedMock<T>(
-	resolveValue: T,
-	delay: number,
-): ReturnType<typeof vi.fn> {
+export function createDelayedMock<T>(resolveValue: T, delay: number): ReturnType<typeof vi.fn> {
 	return vi.fn().mockImplementation(async () => {
 		await waitFor(delay);
 		return resolveValue;
@@ -144,10 +141,7 @@ export function createDelayedMock<T>(
  * await expect(failingApi()).rejects.toThrow('API failed');
  * ```
  */
-export function createDelayedErrorMock(
-	error: Error,
-	delay: number,
-): ReturnType<typeof vi.fn> {
+export function createDelayedErrorMock(error: Error, delay: number): ReturnType<typeof vi.fn> {
 	return vi.fn().mockImplementation(async () => {
 		await waitFor(delay);
 		throw error;
@@ -218,14 +212,14 @@ export function createEventualSuccessMock<T>(
  * Useful for testing race conditions and timing-sensitive code
  */
 export interface ControlledPromise<T> {
-  /** The promise that can be awaited */
-  promise: Promise<T>;
-  /** Function to resolve the promise */
-  resolve: (value: T) => void;
-  /** Function to reject the promise */
-  reject: (reason?: unknown) => void;
-  /** Whether the promise has been settled */
-  isSettled: boolean;
+	/** The promise that can be awaited */
+	promise: Promise<T>;
+	/** Function to resolve the promise */
+	resolve: (value: T) => void;
+	/** Function to reject the promise */
+	reject: (reason?: unknown) => void;
+	/** Whether the promise has been settled */
+	isSettled: boolean;
 }
 
 /**
@@ -249,8 +243,12 @@ export interface ControlledPromise<T> {
  * ```
  */
 export function createControlledPromise<T>(): ControlledPromise<T> {
-	let resolveFunction: (value: T) => void;
-	let rejectFunction: (reason?: unknown) => void;
+	let resolveFunction: (value: T) => void = () => {
+		throw new Error('Controlled promise resolver not initialized');
+	};
+	let rejectFunction: (reason?: unknown) => void = () => {
+		throw new Error('Controlled promise rejector not initialized');
+	};
 	let settled = false;
 
 	const promise = new Promise<T>((resolve, reject) => {
@@ -266,9 +264,11 @@ export function createControlledPromise<T>(): ControlledPromise<T> {
 
 	return {
 		promise,
-		resolve: resolveFunction!,
-		reject: rejectFunction!,
-		get isSettled() { return settled; },
+		resolve: resolveFunction,
+		reject: rejectFunction,
+		get isSettled() {
+			return settled;
+		},
 	};
 }
 
@@ -280,16 +280,16 @@ export function createControlledPromise<T>(): ControlledPromise<T> {
  * Response configuration for fetch mock
  */
 export interface MockFetchResponse {
-  /** HTTP status code (default: 200) */
-  status?: number;
-  /** Response headers (optional) */
-  headers?: Record<string, string>;
-  /** Response body (will be JSON.stringify'd if object) */
-  body?: unknown;
-  /** Whether response is ok (default: status < 400) */
-  ok?: boolean;
-  /** Delay before response in milliseconds (default: 0) */
-  delay?: number;
+	/** HTTP status code (default: 200) */
+	status?: number;
+	/** Response headers (optional) */
+	headers?: Record<string, string>;
+	/** Response body (will be JSON.stringify'd if object) */
+	body?: unknown;
+	/** Whether response is ok (default: status < 400) */
+	ok?: boolean;
+	/** Delay before response in milliseconds (default: 0) */
+	delay?: number;
 }
 
 /**
@@ -317,7 +317,7 @@ export interface MockFetchResponse {
 export function createFetchMock(
 	responses: Record<string, MockFetchResponse>,
 ): ReturnType<typeof vi.fn> {
-	return vi.fn().mockImplementation(async (url: string | URL, _options?: any) => {
+	return vi.fn().mockImplementation(async (url: string | URL, _options?: unknown) => {
 		const urlString = typeof url === 'string' ? url : url.toString();
 
 		// Find matching response pattern
@@ -334,13 +334,7 @@ export function createFetchMock(
 			matchedResponse = { status: 404, body: { error: 'Not found' } };
 		}
 
-		const {
-			status = 200,
-			headers = {},
-			body = {},
-			ok = status < 400,
-			delay = 0,
-		} = matchedResponse;
+		const { status = 200, headers = {}, body = {}, ok = status < 400, delay = 0 } = matchedResponse;
 
 		// Add delay if specified
 		if (delay > 0) {
@@ -439,18 +433,21 @@ export async function runAllTimersAndWait(): Promise<void> {
  */
 export async function expectMockCalledWith(
 	mockFn: ReturnType<typeof vi.fn>,
-	expectedArgs: any[],
+	expectedArgs: unknown[],
 	options: WaitOptions = {},
 ): Promise<void> {
 	await waitForCondition(
-		() => mockFn.mock.calls.some(call =>
-			call.length === expectedArgs.length &&
-      call.every((arg, index) => arg === expectedArgs[index]),
-		),
+		() =>
+			mockFn.mock.calls.some(
+				(call) =>
+					call.length === expectedArgs.length &&
+					call.every((arg, index) => arg === expectedArgs[index]),
+			),
 		{
 			...options,
-			timeoutMessage: options.timeoutMessage ||
-        `Mock was not called with expected arguments: ${JSON.stringify(expectedArgs)}`,
+			timeoutMessage:
+				options.timeoutMessage ||
+				`Mock was not called with expected arguments: ${JSON.stringify(expectedArgs)}`,
 		},
 	);
 }
@@ -467,14 +464,12 @@ export async function expectMockCallCount(
 	expectedCalls: number,
 	options: WaitOptions = {},
 ): Promise<void> {
-	await waitForCondition(
-		() => mockFn.mock.calls.length === expectedCalls,
-		{
-			...options,
-			timeoutMessage: options.timeoutMessage ||
-        `Expected ${expectedCalls} calls, but got ${mockFn.mock.calls.length}`,
-		},
-	);
+	await waitForCondition(() => mockFn.mock.calls.length === expectedCalls, {
+		...options,
+		timeoutMessage:
+			options.timeoutMessage ||
+			`Expected ${expectedCalls} calls, but got ${mockFn.mock.calls.length}`,
+	});
 }
 
 // =============================================================================
@@ -482,7 +477,7 @@ export async function expectMockCallCount(
 // =============================================================================
 
 // Re-export all utilities for convenience
-export * from 'vitest';
+export * from 'bun:test';
 
 // Export common patterns as defaults
 export default {

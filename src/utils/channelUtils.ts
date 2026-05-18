@@ -33,10 +33,9 @@
  * @module utils/channelUtils
  */
 
-import { LogEngine } from '../config/logger';
 import { ChannelType } from 'discord.js';
+import { LogEngine } from '../config/logger';
 import '../types/global';
-
 
 /**
  * Checks if a channel is actually a forum channel
@@ -60,15 +59,16 @@ async function isForumChannel(channelId: string): Promise<boolean> {
 			return false;
 		}
 
-		const channel = await global.discordClient.channels.fetch(channelId) as { type: ChannelType } | null;
+		const channel = (await global.discordClient.channels.fetch(channelId)) as {
+			type: ChannelType;
+		} | null;
 		if (!channel) {
 			LogEngine.warn(`Channel ${channelId} not found`);
 			return false;
 		}
 
 		return channel.type === ChannelType.GuildForum;
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error(`Error checking channel type for ${channelId}:`, error);
 		return false;
 	}
@@ -93,7 +93,10 @@ async function validateForumChannelIds(forumChannelIds: string): Promise<string[
 		return [];
 	}
 
-	const channelIds = forumChannelIds.split(',').map(id => id.trim()).filter(id => id);
+	const channelIds = forumChannelIds
+		.split(',')
+		.map((id) => id.trim())
+		.filter((id) => id);
 	const validForumChannels: string[] = [];
 
 	for (const channelId of channelIds) {
@@ -101,8 +104,7 @@ async function validateForumChannelIds(forumChannelIds: string): Promise<string[
 		if (isValid) {
 			validForumChannels.push(channelId);
 			LogEngine.debug(`Validated forum channel: ${channelId}`);
-		}
-		else {
+		} else {
 			LogEngine.warn(`Channel ${channelId} in FORUM_CHANNEL_IDS is not a forum channel - skipping`);
 		}
 	}
@@ -136,7 +138,7 @@ async function getValidatedForumChannelIds(): Promise<string[]> {
 	const now = Date.now();
 
 	// Return cached result if still valid
-	if (cachedForumChannelIds && (now - lastValidationTime) < CACHE_DURATION) {
+	if (cachedForumChannelIds && now - lastValidationTime < CACHE_DURATION) {
 		return cachedForumChannelIds;
 	}
 
@@ -183,4 +185,9 @@ const channelUtils = {
 export default channelUtils;
 
 // Export individual functions for named imports
-export { isForumChannel, validateForumChannelIds, getValidatedForumChannelIds, isValidatedForumChannel };
+export {
+	isForumChannel,
+	validateForumChannelIds,
+	getValidatedForumChannelIds,
+	isValidatedForumChannel,
+};

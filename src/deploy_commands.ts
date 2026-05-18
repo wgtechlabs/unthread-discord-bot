@@ -45,9 +45,9 @@
  * @module deploy_commands
  */
 
-import { REST, Routes } from 'discord.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { REST, Routes } from 'discord.js';
 import * as dotenv from 'dotenv';
 import { LogEngine } from './config/logger';
 
@@ -106,8 +106,7 @@ const foldersPath = path.join(__dirname, 'commands');
 let commandFolders: string[];
 try {
 	commandFolders = fs.readdirSync(foldersPath);
-}
-catch (error) {
+} catch (error) {
 	LogEngine.error('Failed to read commands directory:', error);
 	process.exit(1);
 }
@@ -122,11 +121,10 @@ for (const folder of commandFolders) {
 		const usingTsNode = __filename.endsWith('.ts');
 
 		// eslint-disable-next-line security/detect-non-literal-fs-filename
-		commandFiles = fs.readdirSync(commandsPath).filter(file =>
-			usingTsNode ? file.endsWith('.ts') : file.endsWith('.js'),
-		);
-	}
-	catch (error) {
+		commandFiles = fs
+			.readdirSync(commandsPath)
+			.filter((file) => (usingTsNode ? file.endsWith('.ts') : file.endsWith('.js')));
+	} catch (error) {
 		LogEngine.warn(`Failed to read folder ${folder}:`, error);
 		continue;
 	}
@@ -144,27 +142,25 @@ for (const folder of commandFolders) {
 			const command = ('default' in mod ? mod.default : mod) as CommandModule;
 
 			// Robust validation with explicit type checks
-			if (command &&
+			if (
+				command &&
 				typeof command === 'object' &&
 				command.data &&
 				typeof command.data === 'object' &&
 				typeof command.data.toJSON === 'function' &&
-				typeof command.execute === 'function') {
-
+				typeof command.execute === 'function'
+			) {
 				commands.push(command.data.toJSON());
 				LogEngine.debug(`Loaded command from ${filePath}`);
-			}
-			else {
+			} else {
 				// Enhanced error reporting with specific validation failures
 				const issues: string[] = [];
 				if (!command || typeof command !== 'object') {
 					issues.push('command is not an object');
-				}
-				else {
+				} else {
 					if (!command.data || typeof command.data !== 'object') {
 						issues.push('command.data is missing or not an object');
-					}
-					else if (typeof command.data.toJSON !== 'function') {
+					} else if (typeof command.data.toJSON !== 'function') {
 						issues.push('command.data.toJSON is missing or not a function');
 					}
 					if (typeof command.execute !== 'function') {
@@ -173,8 +169,7 @@ for (const folder of commandFolders) {
 				}
 				LogEngine.warn(`Skipping invalid command at ${filePath}: ${issues.join(', ')}`);
 			}
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error(`Failed to load command from ${filePath}:`, error);
 		}
 	}
@@ -203,14 +198,12 @@ const rest = new REST().setToken(DISCORD_BOT_TOKEN);
 		}
 
 		// Deploy commands to the specified guild
-		const data = await rest.put(
-			Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-			{ body: commands },
-		) as Record<string, unknown>[];
+		const data = (await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), {
+			body: commands,
+		})) as Record<string, unknown>[];
 
 		LogEngine.info(`Successfully reloaded ${data.length} application (/) commands.`);
-	}
-	catch (error) {
+	} catch (error) {
 		// Log any deployment errors for debugging
 		LogEngine.error('Command deployment failed:', error);
 		process.exit(1);

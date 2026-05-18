@@ -1,49 +1,47 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "lib": ["ES2022", "DOM"],
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "declaration": false,
-    "removeComments": false,
-    "noEmitOnError": true,
-    "sourceMap": true,
-    "moduleResolution": "node",
-    "ignoreDeprecations": "6.0",
-    "allowSyntheticDefaultImports": true,
-    "types": ["node", "vitest/globals"],
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "baseUrl": "./",
-    "paths": {
-      "@/*": ["src/*"],
-      "@tests/*": ["src/__tests__/*"],
-      "@utils/*": ["src/utils/*"],
-      "@services/*": ["src/services/*"],
-      "@config/*": ["src/config/*"],
-      "@types/*": ["src/types/*"],
-      "@events/*": ["src/events/*"],
-      "@sdk/*": ["src/sdk/*"]
-    }
-  },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "coverage",
-    "**/__tests__/**/*",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ]
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "CommonJS",
+		"lib": ["ES2022", "DOM"],
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"declaration": false,
+		"removeComments": false,
+		"noEmitOnError": true,
+		"sourceMap": true,
+		"moduleResolution": "node",
+		"ignoreDeprecations": "6.0",
+		"allowSyntheticDefaultImports": true,
+		"types": ["node"],
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"exactOptionalPropertyTypes": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"baseUrl": "./",
+		"paths": {
+			"@/*": ["src/*"],
+			"@tests/*": ["src/__tests__/*"],
+			"@utils/*": ["src/utils/*"],
+			"@services/*": ["src/services/*"],
+			"@config/*": ["src/config/*"],
+			"@types/*": ["src/types/*"],
+			"@events/*": ["src/events/*"],
+			"@sdk/*": ["src/sdk/*"]
+		}
+	},
+	"include": ["src/**/*"],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"coverage",
+		"**/__tests__/**/*",
+		"**/*.test.ts",
+		"**/*.spec.ts"
+	]
 }
