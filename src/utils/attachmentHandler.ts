@@ -497,18 +497,18 @@ export class AttachmentHandler {
 		conversationId?: string,
 	): Promise<FileBuffer> {
 		const fileName = this.getFileName(file);
+		const fileId = typeof file.id === 'string' ? file.id : undefined;
 
 		// Check if this is a Slack file (ID starts with 'F' and has the right structure)
-		const isSlackFile =
-			file.id && typeof file.id === 'string' && file.id.startsWith('F') && file.id.length >= 10;
+		const isSlackFile = typeof fileId === 'string' && fileId.startsWith('F') && fileId.length >= 10;
 
 		if (isSlackFile) {
 			LogEngine.info('Detected Slack file, using thumbnail endpoint', {
-				fileId: file.id,
+				fileId,
 				fileName,
 			});
 
-			return this.downloadUnthreadSlackFile(file.id, fileName, file.size);
+			return this.downloadUnthreadSlackFile(fileId, fileName, file.size ?? 0);
 		}
 
 		// For non-Slack files, use direct URL if available
@@ -554,10 +554,10 @@ export class AttachmentHandler {
 			}
 		}
 
-		if (conversationId && file.id && typeof file.id === 'string') {
+		if (conversationId && fileId) {
 			return this.downloadUnthreadConversationFile(
 				conversationId,
-				file.id,
+				fileId,
 				fileName,
 				file.size,
 				this.getFileMimeType(file),
@@ -571,7 +571,7 @@ export class AttachmentHandler {
 		conversationId: string,
 		fileId: string,
 		fileName: string,
-		fileSize: number,
+		fileSize: number | undefined,
 		mimeType: string,
 	): Promise<FileBuffer> {
 		LogEngine.info('Starting conversation-scoped Unthread file download', {

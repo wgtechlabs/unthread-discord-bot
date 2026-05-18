@@ -52,6 +52,7 @@ import type {
 	EnhancedWebhookEvent,
 	UnthreadApiResponse,
 	UnthreadTicket,
+	WebhookFileData,
 	WebhookPayload,
 } from '../types/unthread';
 import { getBotFooter } from '../utils/botUtils';
@@ -71,9 +72,24 @@ type WebhookMessageData = {
 	content?: string;
 	userId?: string;
 	attachments?: EnhancedWebhookEvent['attachments'];
-	files?: unknown[];
+	files?: WebhookFileData[];
 	metadata?: Record<string, unknown>;
 };
+
+type ConversationStatusData = {
+	conversation?: { id?: string; friendlyId?: string; status?: string };
+	id?: string;
+	friendlyId?: string;
+	status?: string;
+};
+
+function isWebhookMessageData(data: WebhookPayload['data']): data is WebhookMessageData {
+	return typeof data === 'object' && data !== null;
+}
+
+function isConversationStatusData(data: WebhookPayload['data']): data is ConversationStatusData {
+	return typeof data === 'object' && data !== null;
+}
 
 function getRequiredEnv(name: string): string {
 	const value = process.env[name];
@@ -396,9 +412,17 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
 	try {
 		switch (type) {
 			case 'message_created':
+				if (!isWebhookMessageData(data)) {
+					LogEngine.warn('Invalid message_created payload data shape', { type });
+					return;
+				}
 				await handleMessageCreated(data, sourcePlatform);
 				break;
 			case 'conversation_updated':
+				if (!isConversationStatusData(data)) {
+					LogEngine.warn('Invalid conversation_updated payload data shape', { type });
+					return;
+				}
 				await handleStatusUpdated(data);
 				break;
 			case 'conversation_created':
@@ -465,15 +489,15 @@ async function handleMessageCreated(
 		targetPlatform: 'discord',
 		type: 'message_created',
 		sourcePlatform,
-		attachments: data.attachments,
+		...(data.attachments ? { attachments: data.attachments } : {}),
 		data: {
 			id: conversationId || data.id || 'unknown',
-			content: data.content,
-			text: data.text,
-			files: Array.isArray(data.files) ? data.files : undefined,
 			conversationId: conversationId || data.id || 'unknown',
-			userId: data.userId,
-			metadata: data.metadata,
+			...(data.content ? { content: data.content } : {}),
+			...(data.text ? { text: data.text } : {}),
+			...(data.userId ? { userId: data.userId } : {}),
+			...(data.metadata ? { metadata: data.metadata } : {}),
+			...(Array.isArray(data.files) ? { files: data.files } : {}),
 		},
 		timestamp: Date.now(),
 		eventId: String(data.id || data.conversationId || Date.now()),
@@ -525,7 +549,7 @@ async function handleMessageCreated(
 						effectiveFiles.map((f) => ({
 							id: f.id,
 							name: f.name,
-							type: f.mimetype || f.type,
+							type: f.mimetype,
 							size: f.size,
 						})),
 					);
@@ -769,7 +793,8 @@ async function handleStatusUpdated(
 			}
 		};
 
-		const statusInfo = getStatusInfo(conversation.status);
+		const statusValue = conversation.status ?? 'unknown';
+		const statusInfo = getStatusInfo(statusValue);
 
 		const embed = new EmbedBuilder()
 			.setColor(statusInfo.color)
@@ -789,12 +814,10 @@ async function handleStatusUpdated(
 		);
 
 		// Close Discord thread if ticket is closed/resolved
-		if (conversation.status === 'closed' || conversation.status === 'resolved') {
+		if (statusValue === 'closed' || statusValue === 'resolved') {
 			try {
 				await discordThread.setArchived(true);
-				LogEngine.info(
-					`Archived Discord thread ${discordThread.id} for ${conversation.status} ticket`,
-				);
+				LogEngine.info(`Archived Discord thread ${discordThread.id} for ${statusValue} ticket`);
 			} catch (error: unknown) {
 				const errorMessage = error instanceof Error ? error.message : String(error);
 				LogEngine.warn(`Failed to archive Discord thread ${discordThread.id}:`, errorMessage);
