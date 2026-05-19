@@ -43,33 +43,24 @@ describe('Node 24 Discord API Integration', () => {
 		},
 	);
 
-	it.skipIf(spawnedNodeMajor < 24)(
-		'should support modern TLS cipher suites',
-		() => {
-			const ciphers = JSON.parse(runNodeScript(GET_TLS_CIPHERS_SCRIPT));
+	it.skipIf(spawnedNodeMajor < 24)('should support modern TLS cipher suites', () => {
+		const ciphers = JSON.parse(runNodeScript(GET_TLS_CIPHERS_SCRIPT));
 
-			// Verify OpenSSL 3.5 includes modern ciphers
-			expect(ciphers).toContain('tls_aes_256_gcm_sha384');
-			expect(ciphers).toContain('tls_aes_128_gcm_sha256');
-			expect(ciphers).toContain('tls_chacha20_poly1305_sha256');
-		},
-	);
+		// Verify OpenSSL 3.5 includes modern ciphers
+		expect(ciphers).toContain('tls_aes_256_gcm_sha384');
+		expect(ciphers).toContain('tls_aes_128_gcm_sha256');
+		expect(ciphers).toContain('tls_chacha20_poly1305_sha256');
+	});
 
-	it.skipIf(spawnedNodeMajor < 24)(
-		'should create HTTPS agent with correct TLS settings',
-		() => {
-			const minVersion = runNodeScript(GET_HTTPS_AGENT_MIN_VERSION_SCRIPT);
-			expect(minVersion).toBe('TLSv1.2');
-		},
-	);
+	it.skipIf(spawnedNodeMajor < 24)('should create HTTPS agent with correct TLS settings', () => {
+		const minVersion = runNodeScript(GET_HTTPS_AGENT_MIN_VERSION_SCRIPT);
+		expect(minVersion).toBe('TLSv1.2');
+	});
 
-	it.skipIf(spawnedNodeMajor < 24)(
-		'should initialize Discord REST client without errors',
-		() => {
-			const restCheck = runNodeScript(INIT_DISCORD_REST_SCRIPT);
-			expect(restCheck).toBe('ok');
-		},
-	);
+	it.skipIf(spawnedNodeMajor < 24)('should initialize Discord REST client without errors', () => {
+		const restCheck = runNodeScript(INIT_DISCORD_REST_SCRIPT);
+		expect(restCheck).toBe('ok');
+	});
 
 	it('should validate Node.js version is 20 or higher', () => {
 		expect(spawnedNodeMajor).toBeGreaterThanOrEqual(20);
