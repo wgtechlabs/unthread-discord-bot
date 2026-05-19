@@ -68,7 +68,7 @@ describe('defaults configuration', () => {
 			});
 
 			it('should return default value when environment not set', () => {
-				delete process.env.TEST_STRING;
+				process.env.TEST_STRING = undefined;
 
 				const result = getConfig('TEST_STRING', 'default-value');
 
@@ -198,7 +198,7 @@ describe('defaults configuration', () => {
 			});
 
 			it('should return default when boolean environment not set', () => {
-				delete process.env.TEST_BOOLEAN;
+				process.env.TEST_BOOLEAN = undefined;
 
 				const result = getConfig('TEST_BOOLEAN', true);
 
@@ -236,7 +236,7 @@ describe('defaults configuration', () => {
 		it('should return all default configuration values', () => {
 			// Temporarily clear NODE_ENV to test defaults
 			const originalNodeEnv = process.env.NODE_ENV;
-			delete process.env.NODE_ENV;
+			process.env.NODE_ENV = undefined;
 
 			try {
 				const config = getAllConfig();
@@ -282,17 +282,17 @@ describe('defaults configuration', () => {
 				if (originalNodeEnv !== undefined) {
 					process.env.NODE_ENV = originalNodeEnv;
 				} else {
-					delete process.env.NODE_ENV;
+					process.env.NODE_ENV = undefined;
 				}
 				if (originalPort !== undefined) {
 					process.env.PORT = originalPort;
 				} else {
-					delete process.env.PORT;
+					process.env.PORT = undefined;
 				}
 				if (originalTimeout !== undefined) {
 					process.env.UNTHREAD_HTTP_TIMEOUT_MS = originalTimeout;
 				} else {
-					delete process.env.UNTHREAD_HTTP_TIMEOUT_MS;
+					process.env.UNTHREAD_HTTP_TIMEOUT_MS = undefined;
 				}
 			}
 		});
@@ -307,7 +307,7 @@ describe('defaults configuration', () => {
 		it('should handle mixed environment overrides', () => {
 			// Temporarily clear NODE_ENV and set specific overrides
 			const originalNodeEnv = process.env.NODE_ENV;
-			delete process.env.NODE_ENV;
+			process.env.NODE_ENV = undefined;
 
 			process.env.PORT = '8080';
 			process.env.DATABASE_SSL_VALIDATE = 'false';
@@ -325,9 +325,9 @@ describe('defaults configuration', () => {
 				expect(config.UNTHREAD_HTTP_TIMEOUT_MS).toBe(10000);
 			} finally {
 				// Cleanup
-				delete process.env.PORT;
-				delete process.env.DATABASE_SSL_VALIDATE;
-				delete process.env.DUMMY_EMAIL_DOMAIN;
+				process.env.PORT = undefined;
+				process.env.DATABASE_SSL_VALIDATE = undefined;
+				process.env.DUMMY_EMAIL_DOMAIN = undefined;
 
 				// Restore original NODE_ENV
 				if (originalNodeEnv !== undefined) {
@@ -339,9 +339,9 @@ describe('defaults configuration', () => {
 
 	describe('isRailwayEnvironment', () => {
 		it('should return false when no Railway URLs are set', () => {
-			delete process.env.PLATFORM_REDIS_URL;
-			delete process.env.WEBHOOK_REDIS_URL;
-			delete process.env.POSTGRES_URL;
+			process.env.PLATFORM_REDIS_URL = undefined;
+			process.env.WEBHOOK_REDIS_URL = undefined;
+			process.env.POSTGRES_URL = undefined;
 
 			expect(isRailwayEnvironment()).toBe(false);
 		});
@@ -403,7 +403,7 @@ describe('defaults configuration', () => {
 
 	describe('getSSLConfig', () => {
 		it('should return SSL config for production by default', () => {
-			delete process.env.DATABASE_SSL_VALIDATE;
+			process.env.DATABASE_SSL_VALIDATE = undefined;
 
 			const config = getSSLConfig(true);
 
@@ -412,7 +412,7 @@ describe('defaults configuration', () => {
 		});
 
 		it('should return SSL config for development by default', () => {
-			delete process.env.DATABASE_SSL_VALIDATE;
+			process.env.DATABASE_SSL_VALIDATE = undefined;
 
 			const config = getSSLConfig(false);
 
@@ -452,7 +452,7 @@ describe('defaults configuration', () => {
 				expect(config).toEqual({ rejectUnauthorized: true });
 			}
 
-			delete process.env.DATABASE_SSL_VALIDATE;
+			process.env.DATABASE_SSL_VALIDATE = undefined;
 		});
 
 		it('should not be consistent between production and development for security', () => {
