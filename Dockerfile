@@ -40,14 +40,16 @@ RUN apk update && apk upgrade --no-cache && \
 # Set working directory for all subsequent stages
 WORKDIR /usr/src/app
 
+# Pull the Bun image into a named stage so later COPY steps can reference it
+FROM oven/bun:${BUN_VERSION}-alpine AS bun
+
 # =============================================================================
 # STAGE 1b: Builder Base (base + Bun)
 # =============================================================================
 # Bun is installed here for dependency management and building only — the
 # final runtime launches the bot with Node.js and does NOT include Bun.
 FROM base AS builder-base
-ARG BUN_VERSION
-COPY --from=oven/bun:${BUN_VERSION}-alpine /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 RUN bun --version
 
 # =============================================================================
