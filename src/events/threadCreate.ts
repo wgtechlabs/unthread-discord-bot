@@ -14,7 +14,9 @@ import {
 	type ThreadChannel,
 } from 'discord.js';
 import { LogEngine } from '../config/logger';
+import { AttachmentDetectionService } from '../services/attachmentDetection';
 import { bindTicketWithThread, createTicket } from '../services/unthread';
+import { AttachmentHandler } from '../utils/attachmentHandler';
 import { getBotFooter } from '../utils/botUtils';
 import { isValidatedForumChannel } from '../utils/channelUtils';
 import { getOrCreateCustomer } from '../utils/customerUtils';
@@ -188,6 +190,35 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 
 		// Link the Discord thread with the Unthread ticket for communication.
 		await bindTicketWithThread(ticket.id, thread.id);
+
+		// Process attachments from the initial forum post
+		if (firstMessage.attachments.size > 0) {
+			const imageAttachments = AttachmentDetectionService.filterSupportedImages(
+				firstMessage.attachments,
+			);
+
+			if (imageAttachments.size > 0) {
+				LogEngine.debug(`Found ${imageAttachments.size} valid image attachments in forum post`);
+
+				const attachmentHandler = new AttachmentHandler();
+				const uploadResult = await attachmentHandler.uploadDiscordAttachmentsToUnthread(
+					ticket.id,
+					imageAttachments,
+					content || 'Attachments from forum post',
+					{ name: author.displayName || author.username, email },
+				);
+
+				if (uploadResult.success) {
+					LogEngine.info(
+						`Successfully uploaded ${uploadResult.processedCount} attachments from forum post to ticket ${ticket.id} in ${uploadResult.processingTime}ms`,
+					);
+				} else {
+					LogEngine.warn(
+						`Failed to upload some attachments from forum post: ${uploadResult.errors.join(', ')}`,
+					);
+				}
+			}
+		}
 
 		// Notify users in the thread that a ticket has been created.
 		const ticketEmbed = new EmbedBuilder()
