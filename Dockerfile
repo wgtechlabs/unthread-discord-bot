@@ -17,8 +17,8 @@
 
 # syntax=docker/dockerfile:1
 
-# Use Node.js 24 LTS Alpine with security patches
-ARG NODE_VERSION=24-alpine3.22
+# Use a recent Node.js 24 LTS Alpine image with security patches
+ARG NODE_VERSION=24-alpine3.23
 # Pinned Bun version for reproducible builds
 ARG BUN_VERSION=1.3.13
 
@@ -33,6 +33,8 @@ FROM node:${NODE_VERSION} AS base
 # Install security updates for Alpine packages
 RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache dumb-init && \
+    # Remove corepack cache and bundled manager data to reduce vulnerable surface area.
+    rm -rf /root/.cache/node/corepack /usr/local/lib/node_modules/corepack && \
     rm -rf /var/cache/apk/*
 
 # Set working directory for all subsequent stages
@@ -45,7 +47,8 @@ WORKDIR /usr/src/app
 # final runtime launches the bot with Node.js and does NOT include Bun.
 FROM base AS builder-base
 ARG BUN_VERSION
-RUN npm install -g bun@${BUN_VERSION}
+COPY --from=oven/bun:${BUN_VERSION}-alpine /usr/local/bin/bun /usr/local/bin/bun
+RUN bun --version
 
 # =============================================================================
 # STAGE 2: Production Dependencies
@@ -102,6 +105,10 @@ COPY --from=build --chown=nodejs:nodejs /usr/src/app/dist ./dist
 
 # Switch to non-root user
 USER nodejs
+
+# Use dumb-init for proper signal handling and start the application
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD node -e "process.exit(0)"
 
 # Use dumb-init for proper signal handling and start the application
 ENTRYPOINT ["dumb-init", "--"]
