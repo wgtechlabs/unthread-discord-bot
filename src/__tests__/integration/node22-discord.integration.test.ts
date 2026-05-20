@@ -1,7 +1,7 @@
 /**
- * Node 24 + Discord API Integration Tests
+ * Node 22+ Discord API Integration Tests
  *
- * Validates compatibility with Node 24, OpenSSL 3.5, and npm v11
+ * Validates compatibility with Node 22+, OpenSSL 3.x, and npm v10+
  * Tests real Discord API connectivity without mocking
  */
 
@@ -28,7 +28,7 @@ const GET_HTTPS_AGENT_MIN_VERSION_SCRIPT =
 const INIT_DISCORD_REST_SCRIPT =
 	"import { REST } from 'discord.js'; const rest = new REST({ version: '10' }); console.log(rest ? 'ok' : 'fail');";
 
-describe('Node 24 Discord API Integration', () => {
+describe('Node 22+ Discord API Integration', () => {
 	const discordApiBase = 'https://discord.com/api/v10';
 
 	it.skipIf(!process.env.INTEGRATION_NETWORK)(
@@ -43,33 +43,33 @@ describe('Node 24 Discord API Integration', () => {
 		},
 	);
 
-	it.skipIf(spawnedNodeMajor < 24)('should support modern TLS cipher suites', () => {
+	it.skipIf(spawnedNodeMajor < 22)('should support modern TLS cipher suites', () => {
 		const ciphers = JSON.parse(runNodeScript(GET_TLS_CIPHERS_SCRIPT));
 
-		// Verify OpenSSL 3.5 includes modern ciphers
+		// Verify OpenSSL 3.x includes modern ciphers
 		expect(ciphers).toContain('tls_aes_256_gcm_sha384');
 		expect(ciphers).toContain('tls_aes_128_gcm_sha256');
 		expect(ciphers).toContain('tls_chacha20_poly1305_sha256');
 	});
 
-	it.skipIf(spawnedNodeMajor < 24)('should create HTTPS agent with correct TLS settings', () => {
+	it.skipIf(spawnedNodeMajor < 22)('should create HTTPS agent with correct TLS settings', () => {
 		const minVersion = runNodeScript(GET_HTTPS_AGENT_MIN_VERSION_SCRIPT);
 		expect(minVersion).toBe('TLSv1.2');
 	});
 
-	it.skipIf(spawnedNodeMajor < 24)('should initialize Discord REST client without errors', () => {
+	it.skipIf(spawnedNodeMajor < 22)('should initialize Discord REST client without errors', () => {
 		const restCheck = runNodeScript(INIT_DISCORD_REST_SCRIPT);
 		expect(restCheck).toBe('ok');
 	});
 
-	it('should validate Node.js version is 20 or higher', () => {
-		expect(spawnedNodeMajor).toBeGreaterThanOrEqual(20);
+	it('should validate Node.js version is 22 or higher', () => {
+		expect(spawnedNodeMajor).toBeGreaterThanOrEqual(22);
 	});
 
 	it('should validate npm version is 10 or higher', () => {
 		const npmVersion = execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim();
 		const [major] = npmVersion.split('.');
 
-		expect(Number.parseInt(major)).toBeGreaterThanOrEqual(10); // npm 10+ ships with Node 20+
+		expect(Number.parseInt(major)).toBeGreaterThanOrEqual(10); // npm 10+ ships with Node 22+
 	});
 });
