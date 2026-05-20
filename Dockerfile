@@ -17,8 +17,8 @@
 
 # syntax=docker/dockerfile:1
 
-# Use a recent Node.js 24 LTS Alpine image with security patches
-ARG NODE_VERSION=24-alpine3.23
+# Use Node.js 26 Alpine image with security patches
+ARG NODE_VERSION=26-alpine3.22
 # Pinned Bun version for reproducible builds
 ARG BUN_VERSION=1.3.13
 
