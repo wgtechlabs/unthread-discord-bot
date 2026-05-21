@@ -4,9 +4,11 @@
 # Multi-stage Docker build for the Unthread Discord Bot
 # 
 # Build stages:
-# 1. deps    - Install production dependencies only
-# 2. build   - Install dev dependencies and build the application
-# 3. final   - Create minimal runtime image with built app
+# 1. base         - Minimal Node.js + dumb-init runtime base (no Bun)
+# 2. builder-base - base + Bun (used only for dependency install & build)
+# 3. deps         - Install production dependencies only
+# 4. build        - Install dev dependencies and build the application
+# 5. final        - Create minimal runtime image with built app (no Bun)
 #
 # Usage:
 #   docker build -t unthread-discord-bot .
@@ -15,53 +17,68 @@
 
 # syntax=docker/dockerfile:1
 
-# Use Node.js 24 LTS Alpine with security patches
-ARG NODE_VERSION=24-alpine3.22
-ARG PNPM_VERSION=9.15.9
+# Use Node.js 26 Alpine image with security patches
+ARG NODE_VERSION=26-alpine3.22
+# Pinned Bun version for reproducible builds
+ARG BUN_VERSION=1.3.13
 
 # =============================================================================
 # STAGE 1: Base Image
 # =============================================================================
-# Alpine Linux 3.22 base for minimal image size with latest security updates
+# Alpine Linux 3.22 base for minimal image size with latest security updates.
+# Intentionally kept minimal (no Bun) so the final runtime image stays small —
+# Bun is only added on top in the `builder-base` stage used for install/build.
 FROM node:${NODE_VERSION} AS base
 
-# Install security updates for Alpine packages and enable Corepack for pnpm
+# Install security updates for Alpine packages
 RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache dumb-init && \
-    corepack enable && \
-    corepack prepare pnpm@${PNPM_VERSION} --activate
+    # Remove corepack cache and bundled manager data to reduce vulnerable surface area.
+    rm -rf /root/.cache/node/corepack /usr/local/lib/node_modules/corepack && \
+    rm -rf /var/cache/apk/*
 
 # Set working directory for all subsequent stages
 WORKDIR /usr/src/app
+
+# Pull the Bun image into a named stage so later COPY steps can reference it
+FROM oven/bun:${BUN_VERSION}-alpine AS bun
+
+# =============================================================================
+# STAGE 1b: Builder Base (base + Bun)
+# =============================================================================
+# Bun is installed here for dependency management and building only — the
+# final runtime launches the bot with Node.js and does NOT include Bun.
+FROM base AS builder-base
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+RUN bun --version
 
 # =============================================================================
 # STAGE 2: Production Dependencies
 # =============================================================================
 # Install only production dependencies for runtime
-FROM base AS deps
+FROM builder-base AS deps
 
-# Copy package management files for dependency installation
-COPY package.json pnpm-lock.yaml .npmrc ./
-
-# Install only production dependencies using pnpm
-RUN pnpm install --prod --frozen-lockfile && \
-    pnpm store prune
+# Use bind mounts and cache for faster builds
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=bun.lock,target=bun.lock \
+    --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --production --frozen-lockfile
 
 # =============================================================================
 # STAGE 3: Build Application  
 # =============================================================================
 # Install dev dependencies and build the TypeScript application
-FROM base AS build
-
-# Copy package management files
-COPY package.json pnpm-lock.yaml .npmrc ./
+FROM builder-base AS build
 
 # Install all dependencies (including devDependencies for building)
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=bun.lock,target=bun.lock \
+    --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
 # Copy source code and build the application
 COPY . .
-RUN pnpm run build
+RUN bun run build
 
 # Copy non-TypeScript files that need to be in the final build
 RUN mkdir -p dist/database && cp src/database/schema.sql dist/database/schema.sql
@@ -90,6 +107,10 @@ COPY --from=build --chown=nodejs:nodejs /usr/src/app/dist ./dist
 
 # Switch to non-root user
 USER nodejs
+
+# Use dumb-init for proper signal handling and start the application
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD node -e "process.exit(0)"
 
 # Use dumb-init for proper signal handling and start the application
 ENTRYPOINT ["dumb-init", "--"]

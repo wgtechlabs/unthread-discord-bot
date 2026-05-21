@@ -38,13 +38,20 @@
  * @module events/interactionCreate
  */
 
-import { Events, ChannelType, Interaction, CommandInteraction, ModalSubmitInteraction, EmbedBuilder } from 'discord.js';
-import { createTicket, bindTicketWithThread } from '../services/unthread';
+import {
+	ChannelType,
+	type CommandInteraction,
+	EmbedBuilder,
+	Events,
+	type Interaction,
+	type ModalSubmitInteraction,
+} from 'discord.js';
+import { DEFAULT_CONFIG, getConfig } from '../config/defaults';
 import { LogEngine } from '../config/logger';
 import { BotsStore } from '../sdk/bots-brain/BotsStore';
-import { getOrCreateCustomer, getCustomerByDiscordId } from '../utils/customerUtils';
+import { bindTicketWithThread, createTicket } from '../services/unthread';
 import { getBotFooter } from '../utils/botUtils';
-import { getConfig, DEFAULT_CONFIG } from '../config/defaults';
+import { getCustomerByDiscordId, getOrCreateCustomer } from '../utils/customerUtils';
 
 /**
  * Simple type for ticket objects from external API
@@ -113,8 +120,7 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 		const dummyEmailDomain = getConfig('DUMMY_EMAIL_DOMAIN', DEFAULT_CONFIG.DUMMY_EMAIL_DOMAIN);
 		email = existingCustomer?.email || `${interaction.user.username}@${dummyEmailDomain}`;
 		LogEngine.debug(`Using fallback email for user ${interaction.user.id}: ${email}`);
-	}
-	else {
+	} else {
 		// If email provided, update or create customer record
 		const existingCustomer = await getCustomerByDiscordId(interaction.user.id);
 		if (existingCustomer) {
@@ -122,16 +128,18 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 			const botsStore = BotsStore.getInstance();
 			const normalizedEmail = email.trim().toLowerCase();
 			try {
-				await botsStore.storeCustomer(interaction.user, normalizedEmail, existingCustomer.unthreadCustomerId);
+				await botsStore.storeCustomer(
+					interaction.user,
+					normalizedEmail,
+					existingCustomer.unthreadCustomerId,
+				);
 				// Proactively clear both discord and unthread keyed caches
 				await botsStore.clearCache('customer', interaction.user.id);
 				await botsStore.clearCache('customer', existingCustomer.unthreadCustomerId);
-			}
-			catch (err) {
+			} catch (err) {
 				LogEngine.warn(`Customer email update failed for ${interaction.user.id}; proceeding.`, err);
 			}
-		}
-		else {
+		} else {
 			await getOrCreateCustomer(interaction.user, email);
 		}
 		LogEngine.debug(`Stored email for user ${interaction.user.id}: ${email}`);
@@ -171,8 +179,7 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 				type: ChannelType.AnnouncementThread,
 				reason: 'Unthread Ticket',
 			});
-		}
-		else {
+		} else {
 			thread = await interaction.channel.threads.create({
 				name: `ticket-#${ticketObj.friendlyId}`,
 				type: ChannelType.PrivateThread,
@@ -197,21 +204,25 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 
 		// Step 5: Send initial context information to the thread
 		const ticketEmbed = new EmbedBuilder()
-			.setColor(0xFF5241)
+			.setColor(0xff5241)
 			.setTitle(`🎫 Support Ticket #${ticketObj.friendlyId}`)
 			.setDescription(`**${title}**\n\n${issue}`)
-			.addFields(
-				{ name: '🔄 Next Steps', value: 'Our support team will respond here shortly. Please monitor this thread for updates.', inline: false },
-			)
+			.addFields({
+				name: '🔄 Next Steps',
+				value:
+					'Our support team will respond here shortly. Please monitor this thread for updates.',
+				inline: false,
+			})
 			.setFooter({ text: getBotFooter() })
 			.setTimestamp();
 
 		await threadObj.send({ embeds: [ticketEmbed] });
 
 		// Step 6: Complete the interaction with confirmation message
-		await interaction.editReply('Your support ticket has been submitted! A private thread has been created for further assistance.');
-	}
-	catch (error) {
+		await interaction.editReply(
+			'Your support ticket has been submitted! A private thread has been created for further assistance.',
+		);
+	} catch (error) {
 		// Handle any failures in the ticket creation workflow
 		// This could be API errors, permission issues, or Discord rate limits
 		LogEngine.error('Ticket creation failed:', error);
@@ -225,14 +236,17 @@ async function handleSupportModal(interaction: ModalSubmitInteraction): Promise<
 				const botsStore = BotsStore.getInstance();
 				await botsStore.clearCache('mapping', threadObj.id);
 				await botsStore.clearCache('mapping', ticketObj.id);
-				LogEngine.info(`Cleaned up orphaned ticket mapping: Discord thread ${threadObj.id} <-> Unthread ticket ${ticketObj.id}`);
-			}
-			catch (cleanupError) {
+				LogEngine.info(
+					`Cleaned up orphaned ticket mapping: Discord thread ${threadObj.id} <-> Unthread ticket ${ticketObj.id}`,
+				);
+			} catch (cleanupError) {
 				LogEngine.error('Failed to cleanup orphaned ticket mapping:', cleanupError);
 			}
 		}
 
-		await interaction.editReply('Sorry, there was an error creating your support ticket. Please try again later.');
+		await interaction.editReply(
+			'Sorry, there was an error creating your support ticket. Please try again later.',
+		);
 		return;
 	}
 }
@@ -270,8 +284,7 @@ async function handleSlashCommand(interaction: CommandInteraction): Promise<void
 	try {
 		// Execute the command with the interaction context
 		await command.execute(interaction);
-	}
-	catch (error) {
+	} catch (error) {
 		// Log the full error for debugging
 		LogEngine.error('Command execution error:', error);
 
@@ -282,8 +295,7 @@ async function handleSlashCommand(interaction: CommandInteraction): Promise<void
 				content: 'There was an error while executing this command!',
 				ephemeral: true,
 			});
-		}
-		else {
+		} else {
 			// For fresh interactions, use reply
 			await interaction.reply({
 				content: 'There was an error while executing this command!',

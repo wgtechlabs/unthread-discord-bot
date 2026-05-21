@@ -15,15 +15,15 @@
  */
 
 import {
-	SlashCommandBuilder,
-	ModalBuilder,
 	ActionRowBuilder,
+	type ChatInputCommandInteraction,
+	type GuildMember,
+	ModalBuilder,
+	PermissionFlagsBits,
+	SlashCommandBuilder,
+	type TextChannel,
 	TextInputBuilder,
 	TextInputStyle,
-	PermissionFlagsBits,
-	ChatInputCommandInteraction,
-	GuildMember,
-	TextChannel,
 } from 'discord.js';
 import channelUtils from '../../utils/channelUtils';
 
@@ -37,9 +37,7 @@ const { isValidatedForumChannel } = channelUtils;
  * a modal interface for ticket details.
  */
 const supportCommand = {
-	data: new SlashCommandBuilder()
-		.setName('support')
-		.setDescription('Open a support ticket'),
+	data: new SlashCommandBuilder().setName('support').setDescription('Open a support ticket'),
 
 	/**
 	 * Executes the support command to create a support ticket
@@ -73,7 +71,8 @@ const supportCommand = {
 		// Add guild and channel validation before proceeding
 		if (!interaction.inGuild() || !interaction.channel) {
 			await interaction.reply({
-				content: '❌ **Cannot use `/support` here**\n\nPlease run this command inside a server text channel.',
+				content:
+					'❌ **Cannot use `/support` here**\n\nPlease run this command inside a server text channel.',
 				ephemeral: true,
 			});
 			return;
@@ -82,7 +81,8 @@ const supportCommand = {
 		// Check if the command is used in any thread (forum posts, private threads, etc.)
 		if (interaction.channel.isThread()) {
 			await interaction.reply({
-				content: '❌ **Cannot use `/support` command in threads**\n\nThe `/support` command can only be used in text channels. Please use `/support` in the main channel instead of inside threads or forum posts.',
+				content:
+					'❌ **Cannot use `/support` command in threads**\n\nThe `/support` command can only be used in text channels. Please use `/support` in the main channel instead of inside threads or forum posts.',
 				ephemeral: true,
 			});
 			return;
@@ -92,7 +92,8 @@ const supportCommand = {
 		const isConfiguredForumChannel = await isValidatedForumChannel(interaction.channel.id);
 		if (isConfiguredForumChannel) {
 			await interaction.reply({
-				content: '❌ **Cannot use `/support` command here**\n\nThis channel is configured for forum-based tickets. Please create a new forum post instead of using the `/support` command.',
+				content:
+					'❌ **Cannot use `/support` command here**\n\nThis channel is configured for forum-based tickets. Please create a new forum post instead of using the `/support` command.',
 				ephemeral: true,
 			});
 			return;
@@ -108,7 +109,11 @@ const supportCommand = {
 			PermissionFlagsBits.ViewChannel,
 		];
 
-		if (!interaction.guild || !interaction.channel || !botMember?.permissionsIn(interaction.channel as TextChannel).has(requiredPermissions)) {
+		if (
+			!interaction.guild ||
+			!interaction.channel ||
+			!botMember?.permissionsIn(interaction.channel as TextChannel).has(requiredPermissions)
+		) {
 			await interaction.reply({
 				content: `❌ **Cannot create support tickets here**
 
@@ -121,9 +126,7 @@ Ask an admin to grant these permissions or use \`/support\` in an authorized cha
 		}
 
 		// Create modal
-		const modal = new ModalBuilder()
-			.setCustomId('supportModal')
-			.setTitle('Support Ticket');
+		const modal = new ModalBuilder().setCustomId('supportModal').setTitle('Support Ticket');
 
 		// Add input fields
 		const titleInput = new TextInputBuilder()

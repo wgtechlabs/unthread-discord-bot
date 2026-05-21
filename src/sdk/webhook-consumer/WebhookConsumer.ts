@@ -15,11 +15,11 @@
  * @module sdk/webhook-consumer/WebhookConsumer
  */
 
-import { createClient, RedisClientType } from 'redis';
+import { type RedisClientType, createClient } from 'redis';
 import { LogEngine } from '../../config/logger';
-import { WebhookPayload } from '../../types/unthread';
-import { EventValidator } from './EventValidator';
 import { handleWebhookEvent } from '../../services/unthread';
+import type { WebhookPayload } from '../../types/unthread';
+import { EventValidator } from './EventValidator';
 
 /**
  * WebhookConsumer configuration
@@ -45,11 +45,11 @@ export class WebhookConsumer {
 	private redisClient: RedisClientType | null = null;
 	// Dedicated client for blPop operations
 	private blockingRedisClient: RedisClientType | null = null;
-	private isRunning: boolean = false;
+	private isRunning = false;
 	private pollTimer: NodeJS.Timeout | null = null;
 
 	// Throttling for debug logs to reduce noise
-	private lastNoEventsLog: number = 0;
+	private lastNoEventsLog = 0;
 	// 5 minutes in milliseconds
 	private readonly NO_EVENTS_LOG_INTERVAL = 5 * 60 * 1000;
 
@@ -100,8 +100,7 @@ export class WebhookConsumer {
 
 			LogEngine.info('Webhook consumer connected to Redis with isolated blocking client');
 			return true;
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Webhook consumer Redis connection failed:', error);
 			throw error;
 		}
@@ -143,8 +142,7 @@ export class WebhookConsumer {
 			}
 
 			LogEngine.info('Webhook consumer disconnected from Redis');
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Error disconnecting webhook consumer:', error);
 		}
 	}
@@ -217,11 +215,9 @@ export class WebhookConsumer {
 		this.pollTimer = setTimeout(async () => {
 			try {
 				await this.pollForEvents();
-			}
-			catch (error) {
+			} catch (error) {
 				LogEngine.error('Error during event polling:', error);
-			}
-			finally {
+			} finally {
 				// Schedule next poll only once per cycle, regardless of success or failure
 				this.scheduleNextPoll();
 			}
@@ -267,8 +263,7 @@ export class WebhookConsumer {
 				LogEngine.debug(`No events in queue: ${this.queueName} (next log in 5 minutes)`);
 				this.lastNoEventsLog = now;
 			}
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Error polling for events:', error);
 		}
 	}
@@ -299,7 +294,7 @@ export class WebhookConsumer {
 		try {
 			LogEngine.info('🔄 Starting event processing', {
 				eventDataLength: eventData.length,
-				eventPreview: eventData.substring(0, 200) + '...',
+				eventPreview: `${eventData.substring(0, 200)}...`,
 			});
 
 			// Parse the event
@@ -307,8 +302,7 @@ export class WebhookConsumer {
 			try {
 				rawEvent = JSON.parse(eventData);
 				LogEngine.info('✅ Event parsed successfully');
-			}
-			catch (parseError) {
+			} catch (parseError) {
 				LogEngine.error('❌ Failed to parse event JSON', {
 					error: (parseError as Error).message,
 					eventData: eventData.substring(0, 500),
@@ -329,7 +323,7 @@ export class WebhookConsumer {
 
 			if (!EventValidator.validate(event)) {
 				LogEngine.warn('❌ Invalid event, skipping', {
-					event: JSON.stringify(event, null, 2).substring(0, 1000) + '...',
+					event: `${JSON.stringify(event, null, 2).substring(0, 1000)}...`,
 				});
 				return;
 			}
@@ -342,8 +336,7 @@ export class WebhookConsumer {
 			try {
 				await handleWebhookEvent(validatedEvent);
 				LogEngine.info(`✅ Event processed successfully: ${validatedEvent.type}`);
-			}
-			catch (handlerError) {
+			} catch (handlerError) {
 				LogEngine.error(`❌ Handler execution failed for ${validatedEvent.type}`, {
 					error: (handlerError as Error).message,
 					stack: (handlerError as Error).stack,
@@ -351,9 +344,7 @@ export class WebhookConsumer {
 				});
 				throw handlerError;
 			}
-
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('❌ Error processing event:', {
 				error: (error as Error).message,
 				stack: (error as Error).stack,
@@ -388,7 +379,7 @@ export class WebhookConsumer {
 		isConnected: boolean;
 		isBlockingClientConnected: boolean;
 		queueName: string;
-		} {
+	} {
 		return {
 			isRunning: this.isRunning,
 			isConnected: this.redisClient?.isOpen ?? false,
@@ -439,11 +430,11 @@ export class WebhookConsumer {
 
 			// Test Redis ping if connected
 			if (redisHealthy) {
-				await this.redisClient!.ping();
+				await this.redisClient?.ping();
 			}
 
 			if (blockingRedisHealthy) {
-				await this.blockingRedisClient!.ping();
+				await this.blockingRedisClient?.ping();
 			}
 
 			const allHealthy = redisHealthy && blockingRedisHealthy && this.isRunning;
@@ -455,9 +446,7 @@ export class WebhookConsumer {
 				blockingRedis: blockingRedisHealthy,
 				polling: this.isRunning,
 			};
-
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Webhook consumer health check failed:', error);
 			return {
 				status: 'unhealthy',

@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
+import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 
 /**
  * User Command
@@ -47,7 +47,10 @@ export const data = new SlashCommandBuilder()
  */
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	if (!interaction.inGuild()) {
-		await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+		await interaction.reply({
+			content: 'This command can only be used in a server.',
+			ephemeral: true,
+		});
 		return;
 	}
 
@@ -59,12 +62,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		: 'Unavailable';
 
 	const embed = new EmbedBuilder()
-		.setColor(0xEB1A1A)
+		.setColor(0xeb1a1a)
 		.setTitle('User Information')
 		.addFields(
 			{ name: 'Username', value: interaction.user.username, inline: true },
 			{ name: 'Joined Server', value: joinedField, inline: true },
-			{ name: 'Account Created', value: `<t:${Math.floor(interaction.user.createdTimestamp / 1000)}:F>`, inline: false },
+			{
+				name: 'Account Created',
+				value: `<t:${Math.floor(interaction.user.createdTimestamp / 1000)}:F>`,
+				inline: false,
+			},
 		)
 		.setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
 		.setFooter({ text: `User ID: ${interaction.user.id}` })

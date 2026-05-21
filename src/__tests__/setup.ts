@@ -1,9 +1,9 @@
 /**
- * Vitest Setup File
+ * Bun Test Setup File
  *
  * Comprehensive global mocking and test environment setup for the Discord bot.
- * This file is automatically loaded before all tests run, ensuring consistent
- * test isolation and preventing external API calls.
+ * This file is automatically loaded before all tests run via bunfig.toml preload,
+ * ensuring consistent test isolation and preventing external API calls.
  *
  * Mocked Systems:
  * - Discord.js: Complete client and event system mocking
@@ -13,10 +13,10 @@
  * - Express server: HTTP server mocking
  * - File system operations: Safe test file operations
  *
- * @module __tests__/vitest.setup
+ * @module __tests__/setup
  */
 
-import { vi, beforeEach, beforeAll, afterEach, afterAll } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, mock, jest as vi } from 'bun:test';
 
 // =============================================================================
 // ENVIRONMENT SETUP
@@ -39,7 +39,7 @@ process.env.PORT = '3000';
 // =============================================================================
 
 // Mock Discord.js Client and related classes
-vi.mock('discord.js', () => {
+mock.module('discord.js', () => {
 	const mockUser = {
 		id: 'test_user_id',
 		username: 'testuser',
@@ -156,17 +156,17 @@ vi.mock('discord.js', () => {
 			GuildDirectory: 14,
 			GuildForum: 15,
 		},
-		AttachmentBuilder: vi.fn().mockImplementation((buffer, name) => ({
+		AttachmentBuilder: vi.fn().mockImplementation((buffer: unknown, name: unknown) => ({
 			attachment: buffer,
 			name: name,
 			description: undefined,
 			contentType: undefined,
 		})),
 		// Mock commonly used Discord.js utilities
-		userMention: vi.fn((id) => `<@${id}>`),
-		channelMention: vi.fn((id) => `<#${id}>`),
-		roleMention: vi.fn((id) => `<@&${id}>`),
-		time: vi.fn((timestamp) => `<t:${Math.floor(timestamp / 1000)}>`),
+		userMention: vi.fn((id: string) => `<@${id}>`),
+		channelMention: vi.fn((id: string) => `<#${id}>`),
+		roleMention: vi.fn((id: string) => `<@&${id}>`),
+		time: vi.fn((timestamp: number) => `<t:${Math.floor(timestamp / 1000)}>`),
 		// Mock permissions
 		PermissionFlagsBits: {
 			SendMessages: BigInt(2048),
@@ -182,10 +182,10 @@ vi.mock('discord.js', () => {
 // =============================================================================
 
 // Mock global fetch for Unthread API calls
-global.fetch = vi.fn();
+global.fetch = vi.fn() as typeof fetch;
 
 // Default fetch implementation for successful API responses
-const mockFetchImplementation = vi.fn((url: string | Request, options?: any) => {
+const mockFetchImplementation = vi.fn((url: string | Request, options?: RequestInit) => {
 	const urlStr = typeof url === 'string' ? url : (url as Request).url;
 
 	// Mock customer creation response
@@ -193,11 +193,12 @@ const mockFetchImplementation = vi.fn((url: string | Request, options?: any) => 
 		return Promise.resolve({
 			ok: true,
 			status: 201,
-			json: () => Promise.resolve({
-				customerId: 'test_customer_id_12345',
-				email: 'test@example.com',
-				name: 'Test User',
-			}),
+			json: () =>
+				Promise.resolve({
+					customerId: 'test_customer_id_12345',
+					email: 'test@example.com',
+					name: 'Test User',
+				}),
 		});
 	}
 
@@ -206,27 +207,33 @@ const mockFetchImplementation = vi.fn((url: string | Request, options?: any) => 
 		return Promise.resolve({
 			ok: true,
 			status: 201,
-			json: () => Promise.resolve({
-				conversationId: 'test_ticket_id_12345',
-				title: 'Test Ticket',
-				status: 'open',
-				customer: {
-					customerId: 'test_customer_id_12345',
-					email: 'test@example.com',
-				},
-			}),
+			json: () =>
+				Promise.resolve({
+					conversationId: 'test_ticket_id_12345',
+					title: 'Test Ticket',
+					status: 'open',
+					customer: {
+						customerId: 'test_customer_id_12345',
+						email: 'test@example.com',
+					},
+				}),
 		});
 	}
 
 	// Mock message posting response
-	if (urlStr.includes('/conversations/') && urlStr.includes('/messages') && options?.method === 'POST') {
+	if (
+		urlStr.includes('/conversations/') &&
+		urlStr.includes('/messages') &&
+		options?.method === 'POST'
+	) {
 		return Promise.resolve({
 			ok: true,
 			status: 201,
-			json: () => Promise.resolve({
-				messageId: 'test_message_id_12345',
-				content: options.body ? JSON.parse(options.body).markdown : 'Test message',
-			}),
+			json: () =>
+				Promise.resolve({
+					messageId: 'test_message_id_12345',
+					content: options.body ? JSON.parse(options.body as string).markdown : 'Test message',
+				}),
 		});
 	}
 
@@ -239,14 +246,14 @@ const mockFetchImplementation = vi.fn((url: string | Request, options?: any) => 
 });
 
 // Apply the mock implementation
-(global.fetch as any).mockImplementation(mockFetchImplementation);
+(global.fetch as ReturnType<typeof vi.fn>).mockImplementation(mockFetchImplementation);
 
 // =============================================================================
 // REDIS/DATABASE MOCKING
 // =============================================================================
 
 // Mock @keyv/redis
-vi.mock('@keyv/redis', () => ({
+mock.module('@keyv/redis', () => ({
 	default: vi.fn().mockImplementation(() => ({
 		get: vi.fn().mockResolvedValue(null),
 		set: vi.fn().mockResolvedValue(true),
@@ -257,7 +264,7 @@ vi.mock('@keyv/redis', () => ({
 }));
 
 // Mock keyv
-vi.mock('keyv', () => ({
+mock.module('keyv', () => ({
 	default: class MockKeyv {
 		get = vi.fn().mockResolvedValue(null);
 		set = vi.fn().mockResolvedValue(true);
@@ -268,7 +275,7 @@ vi.mock('keyv', () => ({
 }));
 
 // Mock ioredis
-vi.mock('ioredis', () => ({
+mock.module('ioredis', () => ({
 	default: vi.fn().mockImplementation(() => ({
 		get: vi.fn().mockResolvedValue(null),
 		set: vi.fn().mockResolvedValue('OK'),
@@ -284,7 +291,7 @@ vi.mock('ioredis', () => ({
 }));
 
 // Mock pg (PostgreSQL)
-vi.mock('pg', () => ({
+mock.module('pg', () => ({
 	Pool: class MockPool {
 		connect = vi.fn().mockResolvedValue({
 			query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
@@ -300,7 +307,7 @@ vi.mock('pg', () => ({
 // =============================================================================
 
 // Mock @wgtechlabs/log-engine
-vi.mock('@wgtechlabs/log-engine', () => ({
+mock.module('@wgtechlabs/log-engine', () => ({
 	LogEngine: {
 		info: vi.fn(),
 		debug: vi.fn(),
@@ -324,22 +331,26 @@ vi.mock('@wgtechlabs/log-engine', () => ({
 // =============================================================================
 
 // Mock Express for webhook server
-vi.mock('express', () => {
+mock.module('express', () => {
 	const mockApp = {
 		use: vi.fn(),
 		get: vi.fn(),
 		post: vi.fn(),
-		listen: vi.fn((_port, callback) => {
+		listen: vi.fn((_port: unknown, callback: () => void) => {
 			if (callback) callback();
 			return { close: vi.fn() };
 		}),
 		set: vi.fn(),
 	};
 
-	const expressMock = vi.fn(() => mockApp) as any;
-	expressMock.json = vi.fn();
-	expressMock.urlencoded = vi.fn();
-	expressMock.static = vi.fn();
+	const expressMock = vi.fn(() => mockApp) as unknown as typeof import('express') & {
+		json: ReturnType<typeof vi.fn>;
+		urlencoded: ReturnType<typeof vi.fn>;
+		static: ReturnType<typeof vi.fn>;
+	};
+	(expressMock as unknown as Record<string, unknown>).json = vi.fn();
+	(expressMock as unknown as Record<string, unknown>).urlencoded = vi.fn();
+	(expressMock as unknown as Record<string, unknown>).static = vi.fn();
 
 	return {
 		default: expressMock,
@@ -354,7 +365,7 @@ vi.mock('express', () => {
 // =============================================================================
 
 // Mock fs operations for safe testing
-vi.mock('fs', () => ({
+mock.module('fs', () => ({
 	readdirSync: vi.fn().mockReturnValue([]),
 	readFileSync: vi.fn().mockReturnValue(''),
 	writeFileSync: vi.fn(),
@@ -374,7 +385,7 @@ vi.mock('fs', () => ({
 // =============================================================================
 
 // Mock dotenv
-vi.mock('dotenv', () => ({
+mock.module('dotenv', () => ({
 	config: vi.fn(),
 }));
 
@@ -385,7 +396,7 @@ vi.mock('dotenv', () => ({
 // Global test setup
 beforeAll(() => {
 	// Suppress console warnings in tests unless debugging
-	if (!process.env.VITEST_DEBUG) {
+	if (!process.env.BUN_TEST_DEBUG) {
 		vi.spyOn(console, 'warn').mockImplementation(() => {
 			// Intentionally empty - suppressing console output in tests
 		});
@@ -400,13 +411,11 @@ beforeEach(() => {
 	vi.clearAllMocks();
 
 	// Reset fetch mock to default implementation
-	(global.fetch as any).mockImplementation(mockFetchImplementation);
+	(global.fetch as ReturnType<typeof vi.fn>).mockImplementation(mockFetchImplementation);
 });
 
 // Cleanup after each test
-afterEach(() => {
-	vi.clearAllTimers();
-});
+afterEach(() => {});
 
 // Global test cleanup
 afterAll(() => {

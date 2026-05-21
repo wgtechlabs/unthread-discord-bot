@@ -45,44 +45,44 @@
  * @module sdk/bots-brain/UnifiedStorage
  */
 
-import { createClient, RedisClientType } from 'redis';
-import { Pool } from 'pg';
-import { LogEngine } from '../../config/logger';
+import { Pool, type PoolClient, type PoolConfig } from 'pg';
+import { type RedisClientType, createClient } from 'redis';
 import { getSSLConfig, processConnectionString } from '../../config/defaults';
+import { LogEngine } from '../../config/logger';
 
 /**
  * Storage layer interface for consistent operations across all layers
  */
 interface StorageLayer {
-    get(key: string): Promise<unknown>;
-    set(key: string, value: unknown, ttlSeconds?: number): Promise<void>;
-    delete(key: string): Promise<void>;
-    exists(key: string): Promise<boolean>;
-    clear?(): Promise<void>;
-    // New method for health checks
-    ping(): Promise<boolean>;
+	get(key: string): Promise<unknown>;
+	set(key: string, value: unknown, ttlSeconds?: number): Promise<void>;
+	delete(key: string): Promise<void>;
+	exists(key: string): Promise<boolean>;
+	clear?(): Promise<void>;
+	// New method for health checks
+	ping(): Promise<boolean>;
 }
 
 /**
  * Storage operation result with metadata
  */
 interface StorageResult<T = unknown> {
-    data: T | null;
-    found: boolean;
-    layer: 'memory' | 'redis' | 'postgres';
-    cacheHit: boolean;
-    responseTime: number;
+	data: T | null;
+	found: boolean;
+	layer: 'memory' | 'redis' | 'postgres';
+	cacheHit: boolean;
+	responseTime: number;
 }
 
 /**
  * Configuration for the unified storage system
  */
 interface StorageConfig {
-    redisCacheUrl: string;
-    postgresUrl: string;
-    defaultTtlSeconds: number;
-    memoryMaxSize: number;
-    enableMetrics: boolean;
+	redisCacheUrl: string;
+	postgresUrl: string;
+	defaultTtlSeconds: number;
+	memoryMaxSize: number;
+	enableMetrics: boolean;
 }
 
 /**
@@ -92,7 +92,7 @@ class MemoryStorage implements StorageLayer {
 	private cache: Map<string, { value: unknown; expires?: number }>;
 	private readonly maxSize: number;
 
-	constructor(maxSize: number = 1000) {
+	constructor(maxSize = 1000) {
 		this.cache = new Map();
 		this.maxSize = maxSize;
 	}
@@ -128,7 +128,7 @@ class MemoryStorage implements StorageLayer {
 
 		const entry: { value: unknown; expires?: number } = { value };
 		if (ttlSeconds) {
-			entry.expires = Date.now() + (ttlSeconds * 1000);
+			entry.expires = Date.now() + ttlSeconds * 1000;
 		}
 		this.cache.set(key, entry);
 	}
@@ -157,8 +157,7 @@ class MemoryStorage implements StorageLayer {
 		try {
 			// Memory storage is always available if the object exists
 			return true;
-		}
-		catch {
+		} catch {
 			return false;
 		}
 	}
@@ -173,7 +172,7 @@ class MemoryStorage implements StorageLayer {
  */
 class RedisStorage implements StorageLayer {
 	private client: RedisClientType;
-	private connected: boolean = false;
+	private connected = false;
 
 	constructor(redisUrl: string) {
 		this.client = createClient({ url: redisUrl });
@@ -206,8 +205,7 @@ class RedisStorage implements StorageLayer {
 
 			await this.client.connect();
 			await this.client.ping();
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Failed to initialize Redis L2 cache:', error);
 			this.connected = false;
 		}
@@ -219,8 +217,7 @@ class RedisStorage implements StorageLayer {
 		try {
 			const value = await this.client.get(key);
 			return value ? JSON.parse(value) : null;
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Redis L2 get error:', error);
 			return null;
 		}
@@ -233,12 +230,10 @@ class RedisStorage implements StorageLayer {
 			const serialized = JSON.stringify(value);
 			if (ttlSeconds) {
 				await this.client.setEx(key, ttlSeconds, serialized);
-			}
-			else {
+			} else {
 				await this.client.set(key, serialized);
 			}
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Redis L2 set error:', error);
 		}
 	}
@@ -248,8 +243,7 @@ class RedisStorage implements StorageLayer {
 
 		try {
 			await this.client.del(key);
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Redis L2 delete error:', error);
 		}
 	}
@@ -260,8 +254,7 @@ class RedisStorage implements StorageLayer {
 		try {
 			const exists = await this.client.exists(key);
 			return exists === 1;
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Redis L2 exists error:', error);
 			return false;
 		}
@@ -273,8 +266,7 @@ class RedisStorage implements StorageLayer {
 		try {
 			const result = await this.client.ping();
 			return result === 'PONG';
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Redis L2 ping error:', error);
 			return false;
 		}
@@ -286,27 +278,26 @@ class RedisStorage implements StorageLayer {
  */
 class PostgresStorage implements StorageLayer {
 	private pool: Pool;
-	private connected: boolean = false;
+	private connected = false;
 
 	constructor(postgresUrl: string) {
 		const isProduction = process.env.NODE_ENV === 'production';
 		const sslConfig = getSSLConfig(isProduction);
 		const processedPostgresUrl = processConnectionString(postgresUrl, sslConfig);
-		
+
 		// Configure connection pool using the proven pattern from Telegram bot
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const poolConfig: any = {
+		const poolConfig: PoolConfig = {
 			connectionString: processedPostgresUrl,
 			max: 10,
 			idleTimeoutMillis: 30000,
 			connectionTimeoutMillis: 2000,
 		};
-		
+
 		// Only add SSL config if it's not explicitly disabled
 		if (sslConfig !== false) {
 			poolConfig.ssl = sslConfig;
 		}
-		
+
 		this.pool = new Pool(poolConfig);
 		this.initializeConnection();
 	}
@@ -318,8 +309,7 @@ class PostgresStorage implements StorageLayer {
 			client.release();
 			this.connected = true;
 			LogEngine.info('PostgreSQL L3 storage connected successfully');
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('Failed to initialize PostgreSQL L3 storage:', error);
 			this.connected = false;
 		}
@@ -328,7 +318,7 @@ class PostgresStorage implements StorageLayer {
 	async get(key: string): Promise<unknown> {
 		if (!this.connected) return null;
 
-		let client;
+		let client: PoolClient;
 		try {
 			client = await this.pool.connect();
 			try {
@@ -337,12 +327,10 @@ class PostgresStorage implements StorageLayer {
 					[key],
 				);
 				return result.rows.length > 0 ? result.rows[0].data : null;
-			}
-			finally {
+			} finally {
 				client.release();
 			}
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('PostgreSQL L3 get error:', error);
 			return null;
 		}
@@ -351,34 +339,37 @@ class PostgresStorage implements StorageLayer {
 	async set(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
 		if (!this.connected) return;
 
-		let client;
+		let client: PoolClient;
 		try {
 			client = await this.pool.connect();
 			try {
 				const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null;
 
 				if (expiresAt !== null) {
-					await client.query(`
+					await client.query(
+						`
 						INSERT INTO storage_cache (cache_key, data, expires_at) 
 						VALUES ($1, $2, $3)
 						ON CONFLICT (cache_key) 
 						DO UPDATE SET data = $2, expires_at = $3, updated_at = NOW()
-					`, [key, JSON.stringify(value), expiresAt]);
-				}
-				else {
-					await client.query(`
+					`,
+						[key, JSON.stringify(value), expiresAt],
+					);
+				} else {
+					await client.query(
+						`
 						INSERT INTO storage_cache (cache_key, data, expires_at) 
 						VALUES ($1, $2, NULL)
 						ON CONFLICT (cache_key) 
 						DO UPDATE SET data = $2, expires_at = NULL, updated_at = NOW()
-					`, [key, JSON.stringify(value)]);
+					`,
+						[key, JSON.stringify(value)],
+					);
 				}
-			}
-			finally {
+			} finally {
 				client.release();
 			}
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('PostgreSQL L3 set error:', error);
 		}
 	}
@@ -386,17 +377,15 @@ class PostgresStorage implements StorageLayer {
 	async delete(key: string): Promise<void> {
 		if (!this.connected) return;
 
-		let client;
+		let client: PoolClient;
 		try {
 			client = await this.pool.connect();
 			try {
 				await client.query('DELETE FROM storage_cache WHERE cache_key = $1', [key]);
-			}
-			finally {
+			} finally {
 				client.release();
 			}
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('PostgreSQL L3 delete error:', error);
 		}
 	}
@@ -404,7 +393,7 @@ class PostgresStorage implements StorageLayer {
 	async exists(key: string): Promise<boolean> {
 		if (!this.connected) return false;
 
-		let client;
+		let client: PoolClient;
 		try {
 			client = await this.pool.connect();
 			try {
@@ -413,32 +402,31 @@ class PostgresStorage implements StorageLayer {
 					[key],
 				);
 				return result.rows.length > 0;
-			}
-			finally {
+			} finally {
 				client.release();
 			}
-		}
-		catch (error) {
+		} catch (error) {
 			LogEngine.error('PostgreSQL L3 exists error:', error);
 			return false;
 		}
 	}
 
 	async ping(): Promise<boolean> {
-		let client;
+		let client: PoolClient;
 		try {
 			client = await this.pool.connect();
 			try {
 				await client.query('SELECT 1');
 				LogEngine.debug('PostgreSQL L3 ping successful');
 				return true;
-			}
-			finally {
+			} finally {
 				client.release();
 			}
-		}
-		catch (error) {
-			LogEngine.error('PostgreSQL L3 ping error:', error instanceof Error ? error.message : String(error));
+		} catch (error) {
+			LogEngine.error(
+				'PostgreSQL L3 ping error:',
+				error instanceof Error ? error.message : String(error),
+			);
 			return false;
 		}
 	}
@@ -464,8 +452,8 @@ export class UnifiedStorage {
 	}
 
 	/**
-     * Get data with automatic layer fallback
-     */
+	 * Get data with automatic layer fallback
+	 */
 	async get<T = unknown>(key: string): Promise<StorageResult<T>> {
 		const startTime = Date.now();
 
@@ -526,8 +514,8 @@ export class UnifiedStorage {
 	}
 
 	/**
-     * Set data across all layers (write-through)
-     */
+	 * Set data across all layers (write-through)
+	 */
 	async set(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
 		const ttl = ttlSeconds || this.config.defaultTtlSeconds;
 
@@ -544,8 +532,8 @@ export class UnifiedStorage {
 	}
 
 	/**
-     * Delete data from all layers
-     */
+	 * Delete data from all layers
+	 */
 	async delete(key: string): Promise<void> {
 		// Use allSettled to avoid bubbling cache errors during deletion
 		await Promise.allSettled([
@@ -558,18 +546,20 @@ export class UnifiedStorage {
 	}
 
 	/**
-     * Check if key exists in any layer
-     */
+	 * Check if key exists in any layer
+	 */
 	async exists(key: string): Promise<boolean> {
 		// Check in order of performance
-		return await this.l1Memory.exists(key) ||
-               await this.l2Redis.exists(key) ||
-               await this.l3Postgres.exists(key);
+		return (
+			(await this.l1Memory.exists(key)) ||
+			(await this.l2Redis.exists(key)) ||
+			(await this.l3Postgres.exists(key))
+		);
 	}
 
 	/**
-     * Clear all cache layers (use with caution)
-     */
+	 * Clear all cache layers (use with caution)
+	 */
 	async clear(): Promise<void> {
 		await Promise.all([
 			this.l1Memory.clear?.(),
@@ -580,8 +570,8 @@ export class UnifiedStorage {
 	}
 
 	/**
-     * Get storage metrics
-     */
+	 * Get storage metrics
+	 */
 	getMetrics(): Record<string, number> {
 		const metrics = Object.fromEntries(this.metrics);
 		return {
@@ -599,9 +589,10 @@ export class UnifiedStorage {
 	}
 
 	private calculateHitRatio(): number {
-		const hits = (this.metrics.get('l1_hits') || 0) +
-                    (this.metrics.get('l2_hits') || 0) +
-                    (this.metrics.get('l3_hits') || 0);
+		const hits =
+			(this.metrics.get('l1_hits') || 0) +
+			(this.metrics.get('l2_hits') || 0) +
+			(this.metrics.get('l3_hits') || 0);
 		const misses = this.metrics.get('cache_misses') || 0;
 		const total = hits + misses;
 
@@ -609,12 +600,12 @@ export class UnifiedStorage {
 	}
 
 	/**
-     * Health check for all storage layers
-     *
-     * Now uses proper ping() methods to actually test connectivity
-     * instead of relying on Promise.allSettled which reports "fulfilled"
-     * even when operations fail.
-     */
+	 * Health check for all storage layers
+	 *
+	 * Now uses proper ping() methods to actually test connectivity
+	 * instead of relying on Promise.allSettled which reports "fulfilled"
+	 * even when operations fail.
+	 */
 	async healthCheck(): Promise<Record<string, boolean>> {
 		const results = await Promise.allSettled([
 			this.l1Memory.ping(),

@@ -5,14 +5,14 @@
  * Tests cover environment detection, configuration parsing, SSL config, and Railway detection.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
 	DEFAULT_CONFIG,
-	getConfig,
 	getAllConfig,
-	isRailwayEnvironment,
+	getConfig,
 	getSSLConfig,
 	isDevelopment,
+	isRailwayEnvironment,
 } from '@config/defaults';
 
 describe('defaults configuration', () => {
@@ -68,7 +68,7 @@ describe('defaults configuration', () => {
 			});
 
 			it('should return default value when environment not set', () => {
-				delete process.env.TEST_STRING;
+				process.env.TEST_STRING = undefined;
 
 				const result = getConfig('TEST_STRING', 'default-value');
 
@@ -198,7 +198,7 @@ describe('defaults configuration', () => {
 			});
 
 			it('should return default when boolean environment not set', () => {
-				delete process.env.TEST_BOOLEAN;
+				process.env.TEST_BOOLEAN = undefined;
 
 				const result = getConfig('TEST_BOOLEAN', true);
 
@@ -233,10 +233,10 @@ describe('defaults configuration', () => {
 	});
 
 	describe('getAllConfig', () => {
-    it('should return all default configuration values', () => {
-      // Temporarily clear NODE_ENV to test defaults
-      const originalNodeEnv = process.env.NODE_ENV;
-      delete process.env.NODE_ENV;
+		it('should return all default configuration values', () => {
+			// Temporarily clear NODE_ENV to test defaults
+			const originalNodeEnv = process.env.NODE_ENV;
+			process.env.NODE_ENV = undefined;
 
 			try {
 				const config = getAllConfig();
@@ -249,8 +249,7 @@ describe('defaults configuration', () => {
 				expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.invalid');
 				expect(config.DATABASE_SSL_VALIDATE).toBe(true);
 				expect(typeof config.isDevelopment).toBe('boolean');
-			}
-			finally {
+			} finally {
 				// Restore original NODE_ENV
 				if (originalNodeEnv !== undefined) {
 					process.env.NODE_ENV = originalNodeEnv;
@@ -278,26 +277,22 @@ describe('defaults configuration', () => {
 				// Non-overridden values should remain default
 				expect(config.WEBHOOK_POLL_INTERVAL).toBe(5000);
 				expect(config.DUMMY_EMAIL_DOMAIN).toBe('discord.invalid');
-			}
-			finally {
+			} finally {
 				// Restore original environment variable values
 				if (originalNodeEnv !== undefined) {
 					process.env.NODE_ENV = originalNodeEnv;
-				}
-				else {
-					delete process.env.NODE_ENV;
+				} else {
+					process.env.NODE_ENV = undefined;
 				}
 				if (originalPort !== undefined) {
 					process.env.PORT = originalPort;
-				}
-				else {
-					delete process.env.PORT;
+				} else {
+					process.env.PORT = undefined;
 				}
 				if (originalTimeout !== undefined) {
 					process.env.UNTHREAD_HTTP_TIMEOUT_MS = originalTimeout;
-				}
-				else {
-					delete process.env.UNTHREAD_HTTP_TIMEOUT_MS;
+				} else {
+					process.env.UNTHREAD_HTTP_TIMEOUT_MS = undefined;
 				}
 			}
 		});
@@ -312,7 +307,7 @@ describe('defaults configuration', () => {
 		it('should handle mixed environment overrides', () => {
 			// Temporarily clear NODE_ENV and set specific overrides
 			const originalNodeEnv = process.env.NODE_ENV;
-			delete process.env.NODE_ENV;
+			process.env.NODE_ENV = undefined;
 
 			process.env.PORT = '8080';
 			process.env.DATABASE_SSL_VALIDATE = 'false';
@@ -328,12 +323,11 @@ describe('defaults configuration', () => {
 				// Non-overridden should remain default
 				expect(config.NODE_ENV).toBe('production');
 				expect(config.UNTHREAD_HTTP_TIMEOUT_MS).toBe(10000);
-			}
-			finally {
+			} finally {
 				// Cleanup
-				delete process.env.PORT;
-				delete process.env.DATABASE_SSL_VALIDATE;
-				delete process.env.DUMMY_EMAIL_DOMAIN;
+				process.env.PORT = undefined;
+				process.env.DATABASE_SSL_VALIDATE = undefined;
+				process.env.DUMMY_EMAIL_DOMAIN = undefined;
 
 				// Restore original NODE_ENV
 				if (originalNodeEnv !== undefined) {
@@ -345,9 +339,9 @@ describe('defaults configuration', () => {
 
 	describe('isRailwayEnvironment', () => {
 		it('should return false when no Railway URLs are set', () => {
-			delete process.env.PLATFORM_REDIS_URL;
-			delete process.env.WEBHOOK_REDIS_URL;
-			delete process.env.POSTGRES_URL;
+			process.env.PLATFORM_REDIS_URL = undefined;
+			process.env.WEBHOOK_REDIS_URL = undefined;
+			process.env.POSTGRES_URL = undefined;
 
 			expect(isRailwayEnvironment()).toBe(false);
 		});
@@ -409,7 +403,7 @@ describe('defaults configuration', () => {
 
 	describe('getSSLConfig', () => {
 		it('should return SSL config for production by default', () => {
-			delete process.env.DATABASE_SSL_VALIDATE;
+			process.env.DATABASE_SSL_VALIDATE = undefined;
 
 			const config = getSSLConfig(true);
 
@@ -418,7 +412,7 @@ describe('defaults configuration', () => {
 		});
 
 		it('should return SSL config for development by default', () => {
-			delete process.env.DATABASE_SSL_VALIDATE;
+			process.env.DATABASE_SSL_VALIDATE = undefined;
 
 			const config = getSSLConfig(false);
 
@@ -449,16 +443,16 @@ describe('defaults configuration', () => {
 		it('should return SSL config for any non-"full" value', () => {
 			const testValues = ['partial', 'none', 'invalid', ''];
 
-			testValues.forEach(value => {
+			for (const value of testValues) {
 				process.env.DATABASE_SSL_VALIDATE = value;
 
 				const config = getSSLConfig(true);
 
 				// Any non-'full' value in production uses secure default
 				expect(config).toEqual({ rejectUnauthorized: true });
-			});
+			}
 
-			delete process.env.DATABASE_SSL_VALIDATE;
+			process.env.DATABASE_SSL_VALIDATE = undefined;
 		});
 
 		it('should not be consistent between production and development for security', () => {
@@ -488,11 +482,13 @@ describe('defaults configuration', () => {
 
 			try {
 				// This would be unusual but test resilience
-				(process as any).env = undefined;
+				const mutableProcess = process as unknown as {
+					env: NodeJS.ProcessEnv | undefined;
+				};
+				mutableProcess.env = undefined;
 
 				expect(() => getConfig('TEST_KEY', 'default')).not.toThrow();
-			}
-			finally {
+			} finally {
 				process.env = originalProcessEnv;
 			}
 		});
@@ -500,7 +496,7 @@ describe('defaults configuration', () => {
 		it('should handle special environment variable names', () => {
 			process.env['SPECIAL-KEY'] = 'special-value';
 			process.env['key.with.dots'] = 'dot-value';
-			process.env['KEY_WITH_UNDERSCORES'] = 'underscore-value';
+			process.env.KEY_WITH_UNDERSCORES = 'underscore-value';
 
 			expect(getConfig('SPECIAL-KEY', 'default')).toBe('special-value');
 			expect(getConfig('key.with.dots', 'default')).toBe('dot-value');

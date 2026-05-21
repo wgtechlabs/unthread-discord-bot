@@ -24,9 +24,9 @@
  * @module command_deploy
  */
 
-import { REST, Routes } from 'discord.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { REST, Routes } from 'discord.js';
 import * as dotenv from 'dotenv';
 import { LogEngine } from './config/logger';
 
@@ -35,6 +35,16 @@ dotenv.config();
 
 // Load Discord bot configuration from environment variables
 const { DISCORD_BOT_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
+
+function requireEnv(name: 'DISCORD_BOT_TOKEN' | 'CLIENT_ID' | 'GUILD_ID'): string {
+	const value = process.env[name];
+	if (!value) {
+		LogEngine.error(`${name} is required but not set in environment variables`);
+		process.exit(1);
+	}
+
+	return value;
+}
 
 /**
  * Validate required environment variables
@@ -82,8 +92,7 @@ function loadCommands(): Record<string, unknown>[] {
 	let commandFolders: string[];
 	try {
 		commandFolders = fs.readdirSync(foldersPath);
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error('Failed to read commands directory:', error);
 		process.exit(1);
 	}
@@ -98,11 +107,10 @@ function loadCommands(): Record<string, unknown>[] {
 			const usingTsNode = __filename.endsWith('.ts');
 
 			// eslint-disable-next-line security/detect-non-literal-fs-filename
-			commandFiles = fs.readdirSync(commandsPath).filter(file =>
-				usingTsNode ? file.endsWith('.ts') : file.endsWith('.js'),
-			);
-		}
-		catch (error) {
+			commandFiles = fs
+				.readdirSync(commandsPath)
+				.filter((file) => (usingTsNode ? file.endsWith('.ts') : file.endsWith('.js')));
+		} catch (error) {
 			LogEngine.warn(`Failed to read folder ${folder}:`, error);
 			continue;
 		}
@@ -120,27 +128,25 @@ function loadCommands(): Record<string, unknown>[] {
 				const command = ('default' in mod ? mod.default : mod) as CommandModule;
 
 				// Robust validation with explicit type checks
-				if (command &&
+				if (
+					command &&
 					typeof command === 'object' &&
 					command.data &&
 					typeof command.data === 'object' &&
 					typeof command.data.toJSON === 'function' &&
-					typeof command.execute === 'function') {
-
+					typeof command.execute === 'function'
+				) {
 					commands.push(command.data.toJSON());
 					LogEngine.debug(`Loaded command: ${command.data.name} from ${file}`);
-				}
-				else {
+				} else {
 					// Enhanced error reporting with specific validation failures
 					const issues: string[] = [];
 					if (!command || typeof command !== 'object') {
 						issues.push('command is not an object');
-					}
-					else {
+					} else {
 						if (!command.data || typeof command.data !== 'object') {
 							issues.push('command.data is missing or not an object');
-						}
-						else if (typeof command.data.toJSON !== 'function') {
+						} else if (typeof command.data.toJSON !== 'function') {
 							issues.push('command.data.toJSON is missing or not a function');
 						}
 						if (typeof command.execute !== 'function') {
@@ -149,8 +155,7 @@ function loadCommands(): Record<string, unknown>[] {
 					}
 					LogEngine.warn(`Skipping invalid command at ${filePath}: ${issues.join(', ')}`);
 				}
-			}
-			catch (error) {
+			} catch (error) {
 				LogEngine.error(`Failed to load command from ${filePath}:`, error);
 			}
 		}
@@ -171,22 +176,24 @@ async function deployCommands(commands: Record<string, unknown>[]): Promise<void
 		return;
 	}
 
+	const botToken = requireEnv('DISCORD_BOT_TOKEN');
+	const clientId = requireEnv('CLIENT_ID');
+	const guildId = requireEnv('GUILD_ID');
+
 	// Initialize Discord REST client
-	const rest = new REST().setToken(DISCORD_BOT_TOKEN!);
+	const rest = new REST().setToken(botToken);
 
 	LogEngine.info(`Deploying ${commands.length} commands to Discord (force deployment)...`);
 
 	try {
 		// Deploy commands to the specified guild (force deployment)
-		const data = await rest.put(
-			Routes.applicationGuildCommands(CLIENT_ID!, GUILD_ID!),
-			{ body: commands },
-		) as Record<string, unknown>[];
+		const data = (await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+			body: commands,
+		})) as Record<string, unknown>[];
 
 		LogEngine.info(`Successfully deployed ${data.length} slash commands to Discord API`);
 		LogEngine.info('All commands have been registered and are now available in Discord');
-	}
-	catch (error) {
+	} catch (error) {
 		LogEngine.error('Command deployment failed:', error);
 		process.exit(1);
 	}

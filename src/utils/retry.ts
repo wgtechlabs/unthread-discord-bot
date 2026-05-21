@@ -58,15 +58,8 @@ interface RetryOptions {
  *   { operationName: 'API data fetch' }
  * );
  */
-async function withRetry<T>(
-	operation: () => Promise<T>,
-	options: RetryOptions = {},
-): Promise<T> {
-	const {
-		maxAttempts = 5,
-		baseDelayMs = 3000,
-		operationName = 'operation',
-	} = options;
+async function withRetry<T>(operation: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
+	const { maxAttempts = 5, baseDelayMs = 3000, operationName = 'operation' } = options;
 
 	let attempt = 0;
 	let lastError: Error | null = null;
@@ -84,8 +77,7 @@ async function withRetry<T>(
 			}
 
 			return result;
-		}
-		catch (error) {
+		} catch (error) {
 			lastError = error as Error;
 			LogEngine.debug(`Attempt ${attempt + 1} failed: ${lastError.message}`);
 
@@ -93,7 +85,7 @@ async function withRetry<T>(
 				// Calculate delay with linear backoff
 				const delayMs = baseDelayMs * (attempt + 1);
 				LogEngine.info(`Retrying in ${delayMs / 1000}s... (attempt ${attempt + 1}/${maxAttempts})`);
-				await new Promise(resolve => setTimeout(resolve, delayMs));
+				await new Promise((resolve) => setTimeout(resolve, delayMs));
 			}
 		}
 
@@ -101,8 +93,13 @@ async function withRetry<T>(
 	}
 
 	// If we get here, all attempts failed
-	LogEngine.error(`${operationName} failed after ${maxAttempts} attempts. Last error: ${lastError?.message}`);
-	throw new Error(`${operationName} failed after ${maxAttempts} attempts: ${lastError?.message || 'Unknown error'}`, { cause: lastError ?? undefined });
+	LogEngine.error(
+		`${operationName} failed after ${maxAttempts} attempts. Last error: ${lastError?.message}`,
+	);
+	throw new Error(
+		`${operationName} failed after ${maxAttempts} attempts: ${lastError?.message || 'Unknown error'}`,
+		{ cause: lastError ?? undefined },
+	);
 }
 
 /**

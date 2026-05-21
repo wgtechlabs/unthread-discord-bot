@@ -5,7 +5,7 @@
  * Tests cover basic decoding, edge cases, performance, and error handling.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities';
 import htmlEntityDecoder from '@utils/decodeHtmlEntities';
 
@@ -86,10 +86,9 @@ describe('decodeHtmlEntities', () => {
 
 		it('should handle complex nested-like patterns', () => {
 			const complex = '&amp;amp; &amp;gt; &amp;lt;';
-			// &amp;amp; -> &amp; -> &amp; (stops there)
-			// &amp;gt; -> &gt; -> >
-			// &amp;lt; -> &lt; -> <
-			const expected = '&amp; > <';
+			// Single-pass decode: decode &gt; / &lt; first, then ampersands.
+			// This avoids double-decoding values like "&amp;lt;" in one call.
+			const expected = '&amp; &gt; &lt;';
 			expect(decodeHtmlEntities(complex)).toBe(expected);
 		});
 
@@ -112,8 +111,10 @@ describe('decodeHtmlEntities', () => {
 		});
 
 		it('should decode ticket content from external systems', () => {
-			const ticketContent = 'Issue: Database query returned rows where id &gt; 1000 &amp; status = &amp;quot;active&amp;quot;';
-			const expected = 'Issue: Database query returned rows where id > 1000 & status = &quot;active&quot;';
+			const ticketContent =
+				'Issue: Database query returned rows where id &gt; 1000 &amp; status = &amp;quot;active&amp;quot;';
+			const expected =
+				'Issue: Database query returned rows where id > 1000 & status = &quot;active&quot;';
 			expect(decodeHtmlEntities(ticketContent)).toBe(expected);
 		});
 
@@ -165,14 +166,14 @@ describe('decodeHtmlEntities', () => {
 			expect(result1).toBe(result2);
 		});
 
-		it('should not double-decode entities', () => {
+		it('should not double-decode entities in a single pass', () => {
 			const encoded = '&amp;gt;'; // This represents &gt; in HTML
 			const result = decodeHtmlEntities(encoded);
 
-			// Should decode &amp; to &, making &gt;, then &gt; becomes >
-			expect(result).toBe('>');
+			// Single pass decodes &amp; to &, leaving &gt; intact.
+			expect(result).toBe('&gt;');
 
-			// Running again should not change it further since there are no entities
+			// A second pass can then decode &gt; to >.
 			expect(decodeHtmlEntities(result)).toBe('>');
 		});
 	});

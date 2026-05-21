@@ -6,14 +6,22 @@
  * are processed, preventing conflicts with text channels accidentally added
  * to FORUM_CHANNEL_IDS.
  */
-import { Events, EmbedBuilder, PermissionFlagsBits, ThreadChannel, Message } from 'discord.js';
-import { createTicket, bindTicketWithThread } from '../services/unthread';
+import {
+	EmbedBuilder,
+	Events,
+	type Message,
+	PermissionFlagsBits,
+	type ThreadChannel,
+} from 'discord.js';
+import { LogEngine } from '../config/logger';
+import { AttachmentDetectionService } from '../services/attachmentDetection';
+import { bindTicketWithThread, createTicket } from '../services/unthread';
+import { AttachmentHandler } from '../utils/attachmentHandler';
+import { getBotFooter } from '../utils/botUtils';
+import { isValidatedForumChannel } from '../utils/channelUtils';
+import { getOrCreateCustomer } from '../utils/customerUtils';
 import { withRetry } from '../utils/retry';
 import { fetchStarterMessage } from '../utils/threadUtils';
-import { LogEngine } from '../config/logger';
-import { getOrCreateCustomer } from '../utils/customerUtils';
-import { isValidatedForumChannel } from '../utils/channelUtils';
-import { getBotFooter } from '../utils/botUtils';
 
 export const name = Events.ThreadCreate;
 
@@ -38,11 +46,12 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 		// Ignore threads created in channels that are not validated forum channels.
 		const isValidForum = await isValidatedForumChannel(thread.parentId || '');
 		if (!isValidForum) return;
-	}
-	catch (error: unknown) {
+	} catch (error: unknown) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		LogEngine.error('Error validating forum channel:', errorMessage);
-		LogEngine.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
+		LogEngine.error(
+			`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`,
+		);
 		LogEngine.error('Skipping thread processing due to validation error');
 		return;
 	}
@@ -72,26 +81,37 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 
 	const parentPermissions = botMember.permissionsIn(parentChannel);
 	if (!parentPermissions.has(requiredPermissions)) {
-		const missingPermissions = requiredPermissions.filter(perm => !parentPermissions.has(perm));
-		const permissionNames = missingPermissions.map(perm => {
+		const missingPermissions = requiredPermissions.filter((perm) => !parentPermissions.has(perm));
+		const permissionNames = missingPermissions.map((perm) => {
 			switch (perm) {
-			case PermissionFlagsBits.SendMessagesInThreads: return 'Send Messages in Threads';
-			case PermissionFlagsBits.ViewChannel: return 'View Channel';
-			case PermissionFlagsBits.ReadMessageHistory: return 'Read Message History';
-			case PermissionFlagsBits.SendMessages: return 'Send Messages';
-			default: return 'Unknown Permission';
+				case PermissionFlagsBits.SendMessagesInThreads:
+					return 'Send Messages in Threads';
+				case PermissionFlagsBits.ViewChannel:
+					return 'View Channel';
+				case PermissionFlagsBits.ReadMessageHistory:
+					return 'Read Message History';
+				case PermissionFlagsBits.SendMessages:
+					return 'Send Messages';
+				default:
+					return 'Unknown Permission';
 			}
 		});
 
-		LogEngine.error(`Cannot create support tickets in forum channel "${parentChannel.name}" (${parentChannel.id})`);
+		LogEngine.error(
+			`Cannot create support tickets in forum channel "${parentChannel.name}" (${parentChannel.id})`,
+		);
 		LogEngine.error(`Missing permissions: ${permissionNames.join(', ')}`);
-		LogEngine.error('Action required: Ask a server administrator to grant the bot these permissions in the forum channel.');
+		LogEngine.error(
+			'Action required: Ask a server administrator to grant the bot these permissions in the forum channel.',
+		);
 		LogEngine.error(`Guild: ${thread.guild.name} (${thread.guild.id})`);
 		return;
 	}
 
 	// Also check permissions specifically in the thread
-	const threadPermissions = botMember.permissionsIn(thread as Parameters<typeof botMember.permissionsIn>[0]);
+	const threadPermissions = botMember.permissionsIn(
+		thread as Parameters<typeof botMember.permissionsIn>[0],
+	);
 	const threadRequiredPermissions = [
 		PermissionFlagsBits.SendMessagesInThreads,
 		PermissionFlagsBits.ViewChannel,
@@ -99,29 +119,63 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 	];
 
 	if (!threadPermissions.has(threadRequiredPermissions)) {
-		const missingThreadPermissions = threadRequiredPermissions.filter(perm => !threadPermissions.has(perm));
-		const threadPermissionNames = missingThreadPermissions.map(perm => {
+		const missingThreadPermissions = threadRequiredPermissions.filter(
+			(perm) => !threadPermissions.has(perm),
+		);
+		const threadPermissionNames = missingThreadPermissions.map((perm) => {
 			switch (perm) {
-			case PermissionFlagsBits.SendMessagesInThreads: return 'Send Messages in Threads';
-			case PermissionFlagsBits.ViewChannel: return 'View Channel';
-			case PermissionFlagsBits.ReadMessageHistory: return 'Read Message History';
-			default: return 'Unknown Permission';
+				case PermissionFlagsBits.SendMessagesInThreads:
+					return 'Send Messages in Threads';
+				case PermissionFlagsBits.ViewChannel:
+					return 'View Channel';
+				case PermissionFlagsBits.ReadMessageHistory:
+					return 'Read Message History';
+				default:
+					return 'Unknown Permission';
 			}
 		});
 
 		LogEngine.error(`Cannot process forum thread "${thread.name}" (${thread.id})`);
 		LogEngine.error(`Missing thread permissions: ${threadPermissionNames.join(', ')}`);
-		LogEngine.error('Action required: Ask a server administrator to grant the bot these permissions for forum threads.');
+		LogEngine.error(
+			'Action required: Ask a server administrator to grant the bot these permissions for forum threads.',
+		);
 		LogEngine.error(`Guild: ${thread.guild.name} (${thread.guild.id})`);
 		return;
 	}
 
-	LogEngine.info(`Permission check passed for forum thread "${thread.name}" in channel "${parentChannel.name}"`);
+	LogEngine.info(
+		`Permission check passed for forum thread "${thread.name}" in channel "${parentChannel.name}"`,
+	);
 
 	// Declare in higher scope for error logging access
 	let firstMessage: Message | undefined;
+	let statusMessage: Message | undefined;
 
 	try {
+		const processingEmbed = new EmbedBuilder()
+			.setColor(0xffc107)
+			.setTitle('⏳ Creating your support ticket')
+			.setDescription(
+				'We received your forum post and are creating your ticket in Unthread. This can take a few moments.',
+			)
+			.setFooter({ text: getBotFooter() })
+			.setTimestamp();
+
+		try {
+			statusMessage = await withRetry(async () => thread.send({ embeds: [processingEmbed] }), {
+				operationName: 'Send processing status message',
+				maxAttempts: 3,
+				baseDelayMs: 1000,
+			});
+		} catch (statusError: unknown) {
+			const statusErrorMessage =
+				statusError instanceof Error ? statusError.message : String(statusError);
+			LogEngine.warn(
+				`Could not send processing status message; continuing ticket creation flow: ${statusErrorMessage}`,
+			);
+		}
+
 		// Fetch the first message with our retry mechanism
 		firstMessage = await withRetry(
 			async () => {
@@ -161,67 +215,135 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 		// Link the Discord thread with the Unthread ticket for communication.
 		await bindTicketWithThread(ticket.id, thread.id);
 
+		// Process attachments from the initial forum post
+		if (firstMessage.attachments.size > 0) {
+			const imageAttachments = AttachmentDetectionService.filterSupportedImages(
+				firstMessage.attachments,
+			);
+
+			if (imageAttachments.size > 0) {
+				LogEngine.debug(`Found ${imageAttachments.size} valid image attachments in forum post`);
+
+				const attachmentHandler = new AttachmentHandler();
+				const uploadResult = await attachmentHandler.uploadDiscordAttachmentsToUnthread(
+					ticket.id,
+					imageAttachments,
+					content || 'Attachments from forum post',
+					{ name: author.displayName || author.username, email },
+				);
+
+				if (uploadResult.success) {
+					LogEngine.info(
+						`Successfully uploaded ${uploadResult.processedCount} attachments from forum post to ticket ${ticket.id} in ${uploadResult.processingTime}ms`,
+					);
+				} else {
+					LogEngine.warn(
+						`Failed to upload some attachments from forum post: ${uploadResult.errors.join(', ')}`,
+					);
+				}
+			}
+		}
+
 		// Notify users in the thread that a ticket has been created.
 		const ticketEmbed = new EmbedBuilder()
-			.setColor(0xFF5241)
+			.setColor(0xff5241)
 			.setTitle(`🎫 Support Ticket #${ticket.friendlyId}`)
 			.setDescription(`**${title}**\n\n${content}`)
-			.addFields(
-				{ name: '🔁 Next Steps', value: 'Our support team will respond here shortly. Please monitor this thread for updates.', inline: false },
-			)
+			.addFields({
+				name: '🔁 Next Steps',
+				value:
+					'Our support team will respond here shortly. Please monitor this thread for updates.',
+				inline: false,
+			})
 			.setFooter({ text: getBotFooter() })
 			.setTimestamp();
 
-		await thread.send({ embeds: [ticketEmbed] });
+		if (statusMessage) {
+			try {
+				await statusMessage.edit({ embeds: [ticketEmbed] });
+			} catch (editError: unknown) {
+				const editErrorMessage = editError instanceof Error ? editError.message : String(editError);
+				LogEngine.warn(
+					`Could not edit processing status message with success embed; sending new message instead: ${editErrorMessage}`,
+				);
+				await thread.send({ embeds: [ticketEmbed] });
+			}
+		} else {
+			await thread.send({ embeds: [ticketEmbed] });
+		}
 
 		LogEngine.info(`Forum post converted to ticket: #${ticket.friendlyId}`);
-	}
-	catch (error: unknown) {
+	} catch (error: unknown) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		if (errorMessage.includes('timeout')) {
 			LogEngine.error('Ticket creation is taking longer than expected. Please wait and try again.');
-			LogEngine.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
-		}
-		else {
+			LogEngine.error(
+				`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`,
+			);
+		} else {
 			LogEngine.error('An error occurred while creating the ticket:', errorMessage);
-			LogEngine.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
-			LogEngine.error(`Author: ${firstMessage?.author?.displayName || firstMessage?.author?.username || 'Unknown'} (${firstMessage?.author?.id || 'Unknown'})`);
+			LogEngine.error(
+				`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`,
+			);
+			LogEngine.error(
+				`Author: ${firstMessage?.author?.displayName || firstMessage?.author?.username || 'Unknown'} (${firstMessage?.author?.id || 'Unknown'})`,
+			);
 		}
 
 		try {
 			// Only attempt to send error message if we have the necessary permissions
-			const canSendMessages = botMember.permissionsIn(thread as Parameters<typeof botMember.permissionsIn>[0]).has([
-				PermissionFlagsBits.SendMessagesInThreads,
-				PermissionFlagsBits.ViewChannel,
-			]);
+			const canSendMessages = botMember
+				.permissionsIn(thread as Parameters<typeof botMember.permissionsIn>[0])
+				.has([PermissionFlagsBits.SendMessagesInThreads, PermissionFlagsBits.ViewChannel]);
 
 			if (canSendMessages) {
 				// Notify users in the thread about the error.
 				const errorEmbed = new EmbedBuilder()
-					.setColor(0xFF0000)
+					.setColor(0xff0000)
 					.setTitle('Error Creating Support Ticket')
-					.setDescription('There was an error creating a support ticket from this forum post. A staff member will assist you shortly.')
+					.setDescription(
+						'There was an error creating a support ticket from this forum post. A staff member will assist you shortly.',
+					)
 					.setFooter({ text: getBotFooter() })
 					.setTimestamp();
 
-				await thread.send({ embeds: [errorEmbed] });
+				if (statusMessage) {
+					try {
+						await statusMessage.edit({ embeds: [errorEmbed] });
+					} catch (editError: unknown) {
+						const editErrorMessage =
+							editError instanceof Error ? editError.message : String(editError);
+						LogEngine.warn(
+							`Could not edit processing status message with error embed; sending new message instead: ${editErrorMessage}`,
+						);
+						await thread.send({ embeds: [errorEmbed] });
+					}
+				} else {
+					await thread.send({ embeds: [errorEmbed] });
+				}
 				LogEngine.info('Sent error notification to user in thread');
-			}
-			else {
+			} else {
 				LogEngine.warn('Cannot send error message to user - missing permissions');
 				LogEngine.warn('Users will not be notified of the ticket creation failure');
-				LogEngine.warn('Administrator action required: Grant bot "Send Messages in Threads" and "View Channel" permissions');
+				LogEngine.warn(
+					'Administrator action required: Grant bot "Send Messages in Threads" and "View Channel" permissions',
+				);
 			}
-		}
-		catch (sendError: unknown) {
+		} catch (sendError: unknown) {
 			const sendErrorMessage = sendError instanceof Error ? sendError.message : String(sendError);
 			LogEngine.error('Could not send error message to thread:', sendErrorMessage);
 			const sendErrorObj = sendError as { code?: number };
 			if (sendErrorObj.code === 50001) {
-				LogEngine.error('Error Code 50001: Missing Access - Bot lacks permission to send messages in this thread');
-				LogEngine.error('Administrator action required: Grant bot "Send Messages in Threads" permission');
+				LogEngine.error(
+					'Error Code 50001: Missing Access - Bot lacks permission to send messages in this thread',
+				);
+				LogEngine.error(
+					'Administrator action required: Grant bot "Send Messages in Threads" permission',
+				);
 			}
-			LogEngine.error(`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`);
+			LogEngine.error(
+				`Thread: "${thread.name}" (${thread.id}) in Guild: ${thread.guild.name} (${thread.guild.id})`,
+			);
 		}
 	}
 }

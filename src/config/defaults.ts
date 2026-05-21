@@ -55,7 +55,8 @@ export const DEFAULT_CONFIG = {
 /**
  * Environment detection helper - computed at module load time
  */
-export const isDevelopment: boolean = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+export const isDevelopment: boolean =
+	process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
 
 /**
  * Get configuration value with environment override support
@@ -71,8 +72,8 @@ export function getConfig<T>(key: string, defaultValue: T): T {
 	if (envValue !== undefined) {
 		// Try to parse numeric values
 		if (typeof defaultValue === 'number') {
-			const parsed = parseInt(envValue, 10);
-			return (!isNaN(parsed) ? parsed : defaultValue) as T;
+			const parsed = Number.parseInt(envValue, 10);
+			return (!Number.isNaN(parsed) ? parsed : defaultValue) as T;
 		}
 
 		// Try to parse boolean values
@@ -94,9 +95,15 @@ export function getAllConfig() {
 	return {
 		NODE_ENV: getConfig('NODE_ENV', DEFAULT_CONFIG.NODE_ENV),
 		PORT: getConfig('PORT', DEFAULT_CONFIG.PORT),
-		UNTHREAD_HTTP_TIMEOUT_MS: getConfig('UNTHREAD_HTTP_TIMEOUT_MS', DEFAULT_CONFIG.UNTHREAD_HTTP_TIMEOUT_MS),
+		UNTHREAD_HTTP_TIMEOUT_MS: getConfig(
+			'UNTHREAD_HTTP_TIMEOUT_MS',
+			DEFAULT_CONFIG.UNTHREAD_HTTP_TIMEOUT_MS,
+		),
 		WEBHOOK_POLL_INTERVAL: getConfig('WEBHOOK_POLL_INTERVAL', DEFAULT_CONFIG.WEBHOOK_POLL_INTERVAL),
-		UNTHREAD_DEFAULT_PRIORITY: getConfig('UNTHREAD_DEFAULT_PRIORITY', DEFAULT_CONFIG.UNTHREAD_DEFAULT_PRIORITY),
+		UNTHREAD_DEFAULT_PRIORITY: getConfig(
+			'UNTHREAD_DEFAULT_PRIORITY',
+			DEFAULT_CONFIG.UNTHREAD_DEFAULT_PRIORITY,
+		),
 		DUMMY_EMAIL_DOMAIN: getConfig('DUMMY_EMAIL_DOMAIN', DEFAULT_CONFIG.DUMMY_EMAIL_DOMAIN),
 		DATABASE_SSL_VALIDATE: getConfig('DATABASE_SSL_VALIDATE', DEFAULT_CONFIG.DATABASE_SSL_VALIDATE),
 		isDevelopment,
@@ -118,17 +125,12 @@ export function isRailwayEnvironment(): boolean {
 		try {
 			const parsedUrl = new URL(url);
 			return parsedUrl.hostname.toLowerCase().includes('railway.internal');
-		}
-		catch {
+		} catch {
 			return false;
 		}
 	};
 
-	return (
-		isRailwayHost(platformRedis) ||
-		isRailwayHost(webhookRedis) ||
-		isRailwayHost(postgresUrl)
-	);
+	return isRailwayHost(platformRedis) || isRailwayHost(webhookRedis) || isRailwayHost(postgresUrl);
 }
 
 /**
@@ -222,7 +224,10 @@ export function getSSLConfig(isProduction: boolean): SSLConfig | false {
  * @param sslConfig - SSL configuration from getSSLConfig()
  * @returns Processed connection string with SSL parameters if needed
  */
-export function processConnectionString(connectionString: string, sslConfig: SSLConfig | false): string {
+export function processConnectionString(
+	connectionString: string,
+	sslConfig: SSLConfig | false,
+): string {
 	// Auto-append sslmode=disable only when completely disabling SSL
 	if (sslConfig === false && !connectionString.includes('sslmode=')) {
 		const separator = connectionString.includes('?') ? '&' : '?';

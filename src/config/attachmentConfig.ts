@@ -18,13 +18,7 @@ export const DISCORD_ATTACHMENT_CONFIG = {
 	maxFilesPerMessage: 10,
 
 	/** Supported image MIME types */
-	supportedImageTypes: [
-		'image/png',
-		'image/jpeg',
-		'image/jpg',
-		'image/gif',
-		'image/webp',
-	] as const,
+	supportedImageTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'] as const,
 
 	/** Upload timeout in milliseconds */
 	uploadTimeout: 30000,
@@ -65,24 +59,24 @@ export const DISCORD_ATTACHMENT_CONFIG = {
 /**
  * Type for supported image MIME types
  */
-export type SupportedImageType = typeof DISCORD_ATTACHMENT_CONFIG.supportedImageTypes[number];
+export type SupportedImageType = (typeof DISCORD_ATTACHMENT_CONFIG.supportedImageTypes)[number];
 
 /**
  * Gets file extension from MIME type
  */
 export function getFileExtensionFromMimeType(mimeType: string): string {
 	switch (mimeType) {
-	case 'image/png':
-		return 'png';
-	case 'image/jpeg':
-	case 'image/jpg':
-		return 'jpg';
-	case 'image/gif':
-		return 'gif';
-	case 'image/webp':
-		return 'webp';
-	default:
-		return 'bin';
+		case 'image/png':
+			return 'png';
+		case 'image/jpeg':
+		case 'image/jpg':
+			return 'jpg';
+		case 'image/gif':
+			return 'gif';
+		case 'image/webp':
+			return 'webp';
+		default:
+			return 'bin';
 	}
 }
 
