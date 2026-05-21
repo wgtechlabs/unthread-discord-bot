@@ -163,14 +163,11 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 			.setTimestamp();
 
 		try {
-			statusMessage = await withRetry(
-				async () => thread.send({ embeds: [processingEmbed] }),
-				{
-					operationName: 'Send processing status message',
-					maxAttempts: 3,
-					baseDelayMs: 1000,
-				},
-			);
+			statusMessage = await withRetry(async () => thread.send({ embeds: [processingEmbed] }), {
+				operationName: 'Send processing status message',
+				maxAttempts: 3,
+				baseDelayMs: 1000,
+			});
 		} catch (statusError: unknown) {
 			const statusErrorMessage =
 				statusError instanceof Error ? statusError.message : String(statusError);
