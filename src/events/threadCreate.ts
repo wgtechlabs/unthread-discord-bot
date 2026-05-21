@@ -150,8 +150,20 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 
 	// Declare in higher scope for error logging access
 	let firstMessage: Message | undefined;
+	let statusMessage: Message | undefined;
 
 	try {
+		const processingEmbed = new EmbedBuilder()
+			.setColor(0xffc107)
+			.setTitle('⏳ Creating your support ticket')
+			.setDescription(
+				'We received your forum post and are creating your ticket in Unthread. This can take a few moments.',
+			)
+			.setFooter({ text: getBotFooter() })
+			.setTimestamp();
+
+		statusMessage = await thread.send({ embeds: [processingEmbed] });
+
 		// Fetch the first message with our retry mechanism
 		firstMessage = await withRetry(
 			async () => {
@@ -234,7 +246,11 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 			.setFooter({ text: getBotFooter() })
 			.setTimestamp();
 
-		await thread.send({ embeds: [ticketEmbed] });
+		if (statusMessage) {
+			await statusMessage.edit({ embeds: [ticketEmbed] });
+		} else {
+			await thread.send({ embeds: [ticketEmbed] });
+		}
 
 		LogEngine.info(`Forum post converted to ticket: #${ticket.friendlyId}`);
 	} catch (error: unknown) {
@@ -271,7 +287,11 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 					.setFooter({ text: getBotFooter() })
 					.setTimestamp();
 
-				await thread.send({ embeds: [errorEmbed] });
+				if (statusMessage) {
+					await statusMessage.edit({ embeds: [errorEmbed] });
+				} else {
+					await thread.send({ embeds: [errorEmbed] });
+				}
 				LogEngine.info('Sent error notification to user in thread');
 			} else {
 				LogEngine.warn('Cannot send error message to user - missing permissions');
