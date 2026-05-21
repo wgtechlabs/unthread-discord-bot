@@ -162,7 +162,22 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 			.setFooter({ text: getBotFooter() })
 			.setTimestamp();
 
-		statusMessage = await thread.send({ embeds: [processingEmbed] });
+		try {
+			statusMessage = await withRetry(
+				async () => thread.send({ embeds: [processingEmbed] }),
+				{
+					operationName: 'Send processing status message',
+					maxAttempts: 3,
+					baseDelayMs: 1000,
+				},
+			);
+		} catch (statusError: unknown) {
+			const statusErrorMessage =
+				statusError instanceof Error ? statusError.message : String(statusError);
+			LogEngine.warn(
+				`Could not send processing status message; continuing ticket creation flow: ${statusErrorMessage}`,
+			);
+		}
 
 		// Fetch the first message with our retry mechanism
 		firstMessage = await withRetry(
@@ -247,7 +262,15 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 			.setTimestamp();
 
 		if (statusMessage) {
-			await statusMessage.edit({ embeds: [ticketEmbed] });
+			try {
+				await statusMessage.edit({ embeds: [ticketEmbed] });
+			} catch (editError: unknown) {
+				const editErrorMessage = editError instanceof Error ? editError.message : String(editError);
+				LogEngine.warn(
+					`Could not edit processing status message with success embed; sending new message instead: ${editErrorMessage}`,
+				);
+				await thread.send({ embeds: [ticketEmbed] });
+			}
 		} else {
 			await thread.send({ embeds: [ticketEmbed] });
 		}
@@ -288,7 +311,16 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 					.setTimestamp();
 
 				if (statusMessage) {
-					await statusMessage.edit({ embeds: [errorEmbed] });
+					try {
+						await statusMessage.edit({ embeds: [errorEmbed] });
+					} catch (editError: unknown) {
+						const editErrorMessage =
+							editError instanceof Error ? editError.message : String(editError);
+						LogEngine.warn(
+							`Could not edit processing status message with error embed; sending new message instead: ${editErrorMessage}`,
+						);
+						await thread.send({ embeds: [errorEmbed] });
+					}
 				} else {
 					await thread.send({ embeds: [errorEmbed] });
 				}
