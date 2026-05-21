@@ -150,8 +150,32 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 
 	// Declare in higher scope for error logging access
 	let firstMessage: Message | undefined;
+	let statusMessage: Message | undefined;
 
 	try {
+		const processingEmbed = new EmbedBuilder()
+			.setColor(0xffc107)
+			.setTitle('⏳ Creating your support ticket')
+			.setDescription(
+				'We received your forum post and are creating your ticket in Unthread. This can take a few moments.',
+			)
+			.setFooter({ text: getBotFooter() })
+			.setTimestamp();
+
+		try {
+			statusMessage = await withRetry(async () => thread.send({ embeds: [processingEmbed] }), {
+				operationName: 'Send processing status message',
+				maxAttempts: 3,
+				baseDelayMs: 1000,
+			});
+		} catch (statusError: unknown) {
+			const statusErrorMessage =
+				statusError instanceof Error ? statusError.message : String(statusError);
+			LogEngine.warn(
+				`Could not send processing status message; continuing ticket creation flow: ${statusErrorMessage}`,
+			);
+		}
+
 		// Fetch the first message with our retry mechanism
 		firstMessage = await withRetry(
 			async () => {
@@ -234,7 +258,19 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 			.setFooter({ text: getBotFooter() })
 			.setTimestamp();
 
-		await thread.send({ embeds: [ticketEmbed] });
+		if (statusMessage) {
+			try {
+				await statusMessage.edit({ embeds: [ticketEmbed] });
+			} catch (editError: unknown) {
+				const editErrorMessage = editError instanceof Error ? editError.message : String(editError);
+				LogEngine.warn(
+					`Could not edit processing status message with success embed; sending new message instead: ${editErrorMessage}`,
+				);
+				await thread.send({ embeds: [ticketEmbed] });
+			}
+		} else {
+			await thread.send({ embeds: [ticketEmbed] });
+		}
 
 		LogEngine.info(`Forum post converted to ticket: #${ticket.friendlyId}`);
 	} catch (error: unknown) {
@@ -271,7 +307,20 @@ export async function execute(thread: ThreadChannel): Promise<void> {
 					.setFooter({ text: getBotFooter() })
 					.setTimestamp();
 
-				await thread.send({ embeds: [errorEmbed] });
+				if (statusMessage) {
+					try {
+						await statusMessage.edit({ embeds: [errorEmbed] });
+					} catch (editError: unknown) {
+						const editErrorMessage =
+							editError instanceof Error ? editError.message : String(editError);
+						LogEngine.warn(
+							`Could not edit processing status message with error embed; sending new message instead: ${editErrorMessage}`,
+						);
+						await thread.send({ embeds: [errorEmbed] });
+					}
+				} else {
+					await thread.send({ embeds: [errorEmbed] });
+				}
 				LogEngine.info('Sent error notification to user in thread');
 			} else {
 				LogEngine.warn('Cannot send error message to user - missing permissions');
