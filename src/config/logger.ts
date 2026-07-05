@@ -30,7 +30,5 @@ LogEngine.configure({
 });
 
 // Export LogEngine for use throughout the application
-export { LogEngine };
-
 // Re-export LogMode for convenience
-export { LogMode };
+export { LogEngine, LogMode };

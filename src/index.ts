@@ -72,6 +72,7 @@
 
 // Load environment variables first, before any other imports
 import * as dotenv from 'dotenv';
+
 dotenv.config();
 
 import * as fs from 'node:fs';
@@ -82,10 +83,9 @@ import { validateEnvironment } from './services/unthread';
 import type { BotConfig } from './types/discord';
 import './types/global';
 
+import { getAllConfig } from './config/defaults';
 // Import new storage architecture
 import { BotsStore } from './sdk/bots-brain/BotsStore';
-
-import { getAllConfig } from './config/defaults';
 // Import clean webhook consumer
 import { WebhookConsumer } from './sdk/webhook-consumer';
 

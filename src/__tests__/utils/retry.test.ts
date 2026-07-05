@@ -7,8 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, jest as vi } from 'bun:test';
 import { advanceTimersAndWait, createEventualSuccessMock } from '@tests/async-test-utils';
-import { withRetry } from '@utils/retry';
-import retryUtils from '@utils/retry';
+import retryUtils, { withRetry } from '@utils/retry';
 import { LogEngine } from '@wgtechlabs/log-engine';
 
 describe('withRetry', () => {

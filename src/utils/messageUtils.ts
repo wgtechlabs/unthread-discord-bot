@@ -304,4 +304,4 @@ const messageUtils = {
 export default messageUtils;
 
 // Export individual functions for named imports
-export { isDuplicateMessage, removeAttachmentSection, processQuotedContent };
+export { isDuplicateMessage, processQuotedContent, removeAttachmentSection };

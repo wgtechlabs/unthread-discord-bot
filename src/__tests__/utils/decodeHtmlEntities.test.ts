@@ -6,8 +6,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { decodeHtmlEntities } from '@utils/decodeHtmlEntities';
-import htmlEntityDecoder from '@utils/decodeHtmlEntities';
+import htmlEntityDecoder, { decodeHtmlEntities } from '@utils/decodeHtmlEntities';
 
 describe('decodeHtmlEntities', () => {
 	describe('Basic HTML Entity Decoding', () => {

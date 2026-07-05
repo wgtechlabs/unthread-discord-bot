@@ -46,7 +46,7 @@
  */
 
 import { Pool, type PoolClient, type PoolConfig } from 'pg';
-import { type RedisClientType, createClient } from 'redis';
+import { createClient, type RedisClientType } from 'redis';
 import { getSSLConfig, processConnectionString } from '../../config/defaults';
 import { LogEngine } from '../../config/logger';
 

@@ -7,6 +7,6 @@
  * @module sdk/webhook-consumer
  */
 
-export { WebhookConsumer } from './WebhookConsumer';
 export { EventValidator } from './EventValidator';
 export type { WebhookConsumerConfig } from './WebhookConsumer';
+export { WebhookConsumer } from './WebhookConsumer';
