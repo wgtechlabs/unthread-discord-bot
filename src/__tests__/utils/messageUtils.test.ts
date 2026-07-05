@@ -7,12 +7,11 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import {
+import messageUtils, {
 	isDuplicateMessage,
 	processQuotedContent,
 	removeAttachmentSection,
 } from '@utils/messageUtils';
-import messageUtils from '@utils/messageUtils';
 import { LogEngine } from '@wgtechlabs/log-engine';
 
 // Mock message interface for testing
