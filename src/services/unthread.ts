@@ -555,7 +555,7 @@ async function handleMessageCreated(
 					);
 
 					// Use pre-transformed file data directly - no conversion needed
-					const { AttachmentHandler } = await import('../utils/attachmentHandler');
+					const { AttachmentHandler } = await import('../utils/attachmentHandler.js');
 					const attachmentHandler = new AttachmentHandler();
 
 					const attachmentResult = await attachmentHandler.downloadUnthreadFilesToDiscord(
@@ -665,7 +665,7 @@ async function handleMessageCreated(
 		if (fileCount > 0) {
 			LogEngine.info(`Processing ${fileCount} files from pre-transformed data`);
 
-			const { AttachmentHandler } = await import('../utils/attachmentHandler');
+			const { AttachmentHandler } = await import('../utils/attachmentHandler.js');
 			const attachmentHandler = new AttachmentHandler();
 
 			try {
