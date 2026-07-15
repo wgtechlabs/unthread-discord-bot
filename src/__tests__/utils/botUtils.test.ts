@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { getBotDisplayName, getBotFooter, getBotName } from '@utils/botUtils';
+import { getBotDisplayName, getBotFooter, getBotName } from '../../utils/botUtils';
 import { version } from '../../../package.json';
 
 type DiscordClientMock = {
