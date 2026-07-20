@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.1.5] - 2026-07-05
+
+### Changed
+
+- retrigger CI
+- fix import ordering and formatting for biome v2
+- migrate biome config to v2
+- update lockfile for bumped dependencies
+- bump gitleaks/gitleaks-action from 2.3.9 to 3.0.0 (#126)
+- bump actions/checkout from 6 to 7 (#130)
+- bump actions/cache from 4 to 6 (#132)
+- bump @biomejs/biome from 1.9.4 to 2.5.1 (#133)
+- bump @types/node from 25.9.4 to 26.0.1 (#134)
+- bump redis from 5.12.1 to 6.0.1 (#135)
+
 ## [1.1.4] - 2026-05-21
 
 ### Changed
