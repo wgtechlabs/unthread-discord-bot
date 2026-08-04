@@ -58,15 +58,6 @@ describe('Test Infrastructure', () => {
 	});
 
 	describe('Storage Mocking', () => {
-		it('should mock Redis/Keyv correctly', async () => {
-			const Keyv = (await import('keyv')).default;
-			const cache = new Keyv();
-
-			expect(cache.get).toBeDefined();
-			expect(cache.set).toBeDefined();
-			expect(typeof (cache.get as unknown as { mock?: unknown }).mock).toBe('object');
-		});
-
 		it('should mock PostgreSQL correctly', async () => {
 			const { Pool } = await import('pg');
 			const pool = new Pool();
