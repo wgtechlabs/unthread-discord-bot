@@ -252,28 +252,6 @@ const mockFetchImplementation = vi.fn((url: string | Request, options?: RequestI
 // REDIS/DATABASE MOCKING
 // =============================================================================
 
-// Mock @keyv/redis
-mock.module('@keyv/redis', () => ({
-	default: vi.fn().mockImplementation(() => ({
-		get: vi.fn().mockResolvedValue(null),
-		set: vi.fn().mockResolvedValue(true),
-		delete: vi.fn().mockResolvedValue(true),
-		clear: vi.fn().mockResolvedValue(true),
-		has: vi.fn().mockResolvedValue(false),
-	})),
-}));
-
-// Mock keyv
-mock.module('keyv', () => ({
-	default: class MockKeyv {
-		get = vi.fn().mockResolvedValue(null);
-		set = vi.fn().mockResolvedValue(true);
-		delete = vi.fn().mockResolvedValue(true);
-		clear = vi.fn().mockResolvedValue(true);
-		has = vi.fn().mockResolvedValue(false);
-	},
-}));
-
 // Mock ioredis
 mock.module('ioredis', () => ({
 	default: vi.fn().mockImplementation(() => ({

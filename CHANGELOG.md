@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.1.6] - 2026-08-04
+
+### Removed
+
+- drop stale keyv packages (#141)
+
 ## [1.1.5] - 2026-07-05
 
 ### Changed
