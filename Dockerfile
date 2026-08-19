@@ -17,22 +17,21 @@
 
 # syntax=docker/dockerfile:1
 
-# Use Node.js 26 Alpine image with security patches
-ARG NODE_VERSION=26-alpine3.22
+# Use a current Node.js 26 Alpine image so bundled system and npm packages stay patched.
+ARG NODE_VERSION=26-alpine3.23
 # Pinned Bun version for reproducible builds
 ARG BUN_VERSION=1.3.13
 
 # =============================================================================
 # STAGE 1: Base Image
 # =============================================================================
-# Alpine Linux 3.22 base for minimal image size with latest security updates.
+# Alpine Linux 3.23 base for minimal image size with current security fixes.
 # Intentionally kept minimal (no Bun) so the final runtime image stays small —
 # Bun is only added on top in the `builder-base` stage used for install/build.
 FROM node:${NODE_VERSION} AS base
 
-# Install security updates for Alpine packages
-RUN apk update && apk upgrade --no-cache && \
-    apk add --no-cache dumb-init && \
+# Install the minimal runtime init process and remove unused package manager tooling.
+RUN apk add --no-cache dumb-init && \
     # Remove corepack cache and bundled manager data to reduce vulnerable surface area.
     rm -rf /root/.cache/node/corepack /usr/local/lib/node_modules/corepack && \
     rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx && \
@@ -43,7 +42,8 @@ WORKDIR /usr/src/app
 
 # Download the Bun musl binary in a clean stage derived from the hardened base
 FROM base AS bun
-RUN arch="$(apk --print-arch)" && \
+RUN apk add --no-cache --virtual .bun-fetch unzip && \
+    arch="$(apk --print-arch)" && \
     case "$arch" in \
         x86_64) bun_asset="bun-linux-x64-musl.zip" ;; \
         aarch64) bun_asset="bun-linux-aarch64-musl.zip" ;; \
@@ -55,6 +55,7 @@ RUN arch="$(apk --print-arch)" && \
     unzip -q "/tmp/${bun_asset}" -d /tmp && \
     mv "/tmp/${bun_asset%.zip}/bun" /usr/local/bin/bun && \
     chmod +x /usr/local/bin/bun && \
+    apk del .bun-fetch && \
     rm -rf "/tmp/${bun_asset}" "/tmp/${bun_asset}.sha256" "/tmp/${bun_asset%.zip}" /var/cache/apk/*
 
 # =============================================================================
@@ -72,10 +73,9 @@ RUN bun --version
 # Install only production dependencies for runtime
 FROM builder-base AS deps
 
-# Use bind mounts and cache for faster builds
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=bun.lock,target=bun.lock \
-    --mount=type=cache,target=/root/.bun/install/cache \
+# Copy manifest files into the image so dependency layers are rebuilt when they change.
+COPY package.json bun.lock ./
+RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --production --frozen-lockfile
 
 # =============================================================================
@@ -85,9 +85,8 @@ RUN --mount=type=bind,source=package.json,target=package.json \
 FROM builder-base AS build
 
 # Install all dependencies (including devDependencies for building)
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=bun.lock,target=bun.lock \
-    --mount=type=cache,target=/root/.bun/install/cache \
+COPY package.json bun.lock ./
+RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
 
 # Copy source code and build the application
