@@ -14,14 +14,18 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  packages: write
-  pull-requests: write
-  security-events: write
-  actions: read
+  contents: read
 
 jobs:
   build-flow:
+    # Scoped to the union of permissions requested by the called workflow's jobs
+    # (container/release need contents+packages write, codeql needs security-events).
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      security-events: write
+      actions: read
     uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v0.1.9
     secrets: inherit
     with:
