@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.1.8] - 2026-08-19
+
+### Changed
+
+- migrate to unified build flow (#143)
+- sync bun.lock to remove stale keyv entries
+- align changelog capitalization
+- fix changelog wording
+- bump ioredis from 5.11.1 to 6.0.0 (#142)
+- run dev via bun to resolve .js dynamic imports
+- restore .js extension on dynamic imports for node16 resolution
+- bump actions/setup-node from 6 to 7 (#138)
+- bump typescript from 6.0.3 to 7.0.2 (#137)
+
+### Security
+
+- bump undici override to ^6.28.0 to patch CVEs
+- remove npm from runtime Docker image
+- patch vulnerable transitive dependencies
+- harden gitleaks step and fix dynamic import paths
+
 ## [1.1.7] - 2026-08-19
 
 ### Security
