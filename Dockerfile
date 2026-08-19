@@ -41,8 +41,13 @@ RUN apk update && apk upgrade --no-cache && \
 # Set working directory for all subsequent stages
 WORKDIR /usr/src/app
 
-# Pull the Bun image into a named stage so later COPY steps can reference it
-FROM oven/bun:${BUN_VERSION}-alpine AS bun
+# Download the Bun musl binary in a clean stage derived from the hardened base
+FROM base AS bun
+RUN wget -q -O /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64-musl.zip" && \
+    unzip -q /tmp/bun.zip -d /tmp && \
+    mv /tmp/bun-linux-x64-musl/bun /usr/local/bin/bun && \
+    chmod +x /usr/local/bin/bun && \
+    rm -rf /tmp/bun.zip /tmp/bun-linux-x64-musl /var/cache/apk/*
 
 # =============================================================================
 # STAGE 1b: Builder Base (base + Bun)
