@@ -1,7 +1,7 @@
 {
 	"compilerOptions": {
 		"target": "ES2022",
-		"module": "CommonJS",
+		"module": "Node16",
 		"lib": ["ES2022", "DOM"],
 		"outDir": "./dist",
 		"rootDir": "./src",
@@ -14,7 +14,7 @@
 		"removeComments": false,
 		"noEmitOnError": true,
 		"sourceMap": true,
-		"moduleResolution": "node",
+		"moduleResolution": "node16",
 		"ignoreDeprecations": "6.0",
 		"allowSyntheticDefaultImports": true,
 		"types": ["node"],
@@ -22,18 +22,7 @@
 		"noUnusedParameters": true,
 		"exactOptionalPropertyTypes": true,
 		"noImplicitReturns": true,
-		"noFallthroughCasesInSwitch": true,
-		"baseUrl": "./",
-		"paths": {
-			"@/*": ["src/*"],
-			"@tests/*": ["src/__tests__/*"],
-			"@utils/*": ["src/utils/*"],
-			"@services/*": ["src/services/*"],
-			"@config/*": ["src/config/*"],
-			"@types/*": ["src/types/*"],
-			"@events/*": ["src/events/*"],
-			"@sdk/*": ["src/sdk/*"]
-		}
+		"noFallthroughCasesInSwitch": true
 	},
 	"include": ["src/**/*"],
 	"exclude": [

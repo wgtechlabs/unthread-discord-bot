@@ -13,7 +13,7 @@ import {
 	getSSLConfig,
 	isDevelopment,
 	isRailwayEnvironment,
-} from '@config/defaults';
+} from '../../config/defaults';
 
 describe('defaults configuration', () => {
 	// Store original environment variables

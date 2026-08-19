@@ -29,7 +29,7 @@ mock.module('discord.js', () => {
 	};
 });
 
-import { AttachmentHandler } from '@utils/attachmentHandler';
+import { AttachmentHandler } from '../../utils/attachmentHandler';
 
 type FetchMock = {
 	mockReset: () => void;

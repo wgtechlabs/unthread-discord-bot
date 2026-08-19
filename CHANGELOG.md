@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- remove unused Keyv dependencies (#140)
+- Remove unused Keyv dependency (#140)
 
 ## [1.1.6] - 2026-08-04
 
@@ -83,4 +83,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ensure consistent Node 24 and Alpine 3.22 versions across all workflows
 - update comment to reflect Alpine 3.22 version
 - apply Dockerfile security improvements to address CVEs
-
