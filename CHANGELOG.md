@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- remove unused Keyv dependency (#140)
+- Remove unused Keyv dependency (#140)
 
 ## [1.1.6] - 2026-08-04
 
