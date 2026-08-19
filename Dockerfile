@@ -43,11 +43,19 @@ WORKDIR /usr/src/app
 
 # Download the Bun musl binary in a clean stage derived from the hardened base
 FROM base AS bun
-RUN wget -q -O /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64-musl.zip" && \
-    unzip -q /tmp/bun.zip -d /tmp && \
-    mv /tmp/bun-linux-x64-musl/bun /usr/local/bin/bun && \
+RUN arch="$(apk --print-arch)" && \
+    case "$arch" in \
+        x86_64) bun_asset="bun-linux-x64-musl.zip" ;; \
+        aarch64) bun_asset="bun-linux-aarch64-musl.zip" ;; \
+        *) echo "Unsupported Bun architecture: $arch" && exit 1 ;; \
+    esac && \
+    wget -q -O "/tmp/${bun_asset}" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}" && \
+    wget -q -O "/tmp/${bun_asset}.sha256" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}.sha256" && \
+    cd /tmp && sha256sum -c "${bun_asset}.sha256" && \
+    unzip -q "/tmp/${bun_asset}" -d /tmp && \
+    mv "/tmp/${bun_asset%.zip}/bun" /usr/local/bin/bun && \
     chmod +x /usr/local/bin/bun && \
-    rm -rf /tmp/bun.zip /tmp/bun-linux-x64-musl /var/cache/apk/*
+    rm -rf "/tmp/${bun_asset}" "/tmp/${bun_asset}.sha256" "/tmp/${bun_asset%.zip}" /var/cache/apk/*
 
 # =============================================================================
 # STAGE 1b: Builder Base (base + Bun)
