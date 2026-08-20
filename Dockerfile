@@ -30,11 +30,12 @@ ARG BUN_VERSION=1.3.13
 # Bun is only added on top in the `builder-base` stage used for install/build.
 FROM node:${NODE_VERSION} AS base
 
-# Install the minimal runtime init process and remove unused package manager tooling.
-RUN apk add --no-cache dumb-init && \
-    # Remove corepack cache and bundled manager data to reduce vulnerable surface area.
+# Install security updates for Alpine packages and remove unused package manager tooling.
+RUN apk update && apk upgrade --no-cache && \
+    apk add --no-cache dumb-init && \
+    # Remove corepack and bundled manager data to reduce vulnerable surface area.
     rm -rf /root/.cache/node/corepack /usr/local/lib/node_modules/corepack && \
-    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/corepack /usr/local/bin/npm /usr/local/bin/npx && \
     rm -rf /var/cache/apk/*
 
 # Set working directory for all subsequent stages
