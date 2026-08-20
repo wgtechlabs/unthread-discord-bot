@@ -42,7 +42,7 @@ WORKDIR /usr/src/app
 
 # Download the Bun musl binary in a clean stage derived from the hardened base
 FROM base AS bun
-RUN apk add --no-cache --virtual .bun-fetch unzip wget && \
+RUN apk add --no-cache --virtual .bun-fetch ca-certificates unzip wget && \
     arch="$(apk --print-arch)" && \
     case "$arch" in \
         x86_64) bun_asset="bun-linux-x64-musl.zip" ;; \
