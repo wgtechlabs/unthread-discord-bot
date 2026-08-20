@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.1.9] - 2026-08-20
+
+### Security
+
+- fix schema file race condition in BotsStore (#144)
+
 ## [1.1.8] - 2026-08-19
 
 ### Changed
