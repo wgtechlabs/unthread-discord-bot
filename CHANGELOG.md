@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.1.12] - 2026-08-20
+
+### Changed
+
+- restore biome manifest formatting
+- document container tag lifecycle under build flow v0.2
+- restore biome tab formatting in package.json
+- adopt build flow v0.2
+
 ## [1.1.11] - 2026-08-20
 
 ### Security
