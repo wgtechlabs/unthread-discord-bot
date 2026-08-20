@@ -49,8 +49,8 @@ RUN apk add --no-cache --virtual .bun-fetch unzip wget && \
         aarch64) bun_asset="bun-linux-aarch64-musl.zip" ;; \
         *) echo "Unsupported Bun architecture: $arch" && exit 1 ;; \
     esac && \
-    wget -q -O "/tmp/${bun_asset}" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}" && \
-    wget -q -O "/tmp/${bun_asset}.sha256" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}.sha256" && \
+    wget --retry-connrefused --waitretry=1 --tries=10 -q -O "/tmp/${bun_asset}" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}" && \
+    wget --retry-connrefused --waitretry=1 --tries=10 -q -O "/tmp/${bun_asset}.sha256" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}.sha256" && \
     cd /tmp && \
     awk -v asset="${bun_asset}" '{print $1 "  " asset}' "${bun_asset}.sha256" | sha256sum -c - && \
     unzip -q "/tmp/${bun_asset}" -d /tmp && \
