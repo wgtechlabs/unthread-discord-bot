@@ -14,7 +14,8 @@
 			},
 			"suspicious": {
 				"noExplicitAny": "warn",
-				"noVar": "error"
+				"noVar": "error",
+				"useArrayLiteralNotation": "error"
 			},
 			"style": {
 				"useConst": "error"
