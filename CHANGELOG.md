@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.1.11] - 2026-08-20
+
+### Security
+
+- harden Bun image and pin patched transitive deps (#146)
+
 ## [1.1.10] - 2026-08-20
 
 ### Security
