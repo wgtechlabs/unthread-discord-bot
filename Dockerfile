@@ -42,15 +42,15 @@ WORKDIR /usr/src/app
 
 # Download the Bun musl binary in a clean stage derived from the hardened base
 FROM base AS bun
-RUN apk add --no-cache --virtual .bun-fetch ca-certificates unzip wget && \
+RUN apk add --no-cache --virtual .bun-fetch curl unzip && \
     arch="$(apk --print-arch)" && \
     case "$arch" in \
         x86_64) bun_asset="bun-linux-x64-musl.zip" ;; \
         aarch64) bun_asset="bun-linux-aarch64-musl.zip" ;; \
         *) echo "Unsupported Bun architecture: $arch" && exit 1 ;; \
     esac && \
-    wget --retry-connrefused --waitretry=1 --tries=10 -q -O "/tmp/${bun_asset}" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}" && \
-    wget --retry-connrefused --waitretry=1 --tries=10 -q -O "/tmp/${bun_asset}.sha256" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}.sha256" && \
+    curl -fsSL --retry 5 --retry-delay 2 -o "/tmp/${bun_asset}" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}" && \
+    curl -fsSL --retry 5 --retry-delay 2 -o "/tmp/${bun_asset}.sha256" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}.sha256" && \
     cd /tmp && \
     awk -v asset="${bun_asset}" '{print $1 "  " asset}' "${bun_asset}.sha256" | sha256sum -c - && \
     unzip -q "/tmp/${bun_asset}" -d /tmp && \
