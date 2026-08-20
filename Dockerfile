@@ -31,7 +31,7 @@ ARG BUN_VERSION=1.3.13
 FROM node:${NODE_VERSION} AS base
 
 # Install security updates for Alpine packages and remove unused package manager tooling.
-RUN apk update && apk upgrade --no-cache && \
+RUN apk upgrade --no-cache && \
     apk add --no-cache dumb-init && \
     # Remove corepack and bundled manager data to reduce vulnerable surface area.
     rm -rf /root/.cache/node/corepack /usr/local/lib/node_modules/corepack && \
