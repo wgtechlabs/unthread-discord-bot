@@ -74,6 +74,16 @@ This is the easiest option if you want a hosted setup.
    docker-compose exec server node dist/deploy_commands.js
    ```
 
+#### Published container tags
+
+Images are published to Docker Hub and GHCR by the build flow:
+
+- `latest`, `<version>`, `<major>.<minor>`, and `<major>` are published only when a GitHub release is published
+- `staging` and `staging-<sha>` track the tip of `main`
+- `dev` and `dev-<sha>` track the tip of `dev`
+
+Pin to `latest` or an explicit version for stable deployments, and use `staging` or a SHA-pinned tag to follow `main` between releases.
+
 ### Option 3: Run locally with Bun
 
 1. Install dependencies:

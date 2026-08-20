@@ -42,5 +42,11 @@ jobs:
       enable-package: false
       enable-container: true
       container-registry: both
+      # Container tag lifecycle (owned by build flow v0.2, see docs in README):
+      # - push to main    -> staging-<sha> plus the floating staging tag
+      # - push to dev     -> dev-<sha> plus the floating dev tag
+      # - published release -> <version>, <major>.<minor>, <major>, and latest
+      # `latest` therefore only moves on releases; consumers that need the tip of
+      # main should pull :staging or a SHA-pinned tag.
       container-floating-tags: true
       container-release-platforms: linux/amd64
