@@ -26,7 +26,7 @@ jobs:
       pull-requests: write
       security-events: write
       actions: read
-    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v0.1.9
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v0.2.0
     secrets: inherit
     with:
       ci-profile: node-bun
@@ -42,60 +42,11 @@ jobs:
       enable-package: false
       enable-container: true
       container-registry: both
+      # Container tag lifecycle (owned by build flow v0.2, see docs in README):
+      # - push to main    -> staging-<sha> plus the floating staging tag
+      # - push to dev     -> dev-<sha> plus the floating dev tag
+      # - published release -> <version>, <major>.<minor>, <major>, and latest
+      # `latest` therefore only moves on releases; consumers that need the tip of
+      # main should pull :staging or a SHA-pinned tag.
       container-floating-tags: true
       container-release-platforms: linux/amd64
-
-  publish-latest-tags:
-    name: Publish latest container tags
-    needs: [build-flow]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Generate latest image metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ secrets.DOCKER_HUB_USERNAME }}/${{ github.event.repository.name }}
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
-          tags: |
-            type=raw,value=latest
-
-      - name: Build and push latest tags
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          provenance: true
-          sbom: true
