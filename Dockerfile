@@ -42,7 +42,7 @@ WORKDIR /usr/src/app
 
 # Download the Bun musl binary in a clean stage derived from the hardened base
 FROM base AS bun
-RUN apk add --no-cache --virtual .bun-fetch unzip && \
+RUN apk add --no-cache --virtual .bun-fetch unzip wget && \
     arch="$(apk --print-arch)" && \
     case "$arch" in \
         x86_64) bun_asset="bun-linux-x64-musl.zip" ;; \
@@ -51,7 +51,8 @@ RUN apk add --no-cache --virtual .bun-fetch unzip && \
     esac && \
     wget -q -O "/tmp/${bun_asset}" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}" && \
     wget -q -O "/tmp/${bun_asset}.sha256" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_asset}.sha256" && \
-    cd /tmp && sha256sum -c "${bun_asset}.sha256" && \
+    cd /tmp && \
+    awk -v asset="${bun_asset}" '{print $1 "  " asset}' "${bun_asset}.sha256" | sha256sum -c - && \
     unzip -q "/tmp/${bun_asset}" -d /tmp && \
     mv "/tmp/${bun_asset%.zip}/bun" /usr/local/bin/bun && \
     chmod +x /usr/local/bin/bun && \
