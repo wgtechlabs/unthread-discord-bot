@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.9/schema.json",
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"linter": {
 		"enabled": true,
@@ -14,8 +14,7 @@
 			},
 			"suspicious": {
 				"noExplicitAny": "warn",
-				"noVar": "error",
-				"useArrayLiteralNotation": "error"
+				"noVar": "error"
 			},
 			"style": {
 				"useConst": "error"
