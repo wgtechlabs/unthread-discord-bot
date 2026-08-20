@@ -33,9 +33,9 @@ FROM node:${NODE_VERSION} AS base
 # Install security updates for Alpine packages
 RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache dumb-init && \
-    # Remove corepack cache and bundled manager data to reduce vulnerable surface area.
+    # Remove corepack and Node package manager binaries/caches to reduce vulnerable surface area.
     rm -rf /root/.cache/node/corepack /usr/local/lib/node_modules/corepack && \
-    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/corepack /usr/local/bin/npm /usr/local/bin/npx && \
     rm -rf /var/cache/apk/*
 
 # Set working directory for all subsequent stages
