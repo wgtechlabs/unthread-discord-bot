@@ -17,23 +17,23 @@
 
 # syntax=docker/dockerfile:1
 
-# Use Node.js 26 Alpine image with security patches
-ARG NODE_VERSION=26-alpine3.22
+# Use a current Node.js 26 Alpine image so bundled system and npm packages stay patched.
+ARG NODE_VERSION=26-alpine3.23
 # Pinned Bun version for reproducible builds
 ARG BUN_VERSION=1.3.13
 
 # =============================================================================
 # STAGE 1: Base Image
 # =============================================================================
-# Alpine Linux 3.22 base for minimal image size with latest security updates.
+# Alpine Linux 3.23 base for minimal image size with current security fixes.
 # Intentionally kept minimal (no Bun) so the final runtime image stays small —
 # Bun is only added on top in the `builder-base` stage used for install/build.
 FROM node:${NODE_VERSION} AS base
 
-# Install security updates for Alpine packages
-RUN apk update && apk upgrade --no-cache && \
+# Install security updates for Alpine packages and remove unused package manager tooling.
+RUN apk upgrade --no-cache && \
     apk add --no-cache dumb-init && \
-    # Remove corepack and Node package manager binaries/caches to reduce vulnerable surface area.
+    # Remove corepack and bundled manager data to reduce vulnerable surface area.
     rm -rf /root/.cache/node/corepack /usr/local/lib/node_modules/corepack && \
     rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/corepack /usr/local/bin/npm /usr/local/bin/npx && \
     rm -rf /var/cache/apk/*
@@ -59,10 +59,9 @@ RUN bun --version
 # Install only production dependencies for runtime
 FROM builder-base AS deps
 
-# Use bind mounts and cache for faster builds
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=bun.lock,target=bun.lock \
-    --mount=type=cache,target=/root/.bun/install/cache \
+# Copy manifest files into the image so dependency layers are rebuilt when they change.
+COPY package.json bun.lock ./
+RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --production --frozen-lockfile
 
 # =============================================================================
@@ -72,9 +71,8 @@ RUN --mount=type=bind,source=package.json,target=package.json \
 FROM builder-base AS build
 
 # Install all dependencies (including devDependencies for building)
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=bun.lock,target=bun.lock \
-    --mount=type=cache,target=/root/.bun/install/cache \
+COPY package.json bun.lock ./
+RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
 
 # Copy source code and build the application
