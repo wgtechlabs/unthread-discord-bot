@@ -18,7 +18,7 @@
 # syntax=docker/dockerfile:1
 
 # Use a current Node.js 26 Alpine image so bundled system and npm packages stay patched.
-ARG NODE_VERSION=26-alpine3.23
+ARG NODE_VERSION=26.12.1-alpine3.24
 # Pinned Bun version for reproducible builds
 ARG BUN_VERSION=1.3.13
 
