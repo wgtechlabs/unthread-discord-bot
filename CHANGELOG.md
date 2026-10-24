@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.1.13] - 2026-10-22
+
+### Changed
+
+- bump wgtechlabs/build-flow-action/.github/workflows/app.yml from 0.3.1 to 1.0.0 (#156)
+- pin build flow to its release commit (#154)
+- bump build-flow workflow to 0.3.1 (#153)
+- bump dotenv from 17.4.2 to 18.0.0 (#151)
+- bump wgtechlabs/build-flow-action/.github/workflows/app.yml from 0.2.0 to 0.2.1 (#150)
+
+### Security
+
+- patch dependencies and refresh runtime images (#157)
+
 ## [1.1.12] - 2026-08-20
 
 ### Changed
