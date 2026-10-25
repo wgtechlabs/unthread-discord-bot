@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.1.14] - 2026-10-25
+
+### Changed
+
+- sync latest main fixes into dev (#160)
+- update Bun to 1.4.4
+
+### Security
+
+- patch body-parser and undici vulnerabilities
+
 ## [1.1.13] - 2026-10-22
 
 ### Changed
