@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.1.15] - 2026-11-08
+
+### Changed
+
+- restore tab formatting in package.json
+- bump wgtechlabs/build-flow-action/.github/workflows/app.yml (#162)
+
 ## [1.1.14] - 2026-10-25
 
 ### Changed
