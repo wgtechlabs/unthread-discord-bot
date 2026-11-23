@@ -1,28 +1,22 @@
 # Unthread Discord Bot 🤖
 
-[![banner](https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/repo_banner.jpg)](https://github.com/wgtechlabs/unthread-discord-bot)
+<p align="center">
+  <a href="https://github.com/wgtechlabs/unthread-discord-bot"><img src="https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/repo_banner.jpg" alt="Unthread Discord Bot repository banner"></a>
+</p>
 
-[![made by](https://img.shields.io/badge/made%20by-WG%20Tech%20Labs-0060a0.svg?logo=github&longCache=true&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs) [![official](https://img.shields.io/badge/official-Unthread%20Extension-FF5241.svg?logo=discord&logoColor=white&labelColor=181717&style=flat-square)](https://unthread.com) [![sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-%23db61a2.svg?logo=github&logoColor=white&labelColor=181717&style=flat-square)](https://github.com/sponsors/wgtechlabs)
-
-[![build](https://img.shields.io/github/actions/workflow/status/wgtechlabs/unthread-discord-bot/build-flow.yml?branch=dev&style=flat-square&logo=github&label=build&labelColor=181717)](https://github.com/wgtechlabs/unthread-discord-bot/actions/workflows/build-flow.yml) [![version](https://img.shields.io/github/v/release/wgtechlabs/unthread-discord-bot?style=flat-square&logo=github&label=version&labelColor=181717)](https://github.com/wgtechlabs/unthread-discord-bot/releases) [![stars](https://img.shields.io/github/stars/wgtechlabs/unthread-discord-bot?style=flat-square&logo=github&label=stars&labelColor=181717)](https://github.com/wgtechlabs/unthread-discord-bot/stargazers) [![license](https://img.shields.io/github/license/wgtechlabs/unthread-discord-bot?style=flat-square&logo=github&label=license&labelColor=181717)](LICENSE)
-
-The Unthread Discord Bot connects a Discord server to Unthread, so community members can open and manage support tickets without leaving Discord.
+<p align="center">
+  <strong>Connect Discord community support to Unthread.</strong><br>
+  Create tickets from commands or forum posts, then keep conversations in sync.
+</p>
 
 ## 💎 Sponsors & Partners
 
 <table>
   <tr>
-    <td align="center"><strong>💎 Platinum Sponsor</strong></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://unthread.com"><img src="https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/sponsors/platinum_unthread.png" width="250" alt="Unthread"></a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://unthread.com"><strong>Unthread</strong></a><br>Official partner of this project</td>
+    <td align="center"><a href="https://unthread.com"><strong>Unthread</strong></a><br>Project sponsor and partner</td>
+    <td align="center"><a href="https://railway.com"><strong>Railway</strong></a><br>Project sponsor and partner</td>
   </tr>
 </table>
-
-[Unthread](https://unthread.com) provides streamlined support ticketing for modern teams.
 
 ## ✨ Features
 
