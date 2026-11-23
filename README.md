@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/wgtechlabs"><img src="https://img.shields.io/badge/made%20by-WG%20Tech%20Labs-0060a0.svg?logo=github&amp;style=flat-square&amp;labelColor=181717" alt="Made by WG Tech Labs"></a>
-  <a href="#-sponsors--partners"><img src="https://img.shields.io/badge/sponsors-Unthread%20%26%20Railway-635BFF?style=flat-square&amp;labelColor=181717" alt="Project sponsors: Unthread and Railway"></a>
+  <a href="https://github.com/sponsors/wgtechlabs"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-%23db61a2.svg?&amp;logo=github&amp;logoColor=white&amp;labelColor=181717&amp;style=flat-square" alt="sponsors"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/wgtechlabs/unthread-discord-bot?style=flat-square&amp;labelColor=181717" alt="License"></a>
   <a href="https://github.com/wgtechlabs/unthread-discord-bot/releases"><img src="https://img.shields.io/github/v/release/wgtechlabs/unthread-discord-bot?style=flat-square&amp;labelColor=181717" alt="Latest release version"></a>
   <a href="https://github.com/wgtechlabs/unthread-discord-bot/stargazers"><img src="https://img.shields.io/github/stars/wgtechlabs/unthread-discord-bot?style=flat-square&amp;labelColor=181717" alt="GitHub stars"></a>
@@ -21,13 +21,17 @@
 
 <table>
   <tr>
-    <td width="50%" align="center">
-      <a href="https://unthread.io"><img src="./.github/assets/sponsors/unthread-logo.svg" width="160" alt="Unthread logo"></a>
-      <p>AI-native helpdesk that turns Slack and Teams conversations into trackable support tickets.</p>
+    <td width="33%" align="center">
+      <a href="https://unthread.io"><img src="./.github/assets/sponsors/unthread-logo.svg" width="150" alt="Unthread logo"></a>
+      <p>AI-native helpdesk that turns Slack and Teams conversations into support tickets.</p>
     </td>
-    <td width="50%" align="center">
-      <a href="https://railway.com"><img src="./.github/assets/sponsors/railway-logotype-dark.svg" width="160" alt="Railway logo"></a>
+    <td width="33%" align="center">
+      <a href="https://railway.com"><img src="./.github/assets/sponsors/railway-logotype-dark.svg" width="150" alt="Railway logo"></a>
       <p>Cloud platform for deploying and hosting apps, databases, and infrastructure.</p>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://www.docker.com"><img src="./.github/assets/sponsors/docker-logo.svg" width="150" alt="Docker logo"></a>
+      <p>Platform for building, sharing, and running containerized applications.</p>
     </td>
   </tr>
 </table>
