@@ -10,9 +10,19 @@ The Unthread Discord Bot connects a Discord server to Unthread, so community mem
 
 ## 💎 Sponsors & Partners
 
-[![Unthread Platinum Sponsor](https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/sponsors/platinum_unthread.png)](https://unthread.com)
+<table>
+  <tr>
+    <td align="center"><strong>💎 Platinum Sponsor</strong></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://unthread.com"><img src="https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/sponsors/platinum_unthread.png" width="250" alt="Unthread"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://unthread.com"><strong>Unthread</strong></a><br>Official partner of this project</td>
+  </tr>
+</table>
 
-[Unthread](https://unthread.com) is the official partner of this project and its Platinum Sponsor. Unthread provides streamlined support ticketing for modern teams.
+[Unthread](https://unthread.com) provides streamlined support ticketing for modern teams.
 
 ## ✨ Features
 
