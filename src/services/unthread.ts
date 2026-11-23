@@ -754,7 +754,7 @@ async function handleStatusUpdated(
 	// The conversation data is directly in the data object, not nested under 'conversation'
 	const conversation = data.conversation || data;
 
-	if (!conversation || !conversation.id) {
+	if (!conversation?.id) {
 		LogEngine.warn('Status updated event missing conversation data');
 		return;
 	}

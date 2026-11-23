@@ -87,7 +87,7 @@ async function createCustomerInUnthread(user: User): Promise<string> {
  * ```
  */
 export async function getOrCreateCustomer(user: User, email = ''): Promise<Customer> {
-	if (!user || !user.id) {
+	if (!user?.id) {
 		throw new Error('Invalid user object provided to getOrCreateCustomer');
 	}
 
