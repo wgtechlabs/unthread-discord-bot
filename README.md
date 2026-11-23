@@ -9,12 +9,26 @@
   Create tickets from commands or forum posts, then keep conversations in sync.
 </p>
 
+<p align="center">
+  <a href="https://github.com/wgtechlabs"><img src="https://img.shields.io/badge/made%20by-WG%20Tech%20Labs-0060a0.svg?logo=github&amp;style=flat-square&amp;labelColor=181717" alt="Made by WG Tech Labs"></a>
+  <a href="#-sponsors--partners"><img src="https://img.shields.io/badge/sponsors-Unthread%20%26%20Railway-635BFF?style=flat-square&amp;labelColor=181717" alt="Project sponsors: Unthread and Railway"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/wgtechlabs/unthread-discord-bot?style=flat-square&amp;labelColor=181717" alt="License"></a>
+  <a href="https://github.com/wgtechlabs/unthread-discord-bot/releases"><img src="https://img.shields.io/github/v/release/wgtechlabs/unthread-discord-bot?style=flat-square&amp;labelColor=181717" alt="Latest release version"></a>
+  <a href="https://github.com/wgtechlabs/unthread-discord-bot/stargazers"><img src="https://img.shields.io/github/stars/wgtechlabs/unthread-discord-bot?style=flat-square&amp;labelColor=181717" alt="GitHub stars"></a>
+</p>
+
 ## 💎 Sponsors & Partners
 
 <table>
   <tr>
-    <td align="center"><a href="https://unthread.com"><strong>Unthread</strong></a><br>Project sponsor and partner</td>
-    <td align="center"><a href="https://railway.com"><strong>Railway</strong></a><br>Project sponsor and partner</td>
+    <td width="50%" align="center">
+      <a href="https://unthread.io"><img src="./.github/assets/sponsors/unthread-logo.svg" width="160" alt="Unthread logo"></a>
+      <p>AI-native helpdesk that turns Slack and Teams conversations into trackable support tickets.</p>
+    </td>
+    <td width="50%" align="center">
+      <a href="https://railway.com"><img src="./.github/assets/sponsors/railway-logotype-dark.svg" width="160" alt="Railway logo"></a>
+      <p>Cloud platform for deploying and hosting apps, databases, and infrastructure.</p>
+    </td>
   </tr>
 </table>
 
