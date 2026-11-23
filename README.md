@@ -1,304 +1,176 @@
 # Unthread Discord Bot 🤖
 
-[![made by](https://img.shields.io/badge/made%20by-WG%20Tech%20Labs-0060a0.svg?logo=github&longCache=true&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs) [![official](https://img.shields.io/badge/official-Unthread%20Extension-FF5241.svg?logo=discord&logoColor=white&labelColor=181717&style=flat-square)](https://unthread.com) [![sponsors](https://img.shields.io/badge/sponsor-%E2%9D%A4-%23db61a2.svg?&logo=github&logoColor=white&labelColor=181717&style=flat-square)](https://github.com/sponsors/wgtechlabs)
-
 [![banner](https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/repo_banner.jpg)](https://github.com/wgtechlabs/unthread-discord-bot)
 
-[![release workflow](https://img.shields.io/github/actions/workflow/status/wgtechlabs/unthread-discord-bot/release.yml?style=flat-square&logo=github&label=release&labelColor=181717)](https://github.com/wgtechlabs/unthread-discord-bot/actions/workflows/release.yml) [![build workflow](https://img.shields.io/github/actions/workflow/status/wgtechlabs/unthread-discord-bot/ci.yml?branch=dev&style=flat-square&logo=github&labelColor=181717&label=build)](https://github.com/wgtechlabs/unthread-discord-bot/actions/workflows/ci.yml) [![version](https://img.shields.io/github/release/wgtechlabs/unthread-discord-bot.svg?logo=github&labelColor=181717&color=default&style=flat-square&label=version)](https://github.com/wgtechlabs/unthread-discord-bot/releases) [![star](https://img.shields.io/github/stars/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&color=yellow&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/stargazers) [![license](https://img.shields.io/github/license/wgtechlabs/unthread-discord-bot.svg?&logo=github&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs/unthread-discord-bot/blob/main/LICENSE)
+[![made by](https://img.shields.io/badge/made%20by-WG%20Tech%20Labs-0060a0.svg?logo=github&longCache=true&labelColor=181717&style=flat-square)](https://github.com/wgtechlabs) [![official](https://img.shields.io/badge/official-Unthread%20Extension-FF5241.svg?logo=discord&logoColor=white&labelColor=181717&style=flat-square)](https://unthread.com) [![sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-%23db61a2.svg?logo=github&logoColor=white&labelColor=181717&style=flat-square)](https://github.com/sponsors/wgtechlabs)
 
-The Unthread Discord Bot connects your Discord server to Unthread so your community can open and manage support tickets without leaving Discord.
+[![build](https://img.shields.io/github/actions/workflow/status/wgtechlabs/unthread-discord-bot/build-flow.yml?branch=dev&style=flat-square&logo=github&label=build&labelColor=181717)](https://github.com/wgtechlabs/unthread-discord-bot/actions/workflows/build-flow.yml) [![version](https://img.shields.io/github/v/release/wgtechlabs/unthread-discord-bot?style=flat-square&logo=github&label=version&labelColor=181717)](https://github.com/wgtechlabs/unthread-discord-bot/releases) [![stars](https://img.shields.io/github/stars/wgtechlabs/unthread-discord-bot?style=flat-square&logo=github&label=stars&labelColor=181717)](https://github.com/wgtechlabs/unthread-discord-bot/stargazers) [![license](https://img.shields.io/github/license/wgtechlabs/unthread-discord-bot?style=flat-square&logo=github&label=license&labelColor=181717)](LICENSE)
 
-## What it does
+The Unthread Discord Bot connects a Discord server to Unthread, so community members can open and manage support tickets without leaving Discord.
 
-- Lets users open tickets with `/support`
-- Turns new posts in selected Discord forum channels into tickets automatically
-- Creates a Discord thread for each ticket so the conversation stays organized
-- Syncs replies and updates between Discord and Unthread through Redis-backed webhooks
-- Includes simple utility commands for health and version checks
+## 💎 Sponsors & Partners
 
-## How it works
+[![Unthread Platinum Sponsor](https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/sponsors/platinum_unthread.png)](https://unthread.com)
 
-1. A user opens a ticket with `/support` or creates a forum post in a configured forum channel.
-2. The bot creates the ticket in Unthread.
-3. The conversation is kept in sync between Discord and Unthread.
-4. A separate `webhook-server` service receives Unthread webhooks and places them on Redis.
-5. This bot reads those Redis events and updates Discord.
+[Unthread](https://unthread.com) is the official partner of this project and its Platinum Sponsor. Unthread provides streamlined support ticketing for modern teams.
 
-## Requirements
+## ✨ Features
 
-Before you deploy the bot, make sure you have:
+- Open support tickets with the `/support` command.
+- Turn posts in selected Discord forum channels into Unthread tickets.
+- Keep each ticket conversation organized in a Discord thread.
+- Sync replies and status updates between Discord and Unthread through Redis-backed webhooks.
+- Use `/ping`, `/server`, `/user`, and `/version` utility commands.
 
-- A Discord application and bot token
-- A Discord server where you can install the bot
-- An Unthread API key and Slack channel ID
-- PostgreSQL
-- Two Redis connections:
-  - one for bot state and cache
-  - one for webhook queue processing
-- Node.js `^22.0.0 || ^24.0.0 || ^26.0.0` if you want to run it without Docker
-- Bun `1.3.13` for local development
+## 🚀 Getting Started
 
-## Quick start
+### Requirements
 
-### Option 1: Deploy on Railway
+- A Discord application and bot token, installed in your server.
+- An Unthread API key, Slack channel ID, and Slack team ID.
+- PostgreSQL and two Redis connections: one for bot state and cache, and one for webhook events.
+- Bun `1.4.4` for local development.
+- Node.js `^22.0.0 || ^24.0.0 || ^26.0.0` when running the built application outside Docker.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/nVHIjj?referralCode=dTwT-i)
+### Create and invite your Discord bot
 
-This is the easiest option if you want a hosted setup.
+1. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications) and add a bot user.
+2. Enable **Message Content Intent** in the bot settings.
+3. Invite the bot with View Channels, Send Messages, Send Messages in Threads, Read Message History, Create Public Threads, Create Private Threads, Manage Threads, Embed Links, and Use Slash Commands permissions. The invite URL format is:
 
-### Option 2: Run with Docker Compose
-
-1. Copy the environment file:
-
-   ```bash
-   cp .env.example .env
+   ```text
+   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=1084479760448&integration_type=0&scope=bot+applications.commands
    ```
 
-2. Fill in the required values in `.env`.
-3. Start the full stack:
+4. Enable Developer Mode in Discord, right-click your server, choose **Copy ID**, and use that value for `GUILD_ID`.
+
+### Run locally
+
+1. Clone the repository and install dependencies:
 
    ```bash
-   docker-compose up -d
-   ```
-
-4. Check the logs if needed:
-
-   ```bash
-   docker-compose logs -f server
-   docker-compose logs -f webhook-server
-   ```
-
-5. Deploy slash commands once your bot token and guild ID are ready:
-
-   ```bash
-   docker-compose exec server node dist/deploy_commands.js
-   ```
-
-#### Published container tags
-
-Images are published to Docker Hub and GHCR by the build flow:
-
-- `latest`, `<version>`, `<major>.<minor>`, and `<major>` are published only when a GitHub release is published
-- `staging` and `staging-<sha>` track the tip of `main`
-- `dev` and `dev-<sha>` track the tip of `dev`
-
-Pin to `latest` or an explicit version for stable deployments, and use `staging` or a SHA-pinned tag to follow `main` between releases.
-
-### Option 3: Run locally with Bun
-
-1. Install dependencies:
-
-   ```bash
+   git clone https://github.com/wgtechlabs/unthread-discord-bot.git
+   cd unthread-discord-bot
    bun install
    ```
 
-2. Copy the environment file:
+2. Create and configure your environment file:
 
    ```bash
    cp .env.example .env
    ```
 
-3. Build the project:
+   Set the required Discord, Unthread, PostgreSQL, and Redis values described under [Configuration](#-configuration).
 
-   ```bash
-   bun run build
-   ```
-
-4. Start the bot:
+3. Build, deploy slash commands, and start the bot:
 
    ```bash
    bun run start
    ```
 
-   `bun run start` builds the project, deploys slash commands, and starts the bot.
+## 📖 Usage
 
-5. If you only want to deploy or force redeploy slash commands:
+### Open a support ticket
 
-   ```bash
-   bun run deploycommand
-   ```
+In a regular server text channel, run `/support` and submit the ticket title and summary. A contact email is optional. The bot creates the Unthread ticket and a matching Discord thread. If the email is blank, the bot uses the customer's existing email or a generated `@discord.invalid` address.
 
-For local development with auto-reload, use:
+`/support` does not work inside threads or in channels configured for automatic forum ticket creation.
 
-```bash
-bun dev
-```
+### Create tickets from forum posts
 
-## Discord setup
-
-### 1. Create the Discord app
-
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
-2. Create a new application.
-3. Add a bot user.
-4. Enable the **Message Content Intent** in the bot settings.
-
-### 2. Invite the bot to your server
-
-Grant these permissions when you invite the bot:
-
-- View Channels
-- Send Messages
-- Send Messages in Threads
-- Read Message History
-- Create Public Threads
-- Create Private Threads
-- Manage Threads
-- Embed Links
-- Use Slash Commands
-
-Invite URL format:
-
-```text
-https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=1084479760448&integration_type=0&scope=bot+applications.commands
-```
-
-### 3. Get your guild ID
-
-1. Enable **Developer Mode** in Discord.
-2. Right-click your server.
-3. Select **Copy ID**.
-4. Put that value in `GUILD_ID`.
-
-## Environment variables
-
-Copy `.env.example` to `.env` and set these values.
-
-### Required for the bot
-
-| Variable | What it is for |
-| --- | --- |
-| `DISCORD_BOT_TOKEN` | Discord bot token |
-| `CLIENT_ID` | Discord application ID |
-| `GUILD_ID` | Discord server ID used for slash command deployment |
-| `UNTHREAD_API_KEY` | Unthread API authentication |
-| `UNTHREAD_SLACK_CHANNEL_ID` | Slack channel used by Unthread when creating conversations |
-| `SLACK_TEAM_ID` | Slack workspace ID; current startup validation expects it |
-| `POSTGRES_URL` | PostgreSQL connection string |
-| `PLATFORM_REDIS_URL` | Redis connection for bot cache and state |
-| `WEBHOOK_REDIS_URL` | Redis connection for webhook queue polling |
-
-### Required when you run the included webhook server
-
-| Variable | What it is for |
-| --- | --- |
-| `UNTHREAD_WEBHOOK_SECRET` | Secret used by the webhook server for Unthread webhook validation |
-
-### Optional
-
-| Variable | What it is for |
-| --- | --- |
-| `FORUM_CHANNEL_IDS` | Comma-separated Discord forum channel IDs for automatic ticket creation |
-| `NODE_ENV` | Use `development` for verbose logs; default behavior is production-safe |
-| `PORT` | Port used by the separate webhook server; default `3000` |
-| `UNTHREAD_HTTP_TIMEOUT_MS` | Timeout for Unthread API requests; default `10000` |
-| `WEBHOOK_POLL_INTERVAL` | Redis polling interval in milliseconds; default `5000` |
-| `DATABASE_SSL_VALIDATE` | PostgreSQL SSL behavior |
-| `DATABASE_SSL_CA` | Optional CA certificate value for PostgreSQL SSL |
-| `DUMMY_EMAIL_DOMAIN` | Fallback email domain for Discord users without an email |
-
-## Commands available in Discord
-
-### Ticket command
-
-- `/support` opens a modal with:
-  - Ticket title
-  - Summary
-  - Optional contact email
-
-Important behavior:
-
-- `/support` only works in normal server channels
-- `/support` does not work inside threads
-- `/support` does not work in channels listed in `FORUM_CHANNEL_IDS`
-- If a user leaves the email blank, the bot falls back to an existing customer email or a generated `@discord.invalid` email
+Add Discord forum channel IDs to `FORUM_CHANNEL_IDS`. New posts in those channels create tickets and matching Discord threads; replies are synchronized with Unthread.
 
 ### Utility commands
 
-- `/ping` shows API latency and WebSocket heartbeat
-- `/server` shows server information
-- `/user` shows user information
-- `/version` shows the running bot version
+- `/ping` shows API latency and WebSocket heartbeat.
+- `/server` shows server information.
+- `/user` shows user information.
+- `/version` shows the running bot version.
 
-## Forum channel support
+## ⚙️ Configuration
 
-If you want forum posts to become tickets automatically:
+Copy `.env.example` to `.env` and set the required values.
 
-1. Add forum channel IDs to `FORUM_CHANNEL_IDS`.
-2. Make sure those IDs belong to real **forum channels**.
-3. Create a new forum post in one of those channels.
+| Variable | Purpose |
+| --- | --- |
+| `DISCORD_BOT_TOKEN` | Discord bot token. |
+| `CLIENT_ID` | Discord application ID. |
+| `GUILD_ID` | Discord server ID used to deploy slash commands. |
+| `UNTHREAD_API_KEY` | Unthread API authentication. |
+| `UNTHREAD_SLACK_CHANNEL_ID` | Slack channel used by Unthread for ticket routing. |
+| `SLACK_TEAM_ID` | Slack workspace ID required by startup validation. |
+| `POSTGRES_URL` | PostgreSQL connection string. |
+| `PLATFORM_REDIS_URL` | Redis connection for bot state and cache. |
+| `WEBHOOK_REDIS_URL` | Redis connection for the webhook event queue. |
 
-The bot will:
+The following settings are optional or apply when running the included webhook server:
 
-- validate that the parent channel is really a forum channel
-- create a ticket in Unthread
-- bind that Discord thread to the ticket
-- post a confirmation embed in the thread
+| Variable | Purpose |
+| --- | --- |
+| `UNTHREAD_WEBHOOK_SECRET` | Secret used by the webhook server to validate Unthread webhooks. |
+| `FORUM_CHANNEL_IDS` | Comma-separated Discord forum channel IDs for automatic ticket creation. |
+| `NODE_ENV` | Set to `development` for more detailed logs. |
+| `PORT` | Webhook server port; defaults to `3000`. |
+| `UNTHREAD_HTTP_TIMEOUT_MS` | Unthread API request timeout in milliseconds; defaults to `10000`. |
+| `WEBHOOK_POLL_INTERVAL` | Redis polling interval in milliseconds; defaults to `5000`. |
+| `DATABASE_SSL_VALIDATE` | Controls PostgreSQL SSL validation behavior. |
+| `DATABASE_SSL_CA` | Optional CA certificate for PostgreSQL SSL. |
+| `DUMMY_EMAIL_DOMAIN` | Fallback email domain for Discord users without an email. |
 
-## Local stack overview
+## 🚢 Deployment
 
-The included `docker-compose.yml` starts these services:
+### Railway
 
-- `server` - the Discord bot
-- `webhook-server` - receives Unthread webhooks and writes them to Redis
-- `postgres-platform` - PostgreSQL storage
-- `redis-platform` - Redis for bot state and cache
-- `redis-webhook` - Redis for webhook queue messages
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/nVHIjj?referralCode=dTwT-i)
 
-## Webhook configuration
+Use the [Railway template](https://railway.com/template/nVHIjj?referralCode=dTwT-i) for a hosted setup.
 
-The bot itself does not expose an HTTP webhook endpoint.
+### Docker Compose
 
-Instead:
+The included `docker-compose.yml` starts the Discord bot, webhook server, PostgreSQL, and Redis services.
 
-- `webhook-server` receives Unthread webhook traffic
-- both services must connect to the same Redis instance for webhook syncing to work
-- `webhook-server` writes events to Redis using `REDIS_URL`
-- the Discord bot reads those events using `WEBHOOK_REDIS_URL`
-- outside `docker-compose`, point `REDIS_URL` and `WEBHOOK_REDIS_URL` at the same Redis instance
+```bash
+cp .env.example .env
+# Set the required environment values in .env
+docker-compose up -d
+```
 
-If you are testing locally, expose the webhook server and point Unthread to:
+Inspect service logs with `docker-compose logs -f server` and `docker-compose logs -f webhook-server`. Deploy slash commands after configuring the bot:
+
+```bash
+docker-compose exec server node dist/deploy_commands.js
+```
+
+Build Flow publishes images to Docker Hub (`wgtechlabs/unthread-discord-bot`) and GitHub Container Registry (`ghcr.io/wgtechlabs/unthread-discord-bot`):
+
+- `latest`, `<version>`, `<major>.<minor>`, and `<major>` are published when a GitHub release is published.
+- `staging` and `staging-<sha>` track `main`.
+- `dev` and `dev-<sha>` track `dev`.
+
+Use `latest` or a version tag for stable deployments. Use `staging` or a SHA-pinned staging tag to follow `main` between releases.
+
+### Webhook URL
+
+The Discord bot does not expose an HTTP webhook endpoint. The included webhook server receives Unthread events and writes them to Redis; the bot consumes them from the webhook queue. Outside Docker Compose, point `REDIS_URL` on the webhook server and `WEBHOOK_REDIS_URL` on this bot to the same Redis instance.
+
+Configure Unthread to send webhooks to:
 
 ```text
 https://YOUR_PUBLIC_URL/webhook/unthread
 ```
 
-You can use tools such as VS Code port forwarding or ngrok to make the local webhook server reachable from the internet.
+For local development, expose the webhook server with a tool such as VS Code port forwarding or ngrok.
 
-## Troubleshooting
+## 📚 Documentation
 
-### Slash commands do not appear
+- [Environment template](.env.example)
+- [Contributing guide](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
 
-- Make sure `CLIENT_ID`, `GUILD_ID`, and `DISCORD_BOT_TOKEN` are correct
-- Run `bun run deploycommand` again
-- Guild commands update quickly; command changes still need redeployment
+## 🛠️ Development
 
-### `/support` fails
-
-- Make sure you are using it in a normal text channel, not inside a thread
-- Make sure the bot has permission to create and manage threads in that channel
-- Do not use `/support` inside a configured forum channel
-
-### Forum posts are not creating tickets
-
-- Check that `FORUM_CHANNEL_IDS` only contains forum channel IDs
-- Check the bot permissions in both the forum channel and the created thread
-- Set `NODE_ENV=development` if you want more detailed logs
-
-### Webhook sync is not working
-
-- Make sure `webhook-server` is running
-- Make sure `WEBHOOK_REDIS_URL` points to the Redis instance used by the webhook server
-- Make sure the public webhook URL in Unthread points to `/webhook/unthread`
-- Check both `server` and `webhook-server` logs
-
-### Database or Redis connection errors
-
-- Check `POSTGRES_URL`, `PLATFORM_REDIS_URL`, and `WEBHOOK_REDIS_URL`
-- Make sure PostgreSQL and both Redis instances are reachable before starting the bot
-- Review `DATABASE_SSL_VALIDATE` if you are connecting to a managed PostgreSQL service
-
-## Useful commands for contributors
+Run the bot with automatic reload using `bun dev`. Common validation and maintenance commands are:
 
 ```bash
 bun run lint
@@ -307,43 +179,49 @@ bun run build
 bun run test
 bun run test:coverage
 bun run test:integration
-bun run cmd:deploy
-bun run cmd:reset
-bun run docker:build
-bun run docker:run
-bun run sbom:generate
+bun run test:all
 ```
 
-## Help and support
+Other project commands include `bun run deploycommand`, `bun run cmd:deploy`, `bun run cmd:reset`, `bun run docker:build`, `bun run docker:run`, and `bun run sbom:generate`.
 
-- Start with the [GitHub Discussions help category](https://github.com/wgtechlabs/unthread-discord-bot/discussions/categories/help-support)
-- Search [existing issues](https://github.com/wgtechlabs/unthread-discord-bot/issues)
-- Read the [security policy](./SECURITY.md) for private security reports
+## 🤝 Contributing
 
-## Contributing
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) first. Create work branches from `dev` and target pull requests at `dev`.
 
-Pull requests are welcome. Please target the `dev` branch.
+## 🐛 Issues & Support
 
-- Read the [contributing guide](./CONTRIBUTING.md)
-- Follow the [code of conduct](./CODE_OF_CONDUCT.md)
+- Search [existing issues](https://github.com/wgtechlabs/unthread-discord-bot/issues) before [reporting a bug](https://github.com/wgtechlabs/unthread-discord-bot/issues/new/choose).
+- Ask questions in the [GitHub Discussions help category](https://github.com/wgtechlabs/unthread-discord-bot/discussions/categories/help-support).
+- Report vulnerabilities privately using the instructions in [SECURITY.md](SECURITY.md).
 
-## Sponsor
+### Troubleshooting
 
-Like this project? Leave a star and consider supporting the maintainer:
+- **Slash commands do not appear:** check `CLIENT_ID`, `GUILD_ID`, and `DISCORD_BOT_TOKEN`, then run `bun run deploycommand`.
+- **`/support` fails:** use a regular server text channel and confirm the bot can create and manage threads there.
+- **Forum posts do not create tickets:** check that `FORUM_CHANNEL_IDS` contains only forum channel IDs and that the bot has permission in those channels.
+- **Webhook sync is not working:** make sure the webhook server is running, both services use the same Redis instance, and Unthread sends events to `/webhook/unthread`.
+- **Database or Redis connection errors:** check `POSTGRES_URL`, `PLATFORM_REDIS_URL`, and `WEBHOOK_REDIS_URL`, and confirm those services are reachable.
 
-- [Become a sponsor](https://github.com/sponsors/wgtechlabs)
-- [Buy me a coffee](https://buymeacoffee.com/wgtechlabs)
-- Use the [Railway template](https://railway.com/template/nVHIjj?referralCode=dTwT-i)
+## 💖 Support the Project
 
-## License
+- [Star this repository](https://github.com/wgtechlabs/unthread-discord-bot/stargazers).
+- [Sponsor WG Tech Labs](https://github.com/sponsors/wgtechlabs).
+- [Buy me a coffee](https://buymeacoffee.com/wgtechlabs).
+- Deploy with the [Railway template](https://railway.com/template/nVHIjj?referralCode=dTwT-i) to support ongoing development.
 
-Licensed under the [GNU Affero General Public License v3.0](./LICENSE).
+## 📋 Code of Conduct
 
-## Author
+Participation follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Created by **[Waren Gonzaga](https://github.com/warengonzaga)** under [WG Technology Labs](https://github.com/wgtechlabs), with help from [contributors](https://github.com/wgtechlabs/unthread-discord-bot/graphs/contributors).
+## 📄 License
 
-[![contributors](https://contrib.rocks/image?repo=wgtechlabs/unthread-discord-bot)](https://github.com/wgtechlabs/unthread-discord-bot/graphs/contributors)
+Licensed under the [GNU Affero General Public License v3.0](LICENSE).
+
+## 👥 Authors & Contributors
+
+Created by **[Waren Gonzaga](https://github.com/warengonzaga)** under [WG Tech Labs](https://github.com/wgtechlabs), with contributions from the [community](https://github.com/wgtechlabs/unthread-discord-bot/graphs/contributors).
+
+[![Contributors](https://contrib.rocks/image?repo=wgtechlabs/unthread-discord-bot)](https://github.com/wgtechlabs/unthread-discord-bot/graphs/contributors)
 
 ---
 
