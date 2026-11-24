@@ -1,3 +1,6 @@
+> [!WARNING]
+> **Maintenance mode:** Unthread is no longer sponsoring this project. No new features are planned; future updates will focus on dependencies and remaining bug fixes. The repository is expected to be archived soon.
+
 # Unthread Discord Bot 🤖
 
 <p align="center">
@@ -8,9 +11,6 @@
   <strong>Connect Discord community support to Unthread.</strong><br>
   Create tickets from commands or forum posts, then keep conversations in sync.
 </p>
-
-> [!WARNING]
-> **Maintenance mode:** Unthread is no longer sponsoring this project. No new features are planned; future updates will focus on dependencies and remaining bug fixes. The repository is expected to be archived soon.
 
 <p align="center">
   <a href="https://github.com/wgtechlabs"><img src="https://img.shields.io/badge/made%20by-WG%20Tech%20Labs-0060a0.svg?logo=github&amp;style=flat-square&amp;labelColor=181717" alt="Made by WG Tech Labs"></a>
