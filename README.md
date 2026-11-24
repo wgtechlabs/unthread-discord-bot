@@ -9,6 +9,9 @@
   Create tickets from commands or forum posts, then keep conversations in sync.
 </p>
 
+> [!WARNING]
+> **Maintenance mode:** Unthread is no longer sponsoring this project. No new features are planned; future updates will focus on dependencies and remaining bug fixes. The repository is expected to be archived soon.
+
 <p align="center">
   <a href="https://github.com/wgtechlabs"><img src="https://img.shields.io/badge/made%20by-WG%20Tech%20Labs-0060a0.svg?logo=github&amp;style=flat-square&amp;labelColor=181717" alt="Made by WG Tech Labs"></a>
   <a href="https://github.com/sponsors/wgtechlabs"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-%23db61a2.svg?&amp;logo=github&amp;logoColor=white&amp;labelColor=181717&amp;style=flat-square" alt="sponsors"></a>
@@ -21,15 +24,11 @@
 
 <table>
   <tr>
-    <td width="33%" align="center">
-      <a href="https://unthread.io"><img src="./.github/assets/sponsors/unthread-logo.svg" width="150" alt="Unthread logo"></a>
-      <p>AI-native helpdesk that turns Slack and Teams conversations into support tickets.</p>
-    </td>
-    <td width="33%" align="center">
+    <td width="50%" align="center">
       <a href="https://railway.com"><img src="./.github/assets/sponsors/railway-logotype-dark.svg" width="150" alt="Railway logo"></a>
       <p>Cloud platform for deploying and hosting apps, databases, and infrastructure.</p>
     </td>
-    <td width="33%" align="center">
+    <td width="50%" align="center">
       <a href="https://www.docker.com"><img src="./.github/assets/sponsors/docker-logo.svg" width="150" alt="Docker logo"></a>
       <p>Platform for building, sharing, and running containerized applications.</p>
     </td>
