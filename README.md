@@ -57,10 +57,10 @@
 
 1. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications) and add a bot user.
 2. Enable **Message Content Intent** in the bot settings.
-3. Invite the bot with View Channels, Send Messages, Send Messages in Threads, Read Message History, Create Public Threads, Create Private Threads, Manage Threads, Embed Links, and Use Slash Commands permissions. The invite URL format is:
+3. Invite the bot with View Channels, Send Messages, Manage Messages, Send Messages in Threads, Read Message History, Create Public Threads, Create Private Threads, Manage Threads, Embed Links, Attach Files, and Use Slash Commands permissions. The invite URL format is:
 
    ```text
-   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=1084479760448&integration_type=0&scope=bot+applications.commands
+   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=397284600896&integration_type=0&scope=bot+applications.commands
    ```
 
 4. Enable Developer Mode in Discord, right-click your server, choose **Copy ID**, and use that value for `GUILD_ID`.
