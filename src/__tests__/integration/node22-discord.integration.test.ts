@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 
 function getSpawnedNodeMajorVersion(): number {
 	const raw = execFileSync('node', ['--version'], { encoding: 'utf8' }).trim();
-	return Number.parseInt(raw.slice(1).split('.')[0]);
+	return Number.parseInt(raw.slice(1).split('.')[0], 10);
 }
 
 const spawnedNodeMajor = getSpawnedNodeMajorVersion();
@@ -70,6 +70,6 @@ describe('Node 22+ Discord API Integration', () => {
 		const npmVersion = execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim();
 		const [major] = npmVersion.split('.');
 
-		expect(Number.parseInt(major)).toBeGreaterThanOrEqual(10); // npm 10+ ships with Node 22+
+		expect(Number.parseInt(major, 10)).toBeGreaterThanOrEqual(10); // npm 10+ ships with Node 22+
 	});
 });

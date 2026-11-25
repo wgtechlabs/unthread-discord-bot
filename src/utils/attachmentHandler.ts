@@ -437,12 +437,10 @@ export class AttachmentHandler {
 		headers: Record<string, string>,
 		label: string,
 	): Promise<Response> {
-		const { RETRYABLE_STATUS_CODES, FILE_DOWNLOAD_MAX_RETRIES, FILE_DOWNLOAD_RETRY_DELAY_MS } =
-			AttachmentHandler;
 		let lastRetryableStatus: number | undefined;
 		let lastRetryableStatusText = '';
 
-		for (let attempt = 1; attempt <= FILE_DOWNLOAD_MAX_RETRIES; attempt++) {
+		for (let attempt = 1; attempt <= AttachmentHandler.FILE_DOWNLOAD_MAX_RETRIES; attempt++) {
 			const controller = new AbortController();
 			const timeoutId = setTimeout(
 				() => controller.abort(),
@@ -453,16 +451,18 @@ export class AttachmentHandler {
 				const response = await fetch(url, { method: 'GET', headers, signal: controller.signal });
 				clearTimeout(timeoutId);
 
-				if (RETRYABLE_STATUS_CODES.includes(response.status)) {
+				if (AttachmentHandler.RETRYABLE_STATUS_CODES.includes(response.status)) {
 					await this.drainResponseBody(response);
 					lastRetryableStatus = response.status;
 					lastRetryableStatusText = response.statusText;
 
-					if (attempt < FILE_DOWNLOAD_MAX_RETRIES) {
+					if (attempt < AttachmentHandler.FILE_DOWNLOAD_MAX_RETRIES) {
 						LogEngine.debug(
-							`Retrying ${label} (attempt ${attempt}/${FILE_DOWNLOAD_MAX_RETRIES}) due to status ${response.status}`,
+							`Retrying ${label} (attempt ${attempt}/${AttachmentHandler.FILE_DOWNLOAD_MAX_RETRIES}) due to status ${response.status}`,
 						);
-						await new Promise((resolve) => setTimeout(resolve, FILE_DOWNLOAD_RETRY_DELAY_MS));
+						await new Promise((resolve) =>
+							setTimeout(resolve, AttachmentHandler.FILE_DOWNLOAD_RETRY_DELAY_MS),
+						);
 						continue;
 					}
 
@@ -485,7 +485,7 @@ export class AttachmentHandler {
 			? `: ${lastRetryableStatus} ${lastRetryableStatusText}`
 			: '';
 		throw new Error(
-			`Failed to download ${label} after ${FILE_DOWNLOAD_MAX_RETRIES} attempts${statusDetails}`,
+			`Failed to download ${label} after ${AttachmentHandler.FILE_DOWNLOAD_MAX_RETRIES} attempts${statusDetails}`,
 		);
 	}
 
@@ -772,7 +772,7 @@ export class AttachmentHandler {
 			}
 
 			// Check for valid URL
-			if (!attachment.url || !attachment.url.startsWith('http')) {
+			if (!attachment.url?.startsWith('http')) {
 				invalid.push({
 					attachment,
 					error: 'Invalid or missing download URL',

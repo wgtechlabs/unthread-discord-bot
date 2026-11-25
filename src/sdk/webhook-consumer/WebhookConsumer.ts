@@ -228,7 +228,7 @@ export class WebhookConsumer {
 	 * Poll Redis queue for new events
 	 */
 	private async pollForEvents(): Promise<void> {
-		if (!this.blockingRedisClient || !this.blockingRedisClient.isOpen) {
+		if (!this.blockingRedisClient?.isOpen) {
 			LogEngine.warn('Blocking Redis client not connected, skipping poll');
 			return;
 		}
