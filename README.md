@@ -1,7 +1,7 @@
 # Unthread Discord Bot 🤖
 
 > [!WARNING]
-> **Maintenance mode:** Unthread is no longer sponsoring this project. No new features are planned; future updates will focus on dependencies and remaining bug fixes. The repository may be archived later, but it is not archived now.
+> **Maintenance mode:** Unthread is no longer sponsoring this project. No new features are planned; future updates will focus on dependencies and remaining bug fixes. The repository is expected to be archived soon.
 
 <p align="center">
   <a href="https://github.com/wgtechlabs/unthread-discord-bot"><img src="https://raw.githubusercontent.com/wgtechlabs/unthread-discord-bot/main/.github/assets/repo_banner.jpg" alt="Unthread Discord Bot repository banner"></a>
